@@ -42,48 +42,16 @@ log_terminal_info() {
     log_debug "Terminal: $TERM"
     log_debug "Terminal Program: $TERM_PROGRAM"
     log_debug "Shell: $SHELL"
-    # Check terminal image support inline to avoid function dependency
-    # Enhanced detection for various terminals
-    local image_support="none"
-    if [ -n "$KITTY_WINDOW_ID" ] || [ "$TERM" = "xterm-kitty" ]; then
-        image_support="kitty"
-    elif [ -n "$WEZTERM_EXECUTABLE" ]; then
-        image_support="wezterm"
-    elif [ "$TERM_PROGRAM" = "iTerm.app" ]; then
-        image_support="iterm2"
-    elif [ -n "$KONSOLE_VERSION" ] || [ -n "$KONSOLE_DBUS_SERVICE" ]; then
-        image_support="konsole"
-    elif [ "$TERM_PROGRAM" = "gnome-terminal" ] || [ "$TERM" = "gnome-256color" ] || [ "$TERM" = "gnome" ]; then
-        image_support="none"
-    elif [ "$TERM_PROGRAM" = "terminator" ]; then
-        image_support="none"
-    elif [ "$TERM_PROGRAM" = "xterm" ] || [ "$TERM" = "xterm-256color" ]; then
-        image_support="none"
-    elif [ "$TERM_PROGRAM" = "foot" ]; then
-        image_support="none"
-    elif [ "$TERM_PROGRAM" = "alacritty" ]; then
-        image_support="none"
-    elif [ -n "$GNOME_TERMINAL_SCREEN" ]; then
-        image_support="none"
-    elif [ "$TERM" = "dumb" ] || [ -z "$TERM_PROGRAM" ]; then
-        # For dumb terminals or when TERM_PROGRAM is not set, try to detect
-        if command -v kitty &> /dev/null && pgrep -x kitty > /dev/null; then
-            image_support="kitty"
-        elif command -v konsole &> /dev/null && pgrep -x konsole > /dev/null; then
-            image_support="konsole"
-        elif command -v wezterm &> /dev/null && pgrep -x wezterm > /dev/null; then
-            image_support="wezterm"
-        elif command -v alacritty &> /dev/null && pgrep -x alacritty > /dev/null; then
-            image_support="none"
-        elif command -v foot &> /dev/null && pgrep -x foot > /dev/null; then
-            image_support="none"
-        fi
-    fi
+    # Use the dedicated function for consistency
+    local image_support=$(check_terminal_image_support)
     log_debug "Image Support: $image_support"
     log_debug "Kitty Window ID: $KITTY_WINDOW_ID"
     log_debug "WezTerm Executable: $WEZTERM_EXECUTABLE"
     log_debug "Konsole Version: $KONSOLE_VERSION"
     log_debug "GNOME Terminal Screen: $GNOME_TERMINAL_SCREEN"
+    log_debug "Wayland Display: $WAYLAND_DISPLAY"
+    log_debug "Hyprland Instance: $HYPRLAND_INSTANCE_SIGNATURE"
+    log_debug "X11 Display: $DISPLAY"
 }
 
 print_banner() {
@@ -91,12 +59,12 @@ print_banner() {
     cat << "EOF"
 ╔═══════════════════════════════════════════════════╗
 ║                                                   ║
-║         ████████╗███████╗██████╗ ███╗   ███╗     ║
-║         ╚══██╔══╝██╔════╝██╔══██╗████╗ ████║     ║
-║            ██║   █████╗  ██████╔╝██╔████╔██║     ║
-║            ██║   ██╔══╝  ██╔══██╗██║╚██╔╝██║     ║
-║            ██║   ███████╗██║  ██║██║ ╚═╝ ██║     ║
-║            ╚═╝   ╚══════╝╚═╝  ╚═╝╚═╝     ╚═╝     ║
+║         ████████╗███████╗██████╗ ███╗   ███╗      ║
+║         ╚══██╔══╝██╔════╝██╔══██╗████╗ ████║      ║
+║            ██║   █████╗  ██████╔╝██╔████╔██║      ║
+║            ██║   ██╔══╝  ██╔══██╗██║╚██╔╝██║      ║
+║            ██║   ███████╗██║  ██║██║ ╚═╝ ██║      ║
+║            ╚═╝   ╚══════╝╚═╝  ╚═╝╚═╝     ╚═╝      ║
 ║                                                   ║
 ║              TermFetch Studio v1.0                ║
 ║     Professional Terminal Theme Manager           ║
@@ -995,6 +963,255 @@ select_option_2col() {
     done
 }
 
+select_option_2col_with_preview() {
+    local prompt="$1"
+    shift
+    local options=("$@")
+    local preview_callback=""
+    
+    # Check if last argument is a preview callback function
+    if [ $# -gt 0 ] && declare -f "${!#}" &>/dev/null; then
+        preview_callback="${!#}"
+        unset 'options[-1]'
+    fi
+    
+    local selected=0
+    local total=${#options[@]}
+    local cols=2
+    local rows=$(( (total + cols - 1) / cols ))
+    local last_selected=-1
+
+    tput civis 2>/dev/null
+
+    while true; do
+        tput cup 0 0 2>/dev/null
+        show_header
+        echo ""
+        echo -e "\033[1;33m$prompt\033[0m"
+        echo ""
+
+        # Display items in 2 columns
+        for ((row=0; row<rows; row++)); do
+            local left_idx=$row
+            local right_idx=$((rows + row))
+
+            # Left column
+            if [ $left_idx -lt $total ]; then
+                if [ $left_idx -eq $selected ]; then
+                    printf "  \033[1;32m▶\033[0m \033[7m%-28s\033[0m" "${options[$left_idx]}"
+                else
+                    printf "    %-28s" "${options[$left_idx]}"
+                fi
+            else
+                printf "%-30s" ""
+            fi
+
+            # Right column
+            if [ $right_idx -lt $total ]; then
+                if [ $right_idx -eq $selected ]; then
+                    printf "  \033[1;32m▶\033[0m \033[7m%s\033[0m\n" "${options[$right_idx]}"
+                else
+                    printf "    %s\n" "${options[$right_idx]}"
+                fi
+            else
+                echo ""
+            fi
+        done
+
+        # Show theme preview if callback provided and selection changed
+        if [ -n "$preview_callback" ] && [ $selected -ne $last_selected ]; then
+            echo ""
+            echo -e "\033[1;36m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m"
+            echo -e "\033[1;33m🎨 Theme Preview:\033[0m"
+            echo ""
+            
+            # Apply theme preview
+            $preview_callback $selected
+            
+            last_selected=$selected
+        fi
+
+        read -rsn1 key
+
+        if [[ $key == $'\x1b' ]]; then
+            read -rsn2 key
+            case $key in
+                '[A')  # Up arrow
+                    if [ $selected -lt $rows ]; then
+                        # In left column
+                        if [ $selected -gt 0 ]; then
+                            selected=$((selected - 1))
+                        else
+                            # Wrap to bottom of left column
+                            selected=$((rows - 1))
+                        fi
+                    else
+                        # In right column
+                        if [ $selected -gt $rows ]; then
+                            selected=$((selected - 1))
+                        else
+                            # Wrap to bottom of right column
+                            selected=$((total - 1))
+                        fi
+                    fi
+                    ;;
+                '[B')  # Down arrow
+                    if [ $selected -lt $rows ]; then
+                        # In left column
+                        if [ $selected -lt $((rows - 1)) ]; then
+                            selected=$((selected + 1))
+                        else
+                            # Wrap to top of left column
+                            selected=0
+                        fi
+                    else
+                        # In right column
+                        if [ $selected -lt $((total - 1)) ]; then
+                            selected=$((selected + 1))
+                        else
+                            # Wrap to top of right column
+                            selected=$rows
+                        fi
+                    fi
+                    ;;
+                '[C')  # Right arrow
+                    if [ $selected -lt $rows ] && [ $((selected + rows)) -lt $total ]; then
+                        selected=$((selected + rows))
+                    fi
+                    ;;
+                '[D')  # Left arrow
+                    if [ $selected -ge $rows ]; then
+                        selected=$((selected - rows))
+                    fi
+                    ;;
+            esac
+        elif [[ $key == "" ]]; then
+            tput cnorm 2>/dev/null
+            return $selected
+        elif [[ $key == "q" ]] || [[ $key == "Q" ]]; then
+            tput cnorm 2>/dev/null
+            return 255
+        fi
+    done
+}
+
+# Preview fastfetch preset function
+preview_fastfetch_preset() {
+    local selection=$1
+    
+    # Preset mapping (same order as in fastfetch_menu)
+    local presets=(full minimal focused developer gaming custom)
+    
+    # Don't preview if selection is "Back" or invalid
+    if [ $selection -ge ${#presets[@]} ] || [ $selection -lt 0 ]; then
+        return
+    fi
+    
+    local preset="${presets[$selection]}"
+    local current_theme=$(get_config_value "colors" "theme")
+    [ -z "$current_theme" ] && current_theme="dracula"
+    
+    # Show a preview of the selected preset
+    if command -v fastfetch &> /dev/null; then
+        # Create a temporary config for preview
+        local temp_config="/tmp/fastfetch_preview.jsonc"
+        
+        # Generate config based on preset
+        case "$preset" in
+            "full")
+                create_full_config "auto" "" "$current_theme" > "$temp_config" 2>/dev/null
+                ;;
+            "minimal")
+                create_minimal_config "auto" "" "$current_theme" > "$temp_config" 2>/dev/null
+                ;;
+            "focused")
+                create_focused_config "auto" "" "$current_theme" > "$temp_config" 2>/dev/null
+                ;;
+            "developer")
+                create_developer_config "auto" "" "$current_theme" > "$temp_config" 2>/dev/null
+                ;;
+            "gaming")
+                create_gaming_config "auto" "" "$current_theme" > "$temp_config" 2>/dev/null
+                ;;
+            "custom")
+                create_custom_config "auto" "" "$current_theme" > "$temp_config" 2>/dev/null
+                ;;
+        esac
+        
+        # Show preview (suppress errors)
+        if [ -f "$temp_config" ]; then
+            fastfetch --config "$temp_config" 2>/dev/null | head -15 || true
+        fi
+        
+        # Clean up
+        rm -f "$temp_config" 2>/dev/null
+    fi
+}
+
+# Preview theme function for theme menu
+preview_theme() {
+    local selection=$1
+    
+    # Theme mapping (same order as in theme_menu)
+    local themes=(dracula nord gruvbox-dark tokyo-night one-dark oceanic-next monochrome
+                  gruvbox-light solarized-light one-light ayu-light synthwave monokai-pro palenight sakura lavender candy
+                  matrix cyberpunk naruto pokemon spiderman doom valorant minecraft)
+    
+    # Don't preview if selection is "Back" or invalid
+    if [ $selection -ge ${#themes[@]} ] || [ $selection -lt 0 ]; then
+        # Back button - no theme application, just return
+        return
+    fi
+    
+    local theme="${themes[$selection]}"
+    
+    # Apply theme colors temporarily for preview
+    apply_terminal_colors "$theme" 2>/dev/null || true
+    
+    # Show a small fastfetch preview with the theme
+    if command -v fastfetch &> /dev/null; then
+        # Create a temporary config for preview
+        local temp_config="/tmp/termfetch_preview.jsonc"
+        
+        # Generate a minimal config for preview
+        cat > "$temp_config" << EOF
+{
+    "logo": {
+        "type": "none"
+    },
+    "display": {
+        "separator": " ",
+        "padding": [0, 1],
+        "linePrefix": "├─ "
+    },
+    "modules": [
+        {
+            "type": "title",
+            "key": "title",
+            "format": "TermFetch Studio Preview"
+        },
+        {
+            "type": "os",
+            "key": "os",
+            "format": "{3} {5}"
+        },
+        {
+            "type": "theme",
+            "key": "theme",
+            "format": "Theme: $theme"
+        }
+    ]
+}
+EOF
+        
+        # Show preview (suppress errors)
+        fastfetch --config "$temp_config" 2>/dev/null | head -10 || true
+        
+        # Clean up
+        rm -f "$temp_config" 2>/dev/null
+    fi
+}
+
 # Toggle show/hide textual labels near icons in Fastfetch
 toggle_labels() {
     local val=$(get_config_value "fastfetch" "labels")
@@ -1011,7 +1228,6 @@ toggle_labels() {
     local preset=$(get_config_value "fastfetch" "preset")
     [ -z "$preset" ] && preset="full"
     apply_preset "$preset"
-    sleep 1
 }
 
 check_terminal_image_support() {
@@ -1034,7 +1250,7 @@ check_terminal_image_support() {
     elif [ "$TERM_PROGRAM" = "xterm" ] || [ "$TERM" = "xterm-256color" ]; then
         echo "none"
     elif [ "$TERM_PROGRAM" = "foot" ]; then
-        echo "none"
+        echo "foot"  # Foot supports sixel protocol
     elif [ "$TERM_PROGRAM" = "alacritty" ] || [ "$TERM" = "alacritty" ]; then
         echo "none"
     elif [ -n "$GNOME_TERMINAL_SCREEN" ]; then
@@ -1048,13 +1264,32 @@ check_terminal_image_support() {
             echo "konsole"
         elif command -v wezterm &> /dev/null && pgrep -x wezterm > /dev/null; then
             echo "wezterm"
+        elif command -v foot &> /dev/null && pgrep -x foot > /dev/null; then
+            echo "foot"  # Foot supports sixel protocol
         elif command -v alacritty &> /dev/null && pgrep -x alacritty > /dev/null; then
             echo "none"  # alacritty doesn't support image protocols used by this script
-        elif command -v foot &> /dev/null && pgrep -x foot > /dev/null; then
-            echo "none"  # foot doesn't support image protocols used by this script
         else
-            # Default to none for unknown terminals
-            echo "none"
+            # Check for Wayland environment and common terminals
+            if [ -n "$WAYLAND_DISPLAY" ] || [ -n "$HYPRLAND_INSTANCE_SIGNATURE" ]; then
+                # We're in Wayland/Hyprland, try to detect terminal by process
+                local parent_pid=$(ps -o ppid= -p $$ 2>/dev/null | tr -d ' ')
+                local parent_cmd=$(ps -o cmd= -p $parent_pid 2>/dev/null)
+                
+                if echo "$parent_cmd" | grep -q "kitty"; then
+                    echo "kitty"
+                elif echo "$parent_cmd" | grep -q "wezterm"; then
+                    echo "wezterm"
+                elif echo "$parent_cmd" | grep -q "foot"; then
+                    echo "foot"
+                elif echo "$parent_cmd" | grep -q "konsole"; then
+                    echo "konsole"
+                else
+                    echo "none"
+                fi
+            else
+                # Default to none for unknown terminals
+                echo "none"
+            fi
         fi
     else
         echo "none"
@@ -1268,42 +1503,42 @@ apply_terminal_colors() {
             ;;
         one-light)
             printf '\033]10;#1a1a1a\007'
-            printf '\033]11;#fbf7f4\007'
-            printf '\033]4;0;#fbf7f4\007'
-            printf '\033]4;1;#e47981\007'
-            printf '\033]4;2;#a6d29b\007'
-            printf '\033]4;3;#f0c986\007'
-            printf '\033]4;4;#88afd3\007'
-            printf '\033]4;5;#d4a8de\007'
-            printf '\033]4;6;#8ed0c2\007'
-            printf '\033]4;7;#d8cec2\007'
-            printf '\033]4;8;#b8b0a5\007'
-            printf '\033]4;9;#ec8b8d\007'
-            printf '\033]4;10;#b8dea5\007'
-            printf '\033]4;11;#f7dba0\007'
-            printf '\033]4;12;#9ac3df\007'
-            printf '\033]4;13;#e1b6e5\007'
-            printf '\033]4;14;#a3ddd0\007'
+            printf '\033]11;#f0f8ff\007'
+            printf '\033]4;0;#f0f8ff\007'
+            printf '\033]4;1;#dc3545\007'
+            printf '\033]4;2;#28a745\007'
+            printf '\033]4;3;#ffc107\007'
+            printf '\033]4;4;#007bff\007'
+            printf '\033]4;5;#6f42c1\007'
+            printf '\033]4;6;#17a2b8\007'
+            printf '\033]4;7;#6c757d\007'
+            printf '\033]4;8;#6c757d\007'
+            printf '\033]4;9;#dc3545\007'
+            printf '\033]4;10;#28a745\007'
+            printf '\033]4;11;#ffc107\007'
+            printf '\033]4;12;#007bff\007'
+            printf '\033]4;13;#6f42c1\007'
+            printf '\033]4;14;#17a2b8\007'
             printf '\033]4;15;#1a1a1a\007'
             ;;
         ayu-light)
             printf '\033]10;#1a1a1a\007'
-            printf '\033]11;#fdf8f4\007'
-            printf '\033]4;0;#fdf8f4\007'
-            printf '\033]4;1;#e9897d\007'
-            printf '\033]4;2;#a8d5a2\007'
-            printf '\033]4;3;#f2c88b\007'
-            printf '\033]4;4;#8eb8da\007'
-            printf '\033]4;5;#d9a3d8\007'
-            printf '\033]4;6;#a1d5c0\007'
-            printf '\033]4;7;#e0d6ca\007'
-            printf '\033]4;8;#bfb6ac\007'
-            printf '\033]4;9;#ee978d\007'
-            printf '\033]4;10;#b4e2aa\007'
-            printf '\033]4;11;#f8d79a\007'
-            printf '\033]4;12;#9fc9e6\007'
-            printf '\033]4;13;#e5b3e2\007'
-            printf '\033]4;14;#b0e3d1\007'
+            printf '\033]11;#f0fff0\007'
+            printf '\033]4;0;#f0fff0\007'
+            printf '\033]4;1;#e74c3c\007'
+            printf '\033]4;2;#27ae60\007'
+            printf '\033]4;3;#f39c12\007'
+            printf '\033]4;4;#3498db\007'
+            printf '\033]4;5;#9b59b6\007'
+            printf '\033]4;6;#1abc9c\007'
+            printf '\033]4;7;#95a5a6\007'
+            printf '\033]4;8;#95a5a6\007'
+            printf '\033]4;9;#e74c3c\007'
+            printf '\033]4;10;#27ae60\007'
+            printf '\033]4;11;#f39c12\007'
+            printf '\033]4;12;#3498db\007'
+            printf '\033]4;13;#9b59b6\007'
+            printf '\033]4;14;#1abc9c\007'
             printf '\033]4;15;#1a1a1a\007'
             ;;
         monokai-pro)
@@ -2032,7 +2267,7 @@ main_menu() {
             "🚪 Exit"
         )
         
-        select_option "📋 Main Menu (Theme: $current_theme | Preset: $current_preset | Logo: $logo_type)" "${options[@]}"
+        select_option "📋 Main Menu (Theme: $current_theme | Preset: $current_preset | Logo: $logo_type) [↑↓ Navigate, Enter to Select, Q to Exit]" "${options[@]}"
         local choice=$?
         
         [ $choice -eq 255 ] && choice=10
@@ -2050,7 +2285,13 @@ main_menu() {
             9) setup_wizard ;;
             10)
                 clear
-                echo -e "\n\033[1;32m✨ Thank you for using TermFetch Studio! ✨\033[0m\n"
+                # Run preview to show current configuration
+                if command -v termfetch-studio &> /dev/null; then
+                    termfetch-studio --preview
+                else
+                    # Fallback if command not found
+                    echo -e "\n\033[1;32m✨ Thank you for using TermFetch Studio! ✨\033[0m\n"
+                fi
                 exit 0
                 ;;
         esac
@@ -2074,7 +2315,7 @@ color_settings_menu() {
             "← Back"
         )
         
-        select_option "🎨 Icon & Text Colors (Theme Colors: $use_theme_colors)" "${options[@]}"
+        select_option "🎨 Icon & Text Colors (Theme Colors: $use_theme_colors) [↑↓ Navigate, Enter to Select, Q to Back]" "${options[@]}"
         local choice=$?
         
         [ $choice -eq 4 ] || [ $choice -eq 255 ] && return
@@ -2106,7 +2347,6 @@ toggle_theme_colors() {
     # Re-apply current preset
     local preset=$(get_config_value "fastfetch" "preset")
     apply_preset "$preset"
-    sleep 1
 }
 
 set_icon_color() {
@@ -2167,7 +2407,6 @@ reset_to_theme_colors() {
     local preset=$(get_config_value "fastfetch" "preset")
     apply_preset "$preset"
     echo -e "\n\033[1;32m✓ Reset to theme colors!\033[0m"
-    sleep 1
 }
 
 # Preview callback for ASCII logos
@@ -2184,8 +2423,8 @@ preview_ascii_logo() {
     local logo_path="$HOME/.local/share/termfetch-studio/logos/${logo_type}.txt"
 
     if [ -f "$logo_path" ]; then
-        # Display first 12 lines of the ASCII logo (limited height)
-        head -n 12 "$logo_path" 2>/dev/null | cut -c1-60 || echo -e "\033[1;31mÖnizleme yüklenemedi\033[0m"
+        # Display first 8 lines of the ASCII logo (limited height and width)
+        head -n 8 "$logo_path" 2>/dev/null | cut -c1-40 || echo -e "\033[1;31mÖnizleme yüklenemedi\033[0m"
     else
         echo -e "\033[1;33mLogo dosyası bulunamadı: $logo_path\033[0m"
     fi
@@ -2193,6 +2432,9 @@ preview_ascii_logo() {
 
 ascii_logo_submenu() {
     while true; do
+        local current_logo_type=$(get_config_value "fastfetch" "logo_type")
+        local logo_types=(pikachu tux arch cat neko bunny heart sakura naruto pokeball spider dragon creeper star rocket custom)
+        
         local options=(
             "⚡ Pikachu ASCII"
             "🐧 Tux ASCII"
@@ -2212,8 +2454,17 @@ ascii_logo_submenu() {
             "🎨 Custom ASCII File"
             "← Back"
         )
+        
+        # Add indicators for current logo
+        for i in "${!options[@]}"; do
+            if [ $i -lt ${#logo_types[@]} ]; then
+                if [ "${logo_types[$i]}" = "$current_logo_type" ]; then
+                    options[$i]="${options[$i]} ✓"
+                fi
+            fi
+        done
 
-        select_option "📝 ASCII Logos" "${options[@]}" preview_ascii_logo
+        select_option "📝 ASCII Logos [↑↓ Navigate, Enter to Apply, Q to Back]" "${options[@]}" preview_ascii_logo
         local choice=$?
 
         [ $choice -eq 16 ] || [ $choice -eq 255 ] && return
@@ -2331,9 +2582,9 @@ preview_image_logo() {
             local terminal_support=$(check_terminal_image_support)
 
             if [ "$terminal_support" = "kitty" ]; then
-                # Use chafa for consistent, non-overlapping preview
+                # Use chafa for consistent, non-overlapping preview with smaller size
                 if command -v chafa &>/dev/null; then
-                    chafa -s 50x12 "$image_path" </dev/null 2>/dev/null || echo -e "\033[1;31mÖnizleme gösterilemiyor\033[0m"
+                    chafa -s 30x8 "$image_path" </dev/null 2>/dev/null || echo -e "\033[1;31mÖnizleme gösterilemiyor\033[0m"
                 else
                     # Just show image info if chafa not available
                     echo -e "\033[1;36mDosya:\033[0m $(basename "$image_path")"
@@ -2346,7 +2597,7 @@ preview_image_logo() {
                 fi
             elif command -v chafa &>/dev/null; then
                 # Use chafa as fallback for ASCII art preview with smaller size
-                chafa -s 50x12 "$image_path" </dev/null 2>/dev/null || echo -e "\033[1;31mÖnizleme gösterilemiyor\033[0m"
+                chafa -s 30x8 "$image_path" </dev/null 2>/dev/null || echo -e "\033[1;31mÖnizleme gösterilemiyor\033[0m"
             else
                 # Just show image info
                 echo -e "\033[1;36mDosya:\033[0m $(basename "$image_path")"
@@ -2427,7 +2678,7 @@ image_logo_submenu() {
 
         options+=("← Back")
 
-        select_option "🖼️  Image Logos (Terminal: $terminal_support)" "${options[@]}" preview_image_logo
+        select_option "🖼️  Image Logos (Terminal: $terminal_support) [↑↓ Navigate, Enter to Apply, Q to Back]" "${options[@]}" preview_image_logo
         local choice=$?
 
         local num_preset=${#PREVIEW_PRESET_IMAGES[@]}
@@ -2557,7 +2808,6 @@ image_logo_submenu() {
                                 set_config_value "fastfetch" "logo_type" "image"
                                 set_config_value "fastfetch" "custom_image" "$IMAGES_DIR/custom_logo.$ext_lower"
                                 apply_logo_config
-                                sleep 2
                                 continue
                             fi
                         else
@@ -2566,7 +2816,6 @@ image_logo_submenu() {
                             set_config_value "fastfetch" "logo_type" "image"
                             set_config_value "fastfetch" "custom_image" "$IMAGES_DIR/custom_logo.$ext_lower"
                             apply_logo_config
-                            sleep 2
                             continue
                         fi
                     else
@@ -2609,7 +2858,6 @@ image_logo_submenu() {
             set_config_value "fastfetch" "custom_image" ""
             apply_logo_config
             echo -e "\033[1;32m✓ Safe ASCII fallback enabled!\033[0m"
-            sleep 1
         elif [ $choice -eq $((num_preset + num_custom + 1)) ] && [ "$terminal_support" = "none" ]; then
             # Auto Fallback (Recommended)
             set_config_value "fastfetch" "logo_type" "auto"
@@ -2617,7 +2865,6 @@ image_logo_submenu() {
             set_config_value "fastfetch" "logo_fallback" "auto"
             apply_logo_config
             echo -e "\033[1;32m✓ Auto fallback enabled (recommended)!\033[0m"
-            sleep 1
         fi
     done
 }
@@ -2708,12 +2955,14 @@ apply_logo_config() {
     fi
 
     echo -e "\033[1;32m✓ Logo applied!\033[0m"
-    sleep 1
 }
 
 theme_menu() {
     while true; do
         local current=$(get_config_value "colors" "theme")
+        
+        # Always apply current theme when entering menu
+        apply_terminal_colors "$current" 2>/dev/null || true
 
         local options=(
             "🦇 Dracula"
@@ -2744,14 +2993,28 @@ theme_menu() {
             "← Back"
         )
 
-        select_option_2col "🎨 Color Themes (Current: $current) [↑↓←→ Navigate]" "${options[@]}"
+        # Add indicators for current theme
+        local themes=(dracula nord gruvbox-dark tokyo-night one-dark oceanic-next monochrome
+                      gruvbox-light solarized-light one-light ayu-light synthwave monokai-pro palenight sakura lavender candy
+                      matrix cyberpunk naruto pokemon spiderman doom valorant minecraft)
+
+        # Add visual indicators to options
+        for i in "${!options[@]}"; do
+            if [ $i -lt ${#themes[@]} ]; then
+                if [ "${themes[$i]}" = "$current" ]; then
+                    options[$i]="${options[$i]} ✓"
+                fi
+            fi
+        done
+
+        select_option_2col_with_preview "🎨 Color Themes (Current: $current) [↑↓←→ Navigate, Enter to Apply, Q to Back]" "${options[@]}" preview_theme
         local choice=$?
 
-        [ $choice -eq 25 ] || [ $choice -eq 255 ] && return
-
-        local themes=(dracula nord gruvbox-dark tokyo-night one-dark oceanic-next monochrome
-                      gruvbox-light solarized-light one-light ayu-light synthwave monokai-pro palenight sakura lavender candy strawberry
-                      matrix cyberpunk naruto pokemon spiderman doom valorant minecraft)
+        if [ $choice -eq 25 ] || [ $choice -eq 255 ]; then
+            # Back button - apply current theme and return to main menu
+            apply_terminal_colors "$current" 2>/dev/null || true
+            return
+        fi
 
         if [ $choice -ge 0 ] && [ $choice -le 25 ]; then
             apply_theme "${themes[$choice]}"
@@ -2765,6 +3028,8 @@ fastfetch_menu() {
         local icons=$(get_config_value "fastfetch" "icons")
         local labels=$(get_config_value "fastfetch" "labels")
         
+        local presets=(full minimal focused developer gaming custom)
+        
         local options=(
             "📋 Full Info"
             "📝 Minimal"
@@ -2777,7 +3042,16 @@ fastfetch_menu() {
             "← Back"
         )
         
-        select_option "📊 Fastfetch Presets (Current: $current | Icons: $icons)" "${options[@]}"
+        # Add indicators for current preset (only for the first 6 options which are presets)
+        for i in "${!options[@]}"; do
+            if [ $i -lt 6 ] && [ $i -lt ${#presets[@]} ]; then
+                if [ "${presets[$i]}" = "$current" ]; then
+                    options[$i]="${options[$i]} ✓"
+                fi
+            fi
+        done
+
+        select_option "📊 Fastfetch Presets (Current: $current | Icons: $icons) [↑↓ Navigate, Enter to Apply, Q to Back]" "${options[@]}" preview_fastfetch_preset
         local choice=$?
         
         [ $choice -eq 8 ] || [ $choice -eq 255 ] && return
@@ -2906,7 +3180,6 @@ set_icon_color() {
     set_config_value "fastfetch" "key_color" "${colors[$choice]}"
     apply_color_changes
     echo -e "\033[1;32m✓ Icon color set to ${color_names[$choice]}\033[0m"
-    sleep 1
 }
 
 # Set text color (outputColor in fastfetch)
@@ -2942,7 +3215,6 @@ set_text_color() {
     set_config_value "fastfetch" "value_color" "${colors[$choice]}"
     apply_color_changes
     echo -e "\033[1;32m✓ Text color set to ${color_names[$choice]}\033[0m"
-    sleep 1
 }
 
 # Reset to theme colors
@@ -2952,7 +3224,6 @@ reset_to_theme_colors() {
     set_config_value "fastfetch" "value_color" "theme"
     apply_color_changes
     echo -e "\033[1;32m✓ Reset to theme-adaptive colors!\033[0m"
-    sleep 1
 }
 
 # Preview colors
@@ -3057,21 +3328,10 @@ THEMESCRIPT
     # Clear screen and show new theme
     clear
 
-    echo ""
-    echo -e "\033[1;36m╔════════════════════════════════════════════════╗\033[0m"
-    echo -e "\033[1;36m║   🎨 Theme Applied: \033[1;35m$(printf '%-28s' "$theme")\033[1;36m║\033[0m"
-    echo -e "\033[1;36m╚════════════════════════════════════════════════╝\033[0m"
-    echo ""
-
     # Re-run fastfetch to show the new theme immediately
     if command -v fastfetch &> /dev/null; then
         fastfetch --config "$CONFIG_DIR/fastfetch.jsonc" 2>/dev/null || true
     fi
-
-    echo ""
-    echo -e "\033[1;32m✓ Theme colors are now active in fastfetch!\033[0m"
-    echo -e "\033[1;33m💡 Press any key to continue...\033[0m"
-    read -n 1 -s
 }
 
 apply_preset() {
@@ -3095,7 +3355,6 @@ apply_preset() {
     set_config_value "fastfetch" "preset" "$preset"
     
     echo -e "\033[1;32m✓ Preset applied!\033[0m"
-    sleep 1
 }
 
 toggle_icons() {
@@ -3113,7 +3372,6 @@ toggle_icons() {
     # Re-apply current preset to update icons
     local preset=$(get_config_value "fastfetch" "preset")
     apply_preset "$preset"
-    sleep 1
 }
 
 reset_fastfetch() {
@@ -3259,8 +3517,15 @@ system_info() {
     echo ""
     echo -e "\033[1;36mTerminal:\033[0m"
     echo -e "  \033[1;34mTerminal:\033[0m $TERM"
+    echo -e "  \033[1;34mTerminal Program:\033[0m $TERM_PROGRAM"
     echo -e "  \033[1;34mShell:\033[0m $SHELL"
     echo -e "  \033[1;34mImage Support:\033[0m $(check_terminal_image_support)"
+    
+    echo ""
+    echo -e "\033[1;36mEnvironment:\033[0m"
+    echo -e "  \033[1;34mDisplay:\033[0m $DISPLAY"
+    echo -e "  \033[1;34mWayland Display:\033[0m $WAYLAND_DISPLAY"
+    echo -e "  \033[1;34mHyprland Instance:\033[0m $HYPRLAND_INSTANCE_SIGNATURE"
     
     echo ""
     echo -e "\033[1;36mTermFetch Studio:\033[0m"
@@ -3268,6 +3533,34 @@ system_info() {
     echo -e "  \033[1;34mInstall Dir:\033[0m $INSTALL_DIR"
     echo -e "  \033[1;34mCurrent Theme:\033[0m $(get_config_value "colors" "theme")"
     echo -e "  \033[1;34mCurrent Preset:\033[0m $(get_config_value "fastfetch" "preset")"
+    
+    echo ""
+    echo -e "\033[1;36mImage Diagnostics:\033[0m"
+    local terminal_support=$(check_terminal_image_support)
+    case $terminal_support in
+        "kitty")
+            echo -e "  \033[1;32m✓ Kitty detected - Full image support available\033[0m"
+            ;;
+        "wezterm")
+            echo -e "  \033[1;32m✓ WezTerm detected - Full image support available\033[0m"
+            ;;
+        "foot")
+            echo -e "  \033[1;33m⚠ Foot detected - Limited image support (sixel)\033[0m"
+            ;;
+        "konsole")
+            echo -e "  \033[1;33m⚠ Konsole detected - Limited image support\033[0m"
+            ;;
+        "iterm2")
+            echo -e "  \033[1;32m✓ iTerm2 detected - Full image support available\033[0m"
+            ;;
+        "none")
+            echo -e "  \033[1;31m✗ No image support detected\033[0m"
+            echo -e "  \033[1;33m💡 Try using Kitty, WezTerm, or Foot for image support\033[0m"
+            if [ -n "$WAYLAND_DISPLAY" ] || [ -n "$HYPRLAND_INSTANCE_SIGNATURE" ]; then
+                echo -e "  \033[1;33m💡 You're in Wayland/Hyprland - ensure your terminal supports image protocols\033[0m"
+            fi
+            ;;
+    esac
     
     echo ""
     echo -e "\033[1;33mPress any key to continue...\033[0m"
@@ -5072,7 +5365,6 @@ configure_custom_preset() {
                 set_config_value "fastfetch" "preset" "custom"
                 create_custom_config "$(get_config_value fastfetch logo_type)" "$(get_config_value fastfetch custom_image)" "$(get_config_value colors theme)"
                 echo -e "\033[1;32m✓ Custom preset configured!\033[0m"
-                sleep 1
                 break
                 ;;
             'r'|'R') # Reorder
@@ -5180,7 +5472,6 @@ reorder_custom_modules() {
                 set_config_value "custom" "modules" "$modules_str"
                 create_custom_config "$(get_config_value fastfetch logo_type)" "$(get_config_value fastfetch custom_image)" "$(get_config_value colors theme)"
                 echo -e "\033[1;32m✓ Module order updated!\033[0m"
-                sleep 1
                 break
                 ;;
             'q'|'Q') # Quit
@@ -5305,12 +5596,12 @@ print_banner() {
     cat << "EOF"
 ╔═══════════════════════════════════════════════════╗
 ║                                                   ║
-║         ████████╗███████╗██████╗ ███╗   ███╗     ║
-║         ╚══██╔══╝██╔════╝██╔══██╗████╗ ████║     ║
-║            ██║   █████╗  ██████╔╝██╔████╔██║     ║
-║            ██║   ██╔══╝  ██╔══██╗██║╚██╔╝██║     ║
-║            ██║   ███████╗██║  ██║██║ ╚═╝ ██║     ║
-║            ╚═╝   ╚══════╝╚═╝  ╚═╝╚═╝     ╚═╝     ║
+║         ████████╗███████╗██████╗ ███╗   ███╗      ║
+║         ╚══██╔══╝██╔════╝██╔══██╗████╗ ████║      ║
+║            ██║   █████╗  ██████╔╝██╔████╔██║      ║
+║            ██║   ██╔══╝  ██╔══██╗██║╚██╔╝██║      ║
+║            ██║   ███████╗██║  ██║██║ ╚═╝ ██║      ║
+║            ╚═╝   ╚══════╝╚═╝  ╚═╝╚═╝     ╚═╝      ║
 ║                                                   ║
 ║              TermFetch Studio v1.0                ║
 ║                 Uninstall Script                  ║
