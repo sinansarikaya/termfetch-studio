@@ -27,6 +27,20 @@
 
 ---
 
+## 📸 Preview
+
+<div align="center">
+
+### Interactive Menu
+![TermFetch Studio Menu](menu.png)
+
+### Full Info Preset
+![Full Info Preset](full-info.png)
+
+</div>
+
+---
+
 ## 🌟 Features
 
 ### 🎨 **Rich Theme Collection**
@@ -71,6 +85,7 @@
 - **Preview Mode**: Test configurations before applying
 - **Shell Integration**: Bash, Zsh, Fish support
 - **🛡️ Ubuntu Safety**: Automatic image logo blocking for unsupported terminals
+- **🎭 Demo Mode**: Display fake system info for privacy-safe screenshots
 - **🎨 Advanced Color Settings**: Customize every aspect of your fastfetch colors
 - **📋 Interactive Guides**: Built-in help and navigation guides
 
@@ -566,6 +581,57 @@ Access through: `⚙️ Advanced Settings → 🎨 Color Settings`
 
 ---
 
+## 🎭 Demo Mode
+
+Demo Mode displays fake system information instead of real data - perfect for taking screenshots for GitHub, Reddit, or other platforms without exposing your actual system details.
+
+### Enabling Demo Mode
+
+1. **Navigate to Settings**:
+   - Main Menu → `⚙️ Advanced Settings`
+
+2. **Toggle Demo Mode**:
+   - Select `🎭 Demo Mode: ❌ Off`
+   - The toggle will switch to `✅ On`
+
+3. **Preview Your Setup**:
+   ```bash
+   termfetch-studio --preview
+   ```
+
+### Demo Values Displayed
+
+When Demo Mode is enabled, the following fake values are shown:
+
+| Module | Demo Value |
+|--------|------------|
+| Title | `hacker@linuxbox` |
+| OS | `Arch Linux x86_64` |
+| Kernel | `6.12.1-arch1-1` |
+| CPU | `AMD Ryzen 9 7950X3D (32) @ 5.7GHz` |
+| GPU | `NVIDIA GeForce RTX 4090` |
+| Memory | `32.00 GiB / 64.00 GiB (50%)` |
+| Disk | `512.00 GiB / 2.00 TiB (25%)` |
+| Local IP | `192.168.1.100` |
+| Public IP | `203.0.113.42` |
+| Uptime | `5 days, 12 hours, 34 mins` |
+| WM | `Hyprland` |
+| Terminal | `kitty` |
+| Shell | `fish 3.7.0` |
+
+### Supported Presets
+
+Demo Mode works with the following presets:
+- ✅ Full Info
+- ✅ Minimal
+- ✅ Focused
+- ✅ Developer
+- ✅ Gaming
+
+> **Note:** Custom Preset currently doesn't support Demo Mode due to its dynamic module structure.
+
+---
+
 ## 🧩 Custom Preset System
 
 ### Creating Custom Presets
@@ -624,17 +690,17 @@ Access through: `⚙️ Advanced Settings → 🎨 Color Settings`
 
 ## 🖼️ Screenshots
 
-### Dark Theme Showcase
+### Interactive Menu
 
-```
-Coming soon - Add your own screenshots!
-```
+![TermFetch Studio Menu](menu.png)
 
-### Light Theme Showcase
+*The main menu with arrow key navigation and live preview*
 
-```
-Coming soon - Add your own screenshots!
-```
+### Full Info Preset
+
+![Full Info Preset](full-info.png)
+
+*Complete system information with color-coded groups*
 
 ### Custom Setups
 
