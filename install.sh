@@ -611,7 +611,8 @@ EOF
         exit 0
         ;;
     uninstall)
-        bash "$INSTALL_DIR/uninstall.sh"
+        shift  # Remove 'uninstall' from arguments
+        bash "$INSTALL_DIR/uninstall.sh" "$@"
         exit 0
         ;;
     "")
@@ -783,11 +784,28 @@ select_option() {
 
     # Helper function to draw menu
     draw_menu() {
-        clear
         show_header
         echo ""
         echo -e "\033[1;33m$prompt\033[0m"
         echo ""
+
+        # Check terminal width for responsive layout
+        local term_width=$(tput cols 2>/dev/null || echo 80)
+        local use_side_layout=false
+        local menu_col_width=45
+        local preview_start_col=$((menu_col_width + 5))
+        
+        # Use side-by-side layout if terminal is wide enough (100+ cols)
+        # BUT NOT for image/logo previews as chafa output breaks cursor positioning
+        if [ -n "$preview_callback" ] && [ $term_width -ge 100 ]; then
+            # Disable side layout for image/logo previews
+            if [[ "$preview_callback" != *"image"* ]] && [[ "$preview_callback" != *"logo"* ]] && [[ "$preview_callback" != *"ascii"* ]]; then
+                use_side_layout=true
+            fi
+        fi
+
+        # Get starting line for menu items
+        local menu_start_line=7  # After header
 
         for i in "${!options[@]}"; do
             if [ $i -eq $selected ]; then
@@ -797,26 +815,54 @@ select_option() {
             fi
         done
 
-        # Show preview if callback provided with fixed height container
+        # Show preview
         if [ -n "$preview_callback" ]; then
-            echo ""
-            echo -e "\033[1;36m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m"
-            echo -e "\033[1;33m👁️  Önizleme:\033[0m"
-            echo ""
+            if [ "$use_side_layout" = true ]; then
+                # Side-by-side layout: draw preview on the right
+                local preview_output=$($preview_callback $selected 2>&1)
+                
+                # Save cursor position, move to right column, draw preview
+                echo -e "\033[${menu_start_line};${preview_start_col}H\033[1;33m👁️  Preview:\033[0m"
+                
+                local line_num=$((menu_start_line + 1))
+                while IFS= read -r line; do
+                    # Truncate line if too long
+                    local max_width=$((term_width - preview_start_col - 2))
+                    line="${line:0:$max_width}"
+                    echo -e "\033[${line_num};${preview_start_col}H${line}"
+                    ((line_num++))
+                    # Limit preview height
+                    [ $((line_num - menu_start_line)) -gt 15 ] && break
+                done <<< "$preview_output"
+                
+                # Move cursor back to bottom
+                echo -e "\033[$((total + 10));1H"
+            else
+                # Below layout: draw preview under menu
+                echo ""
+                echo -e "\033[1;36m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m"
+                echo -e "\033[1;33m👁️  Preview:\033[0m"
+                echo ""
 
-            # Capture preview output and pad to fixed height (15 lines)
-            local preview_output=$($preview_callback $selected 2>&1)
-            local preview_lines=$(echo "$preview_output" | wc -l)
+                local preview_output=$($preview_callback $selected 2>&1)
+                echo "$preview_output"
 
-            # Display preview
-            echo "$preview_output"
-
-            # Add empty lines to maintain fixed height (prevents scrollbar jumping)
-            local padding=$((15 - preview_lines))
-            if [ $padding -gt 0 ]; then
-                for ((i=0; i<padding; i++)); do
-                    echo ""
-                done
+                # Dynamic padding based on terminal height
+                local term_height=$(tput lines 2>/dev/null || echo 24)
+                local menu_lines=$((total + 8))
+                local available=$((term_height - menu_lines - 5))
+                local preview_lines=$(echo "$preview_output" | wc -l)
+                
+                local max_padding=10
+                [ $available -lt $max_padding ] && max_padding=$available
+                [ $max_padding -lt 0 ] && max_padding=0
+                
+                local padding=$((max_padding - preview_lines))
+                if [ $padding -gt 0 ]; then
+                    for ((i=0; i<padding; i++)); do
+                        echo ""
+                    done
+                fi
             fi
         fi
     }
@@ -865,7 +911,6 @@ select_option_2col() {
     tput civis 2>/dev/null
 
     while true; do
-        tput cup 0 0 2>/dev/null
         show_header
         echo ""
         echo -e "\033[1;33m$prompt\033[0m"
@@ -984,7 +1029,6 @@ select_option_2col_with_preview() {
     tput civis 2>/dev/null
 
     while true; do
-        tput cup 0 0 2>/dev/null
         show_header
         echo ""
         echo -e "\033[1;33m$prompt\033[0m"
@@ -1102,50 +1146,46 @@ preview_fastfetch_preset() {
     # Preset mapping (same order as in fastfetch_menu)
     local presets=(full minimal focused developer gaming custom)
     
-    # Don't preview if selection is "Back" or invalid
+    # Don't preview if selection is "Back" or other options
     if [ $selection -ge ${#presets[@]} ] || [ $selection -lt 0 ]; then
         return
     fi
     
     local preset="${presets[$selection]}"
-    local current_theme=$(get_config_value "colors" "theme")
-    [ -z "$current_theme" ] && current_theme="dracula"
     
-    # Show a preview of the selected preset
-    if command -v fastfetch &> /dev/null; then
-        # Create a temporary config for preview
-        local temp_config="/tmp/fastfetch_preview.jsonc"
-        
-        # Generate config based on preset
-        case "$preset" in
-            "full")
-                create_full_config "auto" "" "$current_theme" > "$temp_config" 2>/dev/null
-                ;;
-            "minimal")
-                create_minimal_config "auto" "" "$current_theme" > "$temp_config" 2>/dev/null
-                ;;
-            "focused")
-                create_focused_config "auto" "" "$current_theme" > "$temp_config" 2>/dev/null
-                ;;
-            "developer")
-                create_developer_config "auto" "" "$current_theme" > "$temp_config" 2>/dev/null
-                ;;
-            "gaming")
-                create_gaming_config "auto" "" "$current_theme" > "$temp_config" 2>/dev/null
-                ;;
-            "custom")
-                create_custom_config "auto" "" "$current_theme" > "$temp_config" 2>/dev/null
-                ;;
-        esac
-        
-        # Show preview (suppress errors)
-        if [ -f "$temp_config" ]; then
-            fastfetch --config "$temp_config" 2>/dev/null | head -15 || true
-        fi
-        
-        # Clean up
-        rm -f "$temp_config" 2>/dev/null
-    fi
+    # Show text-based preview without modifying any config files
+    echo ""
+    echo -e "\033[1;33mPreview:\033[0m"
+    
+    case "$preset" in
+        "full")
+            echo "  📋 Full Info: OS, Kernel, Packages, Shell, WM, DE, Theme"
+            echo "      CPU, GPU, Memory, Swap, Disk, Battery"
+            echo "      Local IP, Public IP, WiFi, DateTime, Uptime"
+            ;;
+        "minimal")
+            echo "  📝 Minimal: OS, Kernel, Shell, Uptime"
+            ;;
+        "focused")
+            echo "  🎯 Focused: OS, Kernel, Packages, Uptime"
+            echo "      Terminal, Shell, CPU, Memory, Disk"
+            ;;
+        "developer")
+            echo "  💻 Developer: OS, Kernel, Packages, Shell"
+            echo "      Terminal, Font, DE, WM"
+            echo "      CPU, GPU, Memory, Swap, Disk"
+            echo "      Local IP, Public IP"
+            ;;
+        "gaming")
+            echo "  🎮 Gaming: OS, Kernel, Uptime"
+            echo "      CPU, GPU, Memory, Swap, Disk, Display, Battery"
+            echo "      Local IP, WiFi"
+            ;;
+        "custom")
+            echo "  🧩 Custom: Your own module selection"
+            echo "      Use 'Configure Custom Preset' to select modules"
+            ;;
+    esac
 }
 
 # Preview theme function for theme menu
@@ -2285,13 +2325,11 @@ main_menu() {
             9) setup_wizard ;;
             10)
                 clear
-                # Run preview to show current configuration
-                if command -v termfetch-studio &> /dev/null; then
-                    termfetch-studio --preview
-                else
-                    # Fallback if command not found
-                    echo -e "\n\033[1;32m✨ Thank you for using TermFetch Studio! ✨\033[0m\n"
+                # Run fastfetch directly with current config
+                if [ -f "$CONFIG_DIR/fastfetch.jsonc" ]; then
+                    fastfetch --config "$CONFIG_DIR/fastfetch.jsonc"
                 fi
+                echo -e "\n\033[1;32m✨ Thank you for using TermFetch Studio! ✨\033[0m\n"
                 exit 0
                 ;;
         esac
@@ -2424,9 +2462,9 @@ preview_ascii_logo() {
 
     if [ -f "$logo_path" ]; then
         # Display first 8 lines of the ASCII logo (limited height and width)
-        head -n 8 "$logo_path" 2>/dev/null | cut -c1-40 || echo -e "\033[1;31mÖnizleme yüklenemedi\033[0m"
+        head -n 8 "$logo_path" 2>/dev/null | cut -c1-40 || echo -e "\033[1;31mPreview failed\033[0m"
     else
-        echo -e "\033[1;33mLogo dosyası bulunamadı: $logo_path\033[0m"
+        echo -e "\033[1;33mLogo file not found: $logo_path\033[0m"
     fi
 }
 
@@ -2584,32 +2622,32 @@ preview_image_logo() {
             if [ "$terminal_support" = "kitty" ]; then
                 # Use chafa for consistent, non-overlapping preview with smaller size
                 if command -v chafa &>/dev/null; then
-                    chafa -s 30x8 "$image_path" </dev/null 2>/dev/null || echo -e "\033[1;31mÖnizleme gösterilemiyor\033[0m"
+                    chafa -s 30x8 "$image_path" </dev/null 2>/dev/null || echo -e "\033[1;31mPreview not available\033[0m"
                 else
                     # Just show image info if chafa not available
-                    echo -e "\033[1;36mDosya:\033[0m $(basename "$image_path")"
+                    echo -e "\033[1;36mFile:\033[0m $(basename "$image_path")"
                     if command -v identify &>/dev/null; then
                         local dimensions=$(identify -format "%wx%h" "$image_path" 2>/dev/null)
-                        [ -n "$dimensions" ] && echo -e "\033[1;36mBoyut:\033[0m $dimensions"
+                        [ -n "$dimensions" ] && echo -e "\033[1;36mDimensions:\033[0m $dimensions"
                     fi
                     local size=$(du -h "$image_path" 2>/dev/null | cut -f1)
-                    [ -n "$size" ] && echo -e "\033[1;36mDosya Boyutu:\033[0m $size"
+                    [ -n "$size" ] && echo -e "\033[1;36mFile Size:\033[0m $size"
                 fi
             elif command -v chafa &>/dev/null; then
                 # Use chafa as fallback for ASCII art preview with smaller size
-                chafa -s 30x8 "$image_path" </dev/null 2>/dev/null || echo -e "\033[1;31mÖnizleme gösterilemiyor\033[0m"
+                chafa -s 30x8 "$image_path" </dev/null 2>/dev/null || echo -e "\033[1;31mPreview not available\033[0m"
             else
                 # Just show image info
-                echo -e "\033[1;36mDosya:\033[0m $(basename "$image_path")"
+                echo -e "\033[1;36mFile:\033[0m $(basename "$image_path")"
                 if command -v identify &>/dev/null; then
                     local dimensions=$(identify -format "%wx%h" "$image_path" 2>/dev/null)
-                    [ -n "$dimensions" ] && echo -e "\033[1;36mBoyut:\033[0m $dimensions"
+                    [ -n "$dimensions" ] && echo -e "\033[1;36mDimensions:\033[0m $dimensions"
                 fi
                 local size=$(du -h "$image_path" 2>/dev/null | cut -f1)
-                [ -n "$size" ] && echo -e "\033[1;36mDosya Boyutu:\033[0m $size"
+                [ -n "$size" ] && echo -e "\033[1;36mFile Size:\033[0m $size"
             fi
         else
-            echo -e "\033[1;31mDosya bulunamadı\033[0m"
+            echo -e "\033[1;31mFile not found\033[0m"
         fi
     else
         # Custom image or other options - no preview
@@ -3071,24 +3109,85 @@ fastfetch_menu() {
 
 settings_menu() {
     while true; do
+        local demo_mode=$(get_config_value "fastfetch" "demo_mode")
+        [ -z "$demo_mode" ] && demo_mode="false"
+        
+        local demo_status="❌ Off"
+        [ "$demo_mode" = "true" ] && demo_status="✅ On"
+        
         local options=(
+            "🎭 Demo Mode: $demo_status"
             "🎨 Color Settings"
             "🔧 Edit Config File"
             "🗑️ Reset All Settings"
             "← Back"
         )
 
-        select_option "⚙️  Advanced Settings" "${options[@]}"
+        select_option "⚙️  Advanced Settings (Demo Mode shows fake system info for screenshots)" "${options[@]}"
         local choice=$?
 
-        [ $choice -eq 3 ] || [ $choice -eq 255 ] && return
+        [ $choice -eq 4 ] || [ $choice -eq 255 ] && return
 
         case $choice in
-            0) color_settings_menu ;;
-            1) edit_config_file ;;
-            2) reset_all_settings ;;
+            0) toggle_demo_mode ;;
+            1) color_settings_menu ;;
+            2) edit_config_file ;;
+            3) reset_all_settings ;;
         esac
     done
+}
+
+# Toggle demo mode for screenshots (shows fake system info)
+toggle_demo_mode() {
+    local current=$(get_config_value "fastfetch" "demo_mode")
+    if [ "$current" = "true" ]; then
+        set_config_value "fastfetch" "demo_mode" "false"
+        echo -e "\n\033[1;32m✓ Demo Mode disabled - Real system info will be shown\033[0m"
+    else
+        set_config_value "fastfetch" "demo_mode" "true"
+        echo -e "\n\033[1;33m🎭 Demo Mode enabled - Fake info will be shown for screenshots\033[0m"
+    fi
+    
+    # Re-apply current preset to regenerate config
+    local preset=$(get_config_value "fastfetch" "preset")
+    [ -z "$preset" ] && preset="full"
+    apply_preset "$preset"
+    
+    sleep 1
+}
+
+# Get demo/fake format string for a module type
+get_demo_format() {
+    local module_type=$1
+    case "$module_type" in
+        "title") echo "hacker@linuxbox" ;;
+        "os") echo "Arch Linux x86_64" ;;
+        "kernel") echo "6.12.1-arch1-1" ;;
+        "host") echo "Custom Gaming PC" ;;
+        "cpu") echo "AMD Ryzen 9 7950X3D (32) @ 5.7GHz" ;;
+        "gpu") echo "NVIDIA GeForce RTX 4090" ;;
+        "memory") echo "32.00 GiB / 64.00 GiB (50%)" ;;
+        "disk") echo "512.00 GiB / 2.00 TiB (25%)" ;;
+        "swap") echo "8.00 GiB / 16.00 GiB" ;;
+        "localip") echo "192.168.1.100" ;;
+        "publicip") echo "203.0.113.42" ;;
+        "wifi") echo "MyNetwork (802.11ac)" ;;
+        "uptime") echo "5 days, 12 hours, 34 mins" ;;
+        "packages") echo "1337 (pacman), 42 (flatpak)" ;;
+        "shell") echo "zsh 5.9" ;;
+        "terminal") echo "kitty" ;;
+        "terminalfont") echo "JetBrainsMono Nerd Font (12pt)" ;;
+        "wm") echo "Hyprland" ;;
+        "de") echo "none" ;;
+        "wmtheme") echo "Catppuccin Mocha" ;;
+        "icons") echo "Papirus-Dark" ;;
+        "cursor") echo "Bibata-Modern-Ice" ;;
+        "display") echo "3840x2160 @ 144Hz" ;;
+        "battery") echo "100% [Full]" ;;
+        "datetime") echo "2024-12-06 15:30:45" ;;
+        "media") echo "Spotify - Daft Punk - Around the World" ;;
+        *) echo "" ;;
+    esac
 }
 
 # Color settings menu for customizing fastfetch colors
@@ -3342,6 +3441,17 @@ apply_preset() {
     local logo_type=$(get_config_value "fastfetch" "logo_type")
     local custom_image=$(get_config_value "fastfetch" "custom_image")
     local theme=$(get_config_value "colors" "theme")
+    
+    # Set defaults if values are empty
+    [ -z "$theme" ] && theme="dracula"
+    [ -z "$logo_type" ] && logo_type="auto"
+    
+    # Ensure config directory exists
+    mkdir -p "$CONFIG_DIR"
+    
+    # Save defaults if they were not set
+    set_config_value "colors" "theme" "$theme"
+    set_config_value "fastfetch" "logo_type" "$logo_type"
     
     case $preset in
         "full") create_full_config "$logo_type" "$custom_image" "$theme" ;;
@@ -4166,7 +4276,28 @@ get_color_dots() {
     local color7="$color2"
     local color8="$color3"
 
+
     echo "\\u001b[1;${color1}m●\\u001b[0m \\u001b[1;${color2}m●\\u001b[0m \\u001b[1;${color3}m●\\u001b[0m \\u001b[1;${color4}m●\\u001b[0m \\u001b[1;${color5}m●\\u001b[0m \\u001b[1;${color6}m●\\u001b[0m \\u001b[1;${color7}m●\\u001b[0m \\u001b[1;${color8}m●\\u001b[0m"
+}
+
+# Helper function to generate format line for demo mode
+# Returns empty string if demo mode is off, or JSON format line if on
+get_demo_format_line() {
+    local module_type=$1
+    local demo_mode=$(get_config_value "fastfetch" "demo_mode")
+    
+    if [ "$demo_mode" = "true" ]; then
+        local demo_value=$(get_demo_format "$module_type")
+        if [ -n "$demo_value" ]; then
+            echo "            \"format\": \"$demo_value\","
+        fi
+    fi
+}
+
+# Check if demo mode is active
+is_demo_mode() {
+    local demo_mode=$(get_config_value "fastfetch" "demo_mode")
+    [ "$demo_mode" = "true" ]
 }
 
 create_full_config() {
@@ -4240,6 +4371,46 @@ create_full_config() {
         output_color=$(get_fastfetch_text_color "primary" "$theme")
     fi
 
+    # Demo mode: prepare format overrides for each module
+    local demo_mode=$(get_config_value "fastfetch" "demo_mode")
+    local fmt_title=""
+    local fmtline_os="" fmtline_kernel="" fmtline_packages="" fmtline_shell=""
+    local fmtline_wm="" fmtline_de="" fmtline_wmtheme="" fmtline_icons="" fmtline_cursor=""
+    local fmtline_terminal="" fmtline_terminalfont="" fmtline_host="" fmtline_cpu="" fmtline_gpu=""
+    local fmtline_memory="" fmtline_swap="" fmtline_disk="" fmtline_battery="" fmtline_display=""
+    local fmtline_localip="" fmtline_publicip="" fmtline_wifi="" fmtline_datetime="" fmtline_uptime="" fmtline_media=""
+    
+    if [ "$demo_mode" = "true" ]; then
+        fmt_title="hacker@linuxbox"
+        fmtline_os="\"format\": \"$(get_demo_format os)\","
+        fmtline_kernel="\"format\": \"$(get_demo_format kernel)\","
+        fmtline_packages="\"format\": \"$(get_demo_format packages)\","
+        fmtline_shell="\"format\": \"$(get_demo_format shell)\","
+        fmtline_wm="\"format\": \"$(get_demo_format wm)\","
+        fmtline_de="\"format\": \"$(get_demo_format de)\","
+        fmtline_wmtheme="\"format\": \"$(get_demo_format wmtheme)\","
+        fmtline_icons="\"format\": \"$(get_demo_format icons)\","
+        fmtline_cursor="\"format\": \"$(get_demo_format cursor)\","
+        fmtline_terminal="\"format\": \"$(get_demo_format terminal)\","
+        fmtline_terminalfont="\"format\": \"$(get_demo_format terminalfont)\","
+        fmtline_host="\"format\": \"$(get_demo_format host)\","
+        fmtline_cpu="\"format\": \"$(get_demo_format cpu)\","
+        fmtline_gpu="\"format\": \"$(get_demo_format gpu)\","
+        fmtline_memory="\"format\": \"$(get_demo_format memory)\","
+        fmtline_swap="\"format\": \"$(get_demo_format swap)\","
+        fmtline_disk="\"format\": \"$(get_demo_format disk)\","
+        fmtline_battery="\"format\": \"$(get_demo_format battery)\","
+        fmtline_display="\"format\": \"$(get_demo_format display)\","
+        fmtline_localip="\"format\": \"$(get_demo_format localip)\","
+        fmtline_publicip="\"format\": \"$(get_demo_format publicip)\","
+        fmtline_wifi="\"format\": \"$(get_demo_format wifi)\","
+        fmtline_datetime="\"format\": \"$(get_demo_format datetime)\","
+        fmtline_uptime="\"format\": \"$(get_demo_format uptime)\","
+        fmtline_media="\"format\": \"$(get_demo_format media)\","
+    else
+        fmt_title="{user-name-colored}@{host-name-colored}"
+    fi
+
     cat > "$CONFIG_DIR/fastfetch.jsonc" << EOF
 {
     // TermFetch Studio - Full Info Preset
@@ -4265,12 +4436,13 @@ create_full_config() {
         "break",
         {
             "type": "title",
-            "format": "{user-name-colored}@{host-name-colored}",
+            "format": "$fmt_title",
             "key": ""
         },
         "break",
         {
             "type": "os",
+            $fmtline_os
             "key": " ├ 󰣇 ",
             "keyColor": "$color1",
             "outputColor": "$tcolor1",
@@ -4279,205 +4451,232 @@ create_full_config() {
         },
         {
             "type": "kernel",
+            $fmtline_kernel
             "key": " ├ 󰌢 ",
             "keyColor": "$color1",
             "outputColor": "$tcolor1",
             "keyWidth": 10,
-            "keyShow": $show_labels,
+            "keyShow": $show_labels
         },
         {
             "type": "packages",
+            $fmtline_packages
             "key": " ├ 󰏖 ",
             "keyColor": "$color1",
             "outputColor": "$tcolor1",
             "keyWidth": 10,
-            "keyShow": $show_labels,
+            "keyShow": $show_labels
         },
         {
             "type": "shell",
+            $fmtline_shell
             "key": " ├ 󰆍 ",
             "keyColor": "$color1",
             "outputColor": "$tcolor1",
             "keyWidth": 10,
-            "keyShow": $show_labels,
+            "keyShow": $show_labels
         },
         "break",
         {
             "type": "wm",
+            $fmtline_wm
             "key": " ├ 󰖲 ",
             "keyColor": "$color2",
             "outputColor": "$tcolor2",
             "keyWidth": 10,
-            "keyShow": $show_labels,
+            "keyShow": $show_labels
         },
         {
             "type": "de",
+            $fmtline_de
             "key": " ├ 󱂬 ",
             "keyColor": "$color2",
             "outputColor": "$tcolor2",
             "keyWidth": 10,
-            "keyShow": $show_labels,
+            "keyShow": $show_labels
         },
         {
             "type": "wmtheme",
+            $fmtline_wmtheme
             "key": " ├ 󰉼 ",
             "keyColor": "$color2",
             "outputColor": "$tcolor2",
             "keyWidth": 10,
-            "keyShow": $show_labels,
+            "keyShow": $show_labels
         },
         {
             "type": "icons",
+            $fmtline_icons
             "key": " ├ 󰀻 ",
             "keyColor": "$color2",
             "outputColor": "$tcolor2",
             "keyWidth": 10,
-            "keyShow": $show_labels,
+            "keyShow": $show_labels
         },
         {
             "type": "cursor",
+            $fmtline_cursor
             "key": " ├ 󰘔 ",
             "keyColor": "$color2",
             "outputColor": "$tcolor2",
             "keyWidth": 10,
-            "keyShow": $show_labels,
+            "keyShow": $show_labels
         },
         {
             "type": "terminal",
+            $fmtline_terminal
             "key": " ├ 󰆍 ",
             "keyColor": "$color2",
             "outputColor": "$tcolor2",
             "keyWidth": 10,
-            "keyShow": $show_labels,
+            "keyShow": $show_labels
         },
         {
             "type": "terminalfont",
+            $fmtline_terminalfont
             "key": " ├ 󰛖 ",
             "keyColor": "$color2",
             "outputColor": "$tcolor2",
             "keyWidth": 10,
-            "keyShow": $show_labels,
+            "keyShow": $show_labels
         },
         "break",
         {
             "type": "host",
+            $fmtline_host
             "key": " ├ 󰌢 ",
             "keyColor": "$color3",
             "outputColor": "$tcolor3",
             "keyWidth": 10,
-            "keyShow": $show_labels,
+            "keyShow": $show_labels
         },
         {
             "type": "cpu",
+            $fmtline_cpu
             "key": " ├ 󰻠 ",
             "keyColor": "$color3",
             "outputColor": "$tcolor3",
             "keyWidth": 10,
-            "keyShow": $show_labels,
+            "keyShow": $show_labels
         },
         {
             "type": "gpu",
+            $fmtline_gpu
             "key": " ├ 󰢮 ",
             "keyColor": "$color3",
             "outputColor": "$tcolor3",
             "keyWidth": 10,
-            "keyShow": $show_labels,
+            "keyShow": $show_labels
         },
         {
             "type": "memory",
+            $fmtline_memory
             "key": " ├ 󰍛 ",
             "keyColor": "$color3",
             "outputColor": "$tcolor3",
             "keyWidth": 10,
-            "keyShow": $show_labels,
+            "keyShow": $show_labels
         },
         {
             "type": "swap",
+            $fmtline_swap
             "key": " ├ 󰓡 ",
             "keyColor": "$color3",
             "outputColor": "$tcolor3",
             "keyWidth": 10,
-            "keyShow": $show_labels,
+            "keyShow": $show_labels
         },
         {
             "type": "disk",
+            $fmtline_disk
             "key": " ├ 󰋊 ",
             "keyColor": "$color3",
             "outputColor": "$tcolor3",
             "keyWidth": 10,
-            "keyShow": $show_labels,
+            "keyShow": $show_labels
         },
         {
             "type": "battery",
+            $fmtline_battery
             "key": " ├ 󰁹 ",
             "keyColor": "$color3",
             "outputColor": "$tcolor3",
             "keyWidth": 10,
-            "keyShow": $show_labels,
+            "keyShow": $show_labels
         },
         {
             "type": "display",
+            $fmtline_display
             "key": " ├ 󰍹 ",
             "keyColor": "$color3",
             "outputColor": "$tcolor3",
             "keyWidth": 10,
-            "keyShow": $show_labels,
+            "keyShow": $show_labels
         },
         "break",
         {
             "type": "localip",
+            $fmtline_localip
             "key": " ├ 󰣺 ",
             "keyColor": "$color4",
             "outputColor": "$tcolor4",
             "keyWidth": 10,
-            "keyShow": $show_labels,
+            "keyShow": $show_labels
         },
         {
             "type": "publicip",
+            $fmtline_publicip
             "key": " ├ 󰞉 ",
             "keyColor": "$color4",
             "outputColor": "$tcolor4",
             "keyWidth": 10,
-            "keyShow": $show_labels,
+            "keyShow": $show_labels
         },
         {
             "type": "wifi",
+            $fmtline_wifi
             "key": " ├ 󰖩 ",
             "keyColor": "$color4",
             "outputColor": "$tcolor4",
             "keyWidth": 10,
-            "keyShow": $show_labels,
+            "keyShow": $show_labels
         },
         "break",
         {
             "type": "datetime",
+            $fmtline_datetime
             "key": " ├ 󰅐 ",
             "keyColor": "$color5",
             "outputColor": "$tcolor5",
             "keyWidth": 10,
-            "keyShow": $show_labels,
+            "keyShow": $show_labels
         },
         {
             "type": "uptime",
+            $fmtline_uptime
             "key": " ├ 󰔚 ",
             "keyColor": "$color5",
             "outputColor": "$tcolor5",
             "keyWidth": 10,
-            "keyShow": $show_labels,
+            "keyShow": $show_labels
         },
         {
             "type": "media",
+            $fmtline_media
             "key": " ├ 󰎈 ",
             "keyColor": "$color5",
             "outputColor": "$tcolor5",
             "keyWidth": 10,
-            "keyShow": $show_labels,
+            "keyShow": $show_labels
         },
         "break",
         "break"
     ]
 }
 EOF
+
+    # Clean up empty lines from JSON (when demo mode is off, fmtline vars are empty)
+    sed -i '/^[[:space:]]*$/d' "$CONFIG_DIR/fastfetch.jsonc"
 }
 
 create_minimal_config() {
@@ -4533,6 +4732,20 @@ create_minimal_config() {
         output_color=$(get_fastfetch_text_color "primary" "$theme")
     fi
 
+    # Demo mode: prepare format overrides
+    local demo_mode=$(get_config_value "fastfetch" "demo_mode")
+    local fmt_title="" fmtline_os="" fmtline_kernel="" fmtline_shell="" fmtline_uptime=""
+    
+    if [ "$demo_mode" = "true" ]; then
+        fmt_title="hacker@linuxbox"
+        fmtline_os="\"format\": \"$(get_demo_format os)\","
+        fmtline_kernel="\"format\": \"$(get_demo_format kernel)\","
+        fmtline_shell="\"format\": \"$(get_demo_format shell)\","
+        fmtline_uptime="\"format\": \"$(get_demo_format uptime)\","
+    else
+        fmt_title="{user-name-colored}@{host-name-colored}"
+    fi
+
     cat > "$CONFIG_DIR/fastfetch.jsonc" << EOF
 {
     // TermFetch Studio - Minimal Preset
@@ -4558,7 +4771,7 @@ create_minimal_config() {
         "break",
         {
             "type": "title",
-            "format": "{user-name-colored}@{host-name-colored}",
+            "format": "$fmt_title",
             "key": ""
         },
         "break",
@@ -4569,24 +4782,28 @@ create_minimal_config() {
         "break",
         {
             "type": "os",
+            $fmtline_os
             "key": " ├ 󰣇 ",
             "keyColor": "$color1",
             "outputColor": "$output_color"
         },
         {
             "type": "kernel",
+            $fmtline_kernel
             "key": " ├ 󰌢 ",
             "keyColor": "$color1",
             "outputColor": "$output_color"
         },
         {
             "type": "shell",
+            $fmtline_shell
             "key": " ├ 󰆍 ",
             "keyColor": "$color1",
             "outputColor": "$output_color"
         },
         {
             "type": "uptime",
+            $fmtline_uptime
             "key": " ├ 󰔚 ",
             "keyColor": "$color1",
             "outputColor": "$output_color"
@@ -4600,6 +4817,9 @@ create_minimal_config() {
     ]
 }
 EOF
+
+    # Clean up empty lines from JSON
+    sed -i '/^[[:space:]]*$/d' "$CONFIG_DIR/fastfetch.jsonc"
 }
 
 create_focused_config() {
@@ -4646,6 +4866,26 @@ create_focused_config() {
         output_color=$(get_fastfetch_text_color "primary" "$theme")
     fi
 
+    # Demo mode: prepare format overrides
+    local demo_mode=$(get_config_value "fastfetch" "demo_mode")
+    local fmt_title="" fmtline_os="" fmtline_kernel="" fmtline_packages="" fmtline_uptime=""
+    local fmtline_terminal="" fmtline_shell="" fmtline_cpu="" fmtline_memory="" fmtline_disk=""
+    
+    if [ "$demo_mode" = "true" ]; then
+        fmt_title="hacker@linuxbox"
+        fmtline_os="\"format\": \"$(get_demo_format os)\","
+        fmtline_kernel="\"format\": \"$(get_demo_format kernel)\","
+        fmtline_packages="\"format\": \"$(get_demo_format packages)\","
+        fmtline_uptime="\"format\": \"$(get_demo_format uptime)\","
+        fmtline_terminal="\"format\": \"$(get_demo_format terminal)\","
+        fmtline_shell="\"format\": \"$(get_demo_format shell)\","
+        fmtline_cpu="\"format\": \"$(get_demo_format cpu)\","
+        fmtline_memory="\"format\": \"$(get_demo_format memory)\","
+        fmtline_disk="\"format\": \"$(get_demo_format disk)\","
+    else
+        fmt_title="{user-name-colored}@{host-name-colored}"
+    fi
+
     cat > "$CONFIG_DIR/fastfetch.jsonc" << EOF
 {
     // TermFetch Studio - Focused Preset
@@ -4671,7 +4911,7 @@ create_focused_config() {
         "break",
         {
             "type": "title",
-            "format": "{user-name-colored}@{host-name-colored}",
+            "format": "$fmt_title",
             "key": ""
         },
         "break",
@@ -4682,24 +4922,28 @@ create_focused_config() {
         "break",
         {
             "type": "os",
+            $fmtline_os
             "key": " ├ 󰣇 ",
             "keyColor": "$color1",
             "outputColor": "$output_color"
         },
         {
             "type": "kernel",
+            $fmtline_kernel
             "key": " ├ 󰌢 ",
             "keyColor": "$color1",
             "outputColor": "$output_color"
         },
         {
             "type": "packages",
+            $fmtline_packages
             "key": " ├ 󰏖 ",
             "keyColor": "$color1",
             "outputColor": "$output_color"
         },
         {
             "type": "uptime",
+            $fmtline_uptime
             "key": " ├ 󰔟 ",
             "keyColor": "$color1",
             "outputColor": "$output_color"
@@ -4707,12 +4951,14 @@ create_focused_config() {
         "break",
         {
             "type": "terminal",
+            $fmtline_terminal
             "key": " ├ 󰆍 ",
             "keyColor": "$color2",
             "outputColor": "$output_color"
         },
         {
             "type": "shell",
+            $fmtline_shell
             "key": " ├ 󰆍 ",
             "keyColor": "$color2",
             "outputColor": "$output_color"
@@ -4720,18 +4966,21 @@ create_focused_config() {
         "break",
         {
             "type": "cpu",
+            $fmtline_cpu
             "key": " ├ 󰻠 ",
             "keyColor": "$color3",
             "outputColor": "$output_color"
         },
         {
             "type": "memory",
+            $fmtline_memory
             "key": " ├ 󰍛 ",
             "keyColor": "$color3",
             "outputColor": "$output_color"
         },
         {
             "type": "disk",
+            $fmtline_disk
             "key": " ├ 󰋊 ",
             "keyColor": "$color3",
             "outputColor": "$output_color"
@@ -4745,6 +4994,9 @@ create_focused_config() {
     ]
 }
 EOF
+
+    # Clean up empty lines from JSON
+    sed -i '/^[[:space:]]*$/d' "$CONFIG_DIR/fastfetch.jsonc"
 }
 
 create_developer_config() {
@@ -4791,6 +5043,34 @@ create_developer_config() {
         output_color=$(get_fastfetch_text_color "primary" "$theme")
     fi
 
+    # Demo mode: prepare format overrides
+    local demo_mode=$(get_config_value "fastfetch" "demo_mode")
+    local fmt_title="" fmtline_os="" fmtline_kernel="" fmtline_packages="" fmtline_shell=""
+    local fmtline_terminal="" fmtline_terminalfont="" fmtline_de="" fmtline_wm=""
+    local fmtline_cpu="" fmtline_gpu="" fmtline_memory="" fmtline_swap="" fmtline_disk=""
+    local fmtline_localip="" fmtline_publicip=""
+    
+    if [ "$demo_mode" = "true" ]; then
+        fmt_title="hacker@linuxbox"
+        fmtline_os="\"format\": \"$(get_demo_format os)\","
+        fmtline_kernel="\"format\": \"$(get_demo_format kernel)\","
+        fmtline_packages="\"format\": \"$(get_demo_format packages)\","
+        fmtline_shell="\"format\": \"$(get_demo_format shell)\","
+        fmtline_terminal="\"format\": \"$(get_demo_format terminal)\","
+        fmtline_terminalfont="\"format\": \"$(get_demo_format terminalfont)\","
+        fmtline_de="\"format\": \"$(get_demo_format de)\","
+        fmtline_wm="\"format\": \"$(get_demo_format wm)\","
+        fmtline_cpu="\"format\": \"$(get_demo_format cpu)\","
+        fmtline_gpu="\"format\": \"$(get_demo_format gpu)\","
+        fmtline_memory="\"format\": \"$(get_demo_format memory)\","
+        fmtline_swap="\"format\": \"$(get_demo_format swap)\","
+        fmtline_disk="\"format\": \"$(get_demo_format disk)\","
+        fmtline_localip="\"format\": \"$(get_demo_format localip)\","
+        fmtline_publicip="\"format\": \"$(get_demo_format publicip)\","
+    else
+        fmt_title="{user-name-colored}@{host-name-colored}"
+    fi
+
     cat > "$CONFIG_DIR/fastfetch.jsonc" << EOF
 {
     // TermFetch Studio - Developer Preset
@@ -4816,7 +5096,7 @@ create_developer_config() {
         "break",
         {
             "type": "title",
-            "format": "{user-name-colored}@{host-name-colored}",
+            "format": "$fmt_title",
             "key": ""
         },
         "break",
@@ -4827,24 +5107,28 @@ create_developer_config() {
         "break",
         {
             "type": "os",
+            $fmtline_os
             "key": " ├ 󰣇 ",
             "keyColor": "$color1",
             "outputColor": "$output_color"
         },
         {
             "type": "kernel",
+            $fmtline_kernel
             "key": " ├ 󰌢 ",
             "keyColor": "$color1",
             "outputColor": "$output_color"
         },
         {
             "type": "packages",
+            $fmtline_packages
             "key": " ├ 󰏖 ",
             "keyColor": "$color1",
             "outputColor": "$output_color"
         },
         {
             "type": "shell",
+            $fmtline_shell
             "key": " ├ 󰆍 ",
             "keyColor": "$color1",
             "outputColor": "$output_color"
@@ -4852,24 +5136,28 @@ create_developer_config() {
         "break",
         {
             "type": "terminal",
+            $fmtline_terminal
             "key": " ├ 󰆍 ",
             "keyColor": "$color2",
             "outputColor": "$output_color"
         },
         {
             "type": "terminalfont",
+            $fmtline_terminalfont
             "key": " ├ 󰛖 ",
             "keyColor": "$color2",
             "outputColor": "$output_color"
         },
         {
             "type": "de",
+            $fmtline_de
             "key": " ├ 󱂬 ",
             "keyColor": "$color2",
             "outputColor": "$output_color"
         },
         {
             "type": "wm",
+            $fmtline_wm
             "key": " ├ 󰖲 ",
             "keyColor": "$color2",
             "outputColor": "$output_color"
@@ -4877,30 +5165,35 @@ create_developer_config() {
         "break",
         {
             "type": "cpu",
+            $fmtline_cpu
             "key": " ├ 󰻠 ",
             "keyColor": "$color3",
             "outputColor": "$output_color"
         },
         {
             "type": "gpu",
+            $fmtline_gpu
             "key": " ├ 󰢮 ",
             "keyColor": "$color3",
             "outputColor": "$output_color"
         },
         {
             "type": "memory",
+            $fmtline_memory
             "key": " ├ 󰍛 ",
             "keyColor": "$color3",
             "outputColor": "$output_color"
         },
         {
             "type": "swap",
+            $fmtline_swap
             "key": " ├ 󰓡 ",
             "keyColor": "$color3",
             "outputColor": "$output_color"
         },
         {
             "type": "disk",
+            $fmtline_disk
             "key": " ├ 󰋊 ",
             "keyColor": "$color3",
             "outputColor": "$output_color"
@@ -4908,12 +5201,14 @@ create_developer_config() {
         "break",
         {
             "type": "localip",
+            $fmtline_localip
             "key": " ├ 󰩟 ",
             "keyColor": "$color4",
             "outputColor": "$output_color"
         },
         {
             "type": "publicip",
+            $fmtline_publicip
             "key": " ├ 󰞉 ",
             "keyColor": "$color4",
             "outputColor": "$output_color"
@@ -4927,6 +5222,9 @@ create_developer_config() {
     ]
 }
 EOF
+
+    # Clean up empty lines from JSON
+    sed -i '/^[[:space:]]*$/d' "$CONFIG_DIR/fastfetch.jsonc"
 }
 
 create_gaming_config() {
@@ -4973,6 +5271,30 @@ create_gaming_config() {
         output_color=$(get_fastfetch_text_color "primary" "$theme")
     fi
 
+    # Demo mode: prepare format overrides
+    local demo_mode=$(get_config_value "fastfetch" "demo_mode")
+    local fmt_title="" fmtline_os="" fmtline_kernel="" fmtline_uptime=""
+    local fmtline_cpu="" fmtline_gpu="" fmtline_memory="" fmtline_swap="" fmtline_disk=""
+    local fmtline_display="" fmtline_battery="" fmtline_localip="" fmtline_wifi=""
+    
+    if [ "$demo_mode" = "true" ]; then
+        fmt_title="hacker@linuxbox"
+        fmtline_os="\"format\": \"$(get_demo_format os)\","
+        fmtline_kernel="\"format\": \"$(get_demo_format kernel)\","
+        fmtline_uptime="\"format\": \"$(get_demo_format uptime)\","
+        fmtline_cpu="\"format\": \"$(get_demo_format cpu)\","
+        fmtline_gpu="\"format\": \"$(get_demo_format gpu)\","
+        fmtline_memory="\"format\": \"$(get_demo_format memory)\","
+        fmtline_swap="\"format\": \"$(get_demo_format swap)\","
+        fmtline_disk="\"format\": \"$(get_demo_format disk)\","
+        fmtline_display="\"format\": \"$(get_demo_format display)\","
+        fmtline_battery="\"format\": \"$(get_demo_format battery)\","
+        fmtline_localip="\"format\": \"$(get_demo_format localip)\","
+        fmtline_wifi="\"format\": \"$(get_demo_format wifi)\","
+    else
+        fmt_title="{user-name-colored}@{host-name-colored}"
+    fi
+
     cat > "$CONFIG_DIR/fastfetch.jsonc" << EOF
 {
     // TermFetch Studio - Gaming Preset
@@ -4998,7 +5320,7 @@ create_gaming_config() {
         "break",
         {
             "type": "title",
-            "format": "{user-name-colored}@{host-name-colored}",
+            "format": "$fmt_title",
             "key": ""
         },
         "break",
@@ -5009,18 +5331,21 @@ create_gaming_config() {
         "break",
         {
             "type": "os",
+            $fmtline_os
             "key": " ├ 󰣇 ",
             "keyColor": "$color1",
             "outputColor": "$output_color"
         },
         {
             "type": "kernel",
+            $fmtline_kernel
             "key": " ├ 󰌢 ",
             "keyColor": "$color1",
             "outputColor": "$output_color"
         },
         {
             "type": "uptime",
+            $fmtline_uptime
             "key": " ├ 󰔟 ",
             "keyColor": "$color1",
             "outputColor": "$output_color"
@@ -5028,42 +5353,49 @@ create_gaming_config() {
         "break",
         {
             "type": "cpu",
+            $fmtline_cpu
             "key": " ├ 󰻠 ",
             "keyColor": "$color2",
             "outputColor": "$output_color"
         },
         {
             "type": "gpu",
+            $fmtline_gpu
             "key": " ├ 󰢮 ",
             "keyColor": "$color2",
             "outputColor": "$output_color"
         },
         {
             "type": "memory",
+            $fmtline_memory
             "key": " ├ 󰍛 ",
             "keyColor": "$color2",
             "outputColor": "$output_color"
         },
         {
             "type": "swap",
+            $fmtline_swap
             "key": " ├ 󰓡 ",
             "keyColor": "$color2",
             "outputColor": "$output_color"
         },
         {
             "type": "disk",
+            $fmtline_disk
             "key": " ├ 󰋊 ",
             "keyColor": "$color2",
             "outputColor": "$output_color"
         },
         {
             "type": "display",
+            $fmtline_display
             "key": " ├ 󰍹 ",
             "keyColor": "$color2",
             "outputColor": "$output_color"
         },
         {
             "type": "battery",
+            $fmtline_battery
             "key": " ├ 󰂎 ",
             "keyColor": "$color2",
             "outputColor": "$output_color"
@@ -5071,12 +5403,14 @@ create_gaming_config() {
         "break",
         {
             "type": "localip",
+            $fmtline_localip
             "key": " ├ 󰩟 ",
             "keyColor": "$color3",
             "outputColor": "$output_color"
         },
         {
             "type": "wifi",
+            $fmtline_wifi
             "key": " ├ 󰖩 ",
             "keyColor": "$color3",
             "outputColor": "$output_color"
@@ -5090,6 +5424,9 @@ create_gaming_config() {
     ]
 }
 EOF
+
+    # Clean up empty lines from JSON
+    sed -i '/^[[:space:]]*$/d' "$CONFIG_DIR/fastfetch.jsonc"
 }
 
 # Create custom config using a saved list of modules in config.ini
@@ -5660,6 +5997,8 @@ remove_shell_integration() {
 }
 
 remove_installation() {
+    local auto_yes="${1:-false}"
+    
     print_info "Removing TermFetch Studio..."
 
     # Remove main executable
@@ -5677,32 +6016,60 @@ remove_installation() {
     # Remove shell integration
     remove_shell_integration
 
-    # Ask about config directory
-    echo ""
-    echo -e "${YELLOW}Do you want to remove the configuration directory?${NC}"
-    echo -e "${YELLOW}This will delete all your settings and backups.${NC}"
-    read -p "Remove config directory? (y/N): " -n 1 -r
-    echo
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-        TARGET_USER="${SUDO_USER:-$USER}"
-        TARGET_HOME=$(getent passwd "$TARGET_USER" | cut -d: -f6)
-        [ -z "$TARGET_HOME" ] && TARGET_HOME="$HOME"
+    # Ask about config directory (or auto-remove if -y flag)
+    TARGET_USER="${SUDO_USER:-$USER}"
+    TARGET_HOME=$(getent passwd "$TARGET_USER" | cut -d: -f6)
+    [ -z "$TARGET_HOME" ] && TARGET_HOME="$HOME"
+    
+    if [ "$auto_yes" = "true" ]; then
+        # Auto-remove config with -y flag
         if [ -d "$TARGET_HOME/.config/termfetch-studio" ]; then
             rm -rf "$TARGET_HOME/.config/termfetch-studio"
             print_info "Removed configuration directory"
         fi
     else
-        TARGET_USER="${SUDO_USER:-$USER}"
-        TARGET_HOME=$(getent passwd "$TARGET_USER" | cut -d: -f6)
-        [ -z "$TARGET_HOME" ] && TARGET_HOME="$HOME"
-        print_info "Configuration directory preserved at $TARGET_HOME/.config/termfetch-studio"
+        echo ""
+        echo -e "${YELLOW}Do you want to remove the configuration directory?${NC}"
+        echo -e "${YELLOW}This will delete all your settings and backups.${NC}"
+        read -p "Remove config directory? (y/N): " -n 1 -r
+        echo
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            if [ -d "$TARGET_HOME/.config/termfetch-studio" ]; then
+                rm -rf "$TARGET_HOME/.config/termfetch-studio"
+                print_info "Removed configuration directory"
+            fi
+        else
+            print_info "Configuration directory preserved at $TARGET_HOME/.config/termfetch-studio"
+        fi
     fi
 }
 
 main() {
+    local auto_yes=false
+    
+    # Parse arguments
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            -y|--yes)
+                auto_yes=true
+                shift
+                ;;
+            *)
+                shift
+                ;;
+        esac
+    done
+    
     print_banner
-    confirm_uninstall
-    remove_installation
+    
+    if [ "$auto_yes" = "true" ]; then
+        # Skip confirmation, proceed directly
+        echo -e "${YELLOW}⚠️  Auto-confirming uninstall (-y flag)${NC}"
+    else
+        confirm_uninstall
+    fi
+    
+    remove_installation "$auto_yes"
     
     echo ""
     echo -e "${GREEN}✨ TermFetch Studio has been successfully uninstalled! ✨${NC}"
