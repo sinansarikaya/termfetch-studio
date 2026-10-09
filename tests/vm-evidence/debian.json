@@ -1,0 +1,38 @@
+{
+  "os_release": {
+    "ID": "debian",
+    "VERSION_ID": "\"13\"",
+    "BUILD_ID": null,
+    "PRETTY_NAME": "\"Debian GNU/Linux 13 (trixie)\""
+  },
+  "sessions": [
+    {
+      "rc": 0,
+      "output": "Seat=seat0\nRemote=no\nDesktop=KDE\nType=wayland"
+    },
+    {
+      "rc": 0,
+      "output": "Seat=\nRemote=no\nDesktop=\nType=unspecified"
+    },
+    {
+      "rc": 0,
+      "output": "Seat=\nRemote=yes\nDesktop=\nType=tty"
+    }
+  ],
+  "fastfetch": {
+    "rc": 0,
+    "output": "fastfetch 2.53.0 (x86_64)"
+  },
+  "installer_sha256": "bfdb4c5d5825b83efdb55626ae13e3330b360a1bca555eb5792b84ae70cbd6a6",
+  "settings": "[colors]\ntheme=nord\n\n[fastfetch]\npreset=full\nicons=true\nlogo_type=image\ncustom_image=/home/tfs/test-logo.png\nuse_theme_colors=true\nkey_color=theme\nvalue_color=theme\nlabels=false\n\n[general]\nfirst_run=true\nbackup_enabled=true\n\n[terminal]\nfont=JetBrainsMono Nerd Font\nfont_size=12\n",
+  "config_validation": {
+    "rc": 0,
+    "errors": []
+  },
+  "runtime_logo_fields": [
+    "\"type\": \"kitty-direct\",",
+    "\"source\": \"/home/tfs/test-logo.png\",",
+    "\"width\": 20,",
+    "\"height\": 18,"
+  ]
+}

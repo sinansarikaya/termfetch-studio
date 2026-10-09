@@ -42,9 +42,7 @@ log_terminal_info() {
     log_debug "Terminal: $TERM"
     log_debug "Terminal Program: $TERM_PROGRAM"
     log_debug "Shell: $SHELL"
-    # Use the dedicated function for consistency
-    local image_support=$(check_terminal_image_support)
-    log_debug "Image Support: $image_support"
+    # Terminal graphics support is determined by the installed runtime library.
     log_debug "Kitty Window ID: $KITTY_WINDOW_ID"
     log_debug "WezTerm Executable: $WEZTERM_EXECUTABLE"
     log_debug "Konsole Version: $KONSOLE_VERSION"
@@ -66,7 +64,7 @@ print_banner() {
 ║            ██║   ███████╗██║  ██║██║ ╚═╝ ██║      ║
 ║            ╚═╝   ╚══════╝╚═╝  ╚═╝╚═╝     ╚═╝      ║
 ║                                                   ║
-║              TermFetch Studio v1.0                ║
+║             TermFetch Studio v1.0.0               ║
 ║     Professional Terminal Theme Manager           ║
 ║                                                   ║
 ╚═══════════════════════════════════════════════════╝
@@ -105,51 +103,79 @@ detect_distro() {
 detect_distro_base() {
     if [ -f /etc/os-release ]; then
         . /etc/os-release
-        if [[ "$ID" == "fedora" ]] || [[ "$ID" == "rhel" ]] || [[ "$ID" == "centos" ]]; then
-            echo "fedora"
-        elif [[ "$ID" == "ubuntu" ]] || [[ "$ID" == "debian" ]] || [[ "$ID" == "linuxmint" ]] || [[ "$ID" == "pop" ]]; then
-            echo "debian"
-        elif [[ "$ID" == "arch" ]] || [[ "$ID" == "manjaro" ]] || [[ "$ID" == "endeavouros" ]] || [[ "$ID" == "cachyos" ]]; then
-            echo "arch"
-        elif [[ "$ID" == "opensuse" ]] || [[ "$ID" == "suse" ]]; then
-            echo "suse"
-        else
-            echo "unknown"
-        fi
+        local candidate
+        for candidate in "${ID:-}" ${ID_LIKE:-}; do
+            case "$candidate" in
+                arch|manjaro|endeavouros|cachyos) echo arch; return ;;
+                debian|ubuntu|linuxmint|pop) echo debian; return ;;
+                fedora|rhel|centos) echo fedora; return ;;
+                opensuse|opensuse-*|suse|sles) echo suse; return ;;
+            esac
+        done
+        echo unknown
     else
         echo "unknown"
     fi
 }
 
-# Gum is not used in this application - removed
+# The previous "from source" helper downloaded a binary and was never called.
 
-install_fastfetch_from_source() {
-    print_info "Installing fastfetch from GitHub releases..."
-    
-    local arch=$(uname -m)
-    local url=""
-    
-    case $arch in
-        x86_64)
-            url="https://github.com/fastfetch-cli/fastfetch/releases/latest/download/fastfetch-linux-amd64.tar.gz"
-            ;;
-        aarch64|arm64)
-            url="https://github.com/fastfetch-cli/fastfetch/releases/latest/download/fastfetch-linux-aarch64.tar.gz"
-            ;;
-        *)
-            print_error "Unsupported architecture: $arch"
-            exit 1
-            ;;
+require_command() {
+    command -v "$1" >/dev/null 2>&1 || { print_error "Required command not found: $1"; return 1; }
+}
+
+install_debian_fastfetch() {
+    local deb_arch expected_hash url tmp_dir
+    case "$(uname -m)" in
+        x86_64) deb_arch=amd64; expected_hash=fdee4233997e58cac927bb9d03278c5ff0d446f8993b9d80125b7035359ce908 ;;
+        aarch64|arm64) deb_arch=aarch64; expected_hash=3f9309dba5a5bcf194aa64d836d27222dfbdeb50004af0182de08519f512f419 ;;
+        *) print_error "Unsupported architecture: $(uname -m)"; return 1 ;;
     esac
-    
-    cd /tmp
-    wget -q "$url" -O fastfetch.tar.gz
-    tar -xzf fastfetch.tar.gz
-    cp fastfetch-*/usr/bin/fastfetch /usr/local/bin/
-    chmod +x /usr/local/bin/fastfetch
-    rm -rf fastfetch* 
-    
-    print_success "Fastfetch installed from source"
+    require_command dpkg || return 1
+    require_command mktemp || return 1
+    require_command sha256sum || return 1
+    if command -v curl >/dev/null 2>&1; then
+        :
+    elif command -v wget >/dev/null 2>&1; then
+        :
+    else
+        print_error "A download tool (curl or wget) is required for fastfetch"
+        return 1
+    fi
+    tmp_dir=$(mktemp -d) || return 1
+    url="https://github.com/fastfetch-cli/fastfetch/releases/download/2.53.0/fastfetch-linux-${deb_arch}.deb"
+    if { command -v curl >/dev/null 2>&1 && curl -fL --retry 3 -o "$tmp_dir/fastfetch.deb" "$url"; } ||
+       { command -v wget >/dev/null 2>&1 && wget -q -O "$tmp_dir/fastfetch.deb" "$url"; }; then
+        if printf '%s  %s\n' "$expected_hash" "$tmp_dir/fastfetch.deb" | sha256sum -c - >/dev/null; then
+            if ! sudo dpkg -i "$tmp_dir/fastfetch.deb"; then
+                sudo apt-get install -f -y || { rm -rf -- "$tmp_dir"; return 1; }
+            fi
+        else
+            print_error "Fastfetch download checksum mismatch"
+            rm -rf -- "$tmp_dir"
+            return 1
+        fi
+    else
+        print_error "Failed to download fastfetch"
+        rm -rf -- "$tmp_dir"
+        return 1
+    fi
+    rm -rf -- "$tmp_dir"
+    command -v fastfetch >/dev/null 2>&1
+}
+
+validate_fastfetch_version() {
+    local version major minor
+    version=$(fastfetch --version) || { print_error "Cannot read fastfetch version"; return 1; }
+    if [[ "$version" =~ fastfetch[[:space:]]+([0-9]+)\.([0-9]+)\.([0-9]+) ]]; then
+        major=$((10#${BASH_REMATCH[1]}))
+        minor=$((10#${BASH_REMATCH[2]}))
+        if (( major > 2 || (major == 2 && minor >= 42) )); then
+            return 0
+        fi
+    fi
+    print_error "fastfetch >= 2.42.0 is required for RGB configuration; found: $version"
+    return 1
 }
 
 install_dependencies() {
@@ -158,6 +184,21 @@ install_dependencies() {
     local distro_base=$(detect_distro_base)
     local missing_deps=()
     local optional_missing=()
+
+    if ! command -v awk >/dev/null 2>&1; then
+        require_command sudo || return 1
+        case "$distro_base" in
+            arch) require_command pacman && sudo pacman -S --noconfirm gawk || return 1 ;;
+            debian) require_command apt-get && sudo apt-get install -y gawk || return 1 ;;
+            fedora) require_command dnf && sudo dnf install -y gawk || return 1 ;;
+            suse) require_command zypper && sudo zypper --non-interactive install gawk || return 1 ;;
+            *) print_error "Required command awk is missing; install it before continuing"; return 1 ;;
+        esac
+    fi
+    local tool
+    for tool in awk sed grep tar gzip mktemp cp mv mkdir chmod chown uname date cat tr cut head tail sort tee touch sleep; do
+        require_command "$tool" || return 1
+    done
 
     # Check required dependencies
     if ! command -v fastfetch &> /dev/null; then
@@ -169,15 +210,17 @@ install_dependencies() {
         optional_missing+=("chafa")
     fi
 
-    if ! command -v convert &> /dev/null; then
+    if ! command -v magick &> /dev/null && ! command -v convert &> /dev/null; then
         optional_missing+=("imagemagick")
     fi
 
     # Auto-install missing required dependencies
     if [ ${#missing_deps[@]} -ne 0 ]; then
+        require_command sudo || return 1
         print_info "Installing required dependencies: ${missing_deps[*]}"
         case $distro_base in
             arch)
+                require_command pacman || return 1
                 sudo pacman -S --noconfirm fastfetch || {
                     print_error "Failed to install fastfetch"
                     print_info "Please install manually: sudo pacman -S fastfetch"
@@ -185,39 +228,10 @@ install_dependencies() {
                 }
                 ;;
             debian)
-                # For Debian/Ubuntu/Mint, fastfetch is not in default repos
-                # Download and install from GitHub releases
-                print_info "Downloading fastfetch from GitHub..."
-
-                local arch=$(uname -m)
-                local deb_arch="amd64"
-                [ "$arch" = "aarch64" ] && deb_arch="arm64"
-
-                local tmp_dir=$(mktemp -d)
-                local latest_url="https://github.com/fastfetch-cli/fastfetch/releases/latest/download/fastfetch-linux-${deb_arch}.deb"
-
-                if wget -q "$latest_url" -O "$tmp_dir/fastfetch.deb"; then
-                    print_info "Installing fastfetch..."
-                    sudo dpkg -i "$tmp_dir/fastfetch.deb" || {
-                        print_info "Fixing dependencies..."
-                        sudo apt-get install -f -y
-                    }
-                    rm -rf "$tmp_dir"
-
-                    if command -v fastfetch &> /dev/null; then
-                        print_success "Fastfetch installed successfully"
-                    else
-                        print_error "Failed to install fastfetch"
-                        return 1
-                    fi
-                else
-                    print_error "Failed to download fastfetch"
-                    print_info "Please install manually from: https://github.com/fastfetch-cli/fastfetch/releases"
-                    rm -rf "$tmp_dir"
-                    return 1
-                fi
+                install_debian_fastfetch || return 1
                 ;;
             fedora)
+                require_command dnf || return 1
                 sudo dnf install -y fastfetch || {
                     print_error "Failed to install fastfetch"
                     print_info "Please install manually: sudo dnf install fastfetch"
@@ -225,7 +239,8 @@ install_dependencies() {
                 }
                 ;;
             suse)
-                sudo zypper install -y fastfetch || {
+                require_command zypper || return 1
+                sudo zypper --non-interactive install fastfetch || {
                     print_error "Failed to install fastfetch"
                     print_info "Please install manually: sudo zypper install fastfetch"
                     return 1
@@ -239,24 +254,41 @@ install_dependencies() {
         esac
     fi
     
+    validate_fastfetch_version || return 1
+
     # Auto-install optional dependencies
-    if [ ${#optional_missing[@]} -ne 0 ]; then
+    if [ ${#optional_missing[@]} -ne 0 ] && [ "$distro_base" != unknown ]; then
+        require_command sudo || return 1
+        case "$distro_base" in
+            arch) require_command pacman || return 1 ;;
+            debian) require_command apt-get || return 1 ;;
+            fedora) require_command dnf || return 1 ;;
+            suse) require_command zypper || return 1 ;;
+        esac
         print_info "Installing optional dependencies: ${optional_missing[*]}"
+        local optional_ok=true
         case $distro_base in
             arch)
-                sudo pacman -S --noconfirm chafa imagemagick 2>/dev/null || print_warning "Some optional dependencies failed to install"
+                sudo pacman -S --noconfirm "${optional_missing[@]}" || optional_ok=false
                 ;;
             debian)
-                sudo apt install -y chafa imagemagick 2>/dev/null || print_warning "Some optional dependencies failed to install"
+                sudo apt-get install -y "${optional_missing[@]}" || optional_ok=false
                 ;;
             fedora)
-                sudo dnf install -y chafa ImageMagick 2>/dev/null || print_warning "Some optional dependencies failed to install"
+                local packages=("${optional_missing[@]/imagemagick/ImageMagick}")
+                sudo dnf install -y "${packages[@]}" || optional_ok=false
                 ;;
             suse)
-                sudo zypper install -y chafa ImageMagick 2>/dev/null || print_warning "Some optional dependencies failed to install"
+                local packages=("${optional_missing[@]/imagemagick/ImageMagick}")
+                sudo zypper --non-interactive install "${packages[@]}" || optional_ok=false
                 ;;
         esac
-        print_success "Optional dependencies installed"
+        if [ "$optional_ok" = true ] && { [[ "${optional_missing[*]}" != *chafa* ]] || command -v chafa >/dev/null 2>&1; } &&
+           { [[ "${optional_missing[*]}" != *imagemagick* ]] || command -v magick >/dev/null 2>&1 || command -v convert >/dev/null 2>&1; }; then
+            print_success "Optional dependencies installed"
+        else
+            print_warning "Some optional dependencies failed to install"
+        fi
     fi
     
     # Verify installation
@@ -273,7 +305,7 @@ install_nerd_fonts() {
     
     # Check if any Nerd Font is installed
     local font_installed=false
-    if fc-list 2>/dev/null | grep -i "nerd" &> /dev/null; then
+    if command -v fc-list >/dev/null 2>&1 && fc-list 2>/dev/null | grep -i "nerd" &> /dev/null; then
         font_installed=true
     fi
     
@@ -285,28 +317,42 @@ install_nerd_fonts() {
         echo
 
         if [[ ! $REPLY =~ ^[Nn]$ ]]; then
-            local distro_base=$(detect_distro_base)
+            local distro_base
+            distro_base=$(detect_distro_base)
+            require_command sudo || return 1
             case $distro_base in
                 arch)
+                    require_command pacman || return 1
                     print_info "Installing Nerd Fonts via pacman..."
-                    sudo pacman -S --noconfirm ttf-jetbrains-mono-nerd 2>/dev/null || true
+                    if ! sudo pacman -S --noconfirm ttf-jetbrains-mono-nerd; then
+                        print_warning "Nerd Font installation failed"
+                    fi
                     ;;
                 debian|fedora|suse)
                     print_info "Installing Fontconfig utilities..."
                     case $distro_base in
-                        debian) sudo apt install -y fontconfig curl unzip 2>/dev/null || true ;;
-                        fedora) sudo dnf install -y fontconfig curl unzip 2>/dev/null || true ;;
-                        suse) sudo zypper install -y fontconfig curl unzip 2>/dev/null || true ;;
+                        debian) require_command apt-get || return 1; sudo apt-get install -y fontconfig curl unzip || true ;;
+                        fedora) require_command dnf || return 1; sudo dnf install -y fontconfig curl unzip || true ;;
+                        suse) require_command zypper || return 1; sudo zypper --non-interactive install fontconfig curl unzip || true ;;
                     esac
-                    
+                    local font_tmp
+                    for tool in curl unzip fc-cache mktemp; do
+                        if ! command -v "$tool" >/dev/null 2>&1; then
+                            print_warning "Nerd Font installation skipped: $tool is unavailable"
+                            return 0
+                        fi
+                    done
                     print_info "Downloading and installing JetBrainsMono Nerd Font..."
-                    mkdir -p "$HOME/.local/share/fonts"
-                    cd /tmp
-                    curl -L -o JetBrainsMono.zip "https://github.com/ryanoasis/nerd-fonts/releases/latest/download/JetBrainsMono.zip"
-                    unzip -o JetBrainsMono.zip -d "$HOME/.local/share/fonts/JetBrainsMono"
-                    fc-cache -fv "$HOME/.local/share/fonts/JetBrainsMono"
-                    rm -f JetBrainsMono.zip
-                    print_success "JetBrainsMono Nerd Font installed"
+                    font_tmp=$(mktemp -d) || return 1
+                    if curl -fL -o "$font_tmp/JetBrainsMono.zip" "https://github.com/ryanoasis/nerd-fonts/releases/latest/download/JetBrainsMono.zip" &&
+                       mkdir -p "$HOME/.local/share/fonts/JetBrainsMono" &&
+                       unzip -o "$font_tmp/JetBrainsMono.zip" -d "$HOME/.local/share/fonts/JetBrainsMono" &&
+                       fc-cache -fv "$HOME/.local/share/fonts/JetBrainsMono"; then
+                        print_success "JetBrainsMono Nerd Font installed"
+                    else
+                        print_warning "Nerd Font installation failed"
+                    fi
+                    rm -rf -- "$font_tmp"
                     ;;
             esac
             
@@ -603,12 +649,12 @@ EOF
     --backup)
         init_config
         create_backup
-        exit 0
+        exit $?
         ;;
     --restore)
         init_config
         restore_backup
-        exit 0
+        exit $?
         ;;
     uninstall)
         shift  # Remove 'uninstall' from arguments
@@ -671,64 +717,60 @@ custom_image=$(get_config_value "fastfetch" "custom_image")
 # Compute runtime logo according to current terminal
 logo_source=$(get_logo_source "$logo_type" "$custom_image")
 logo_actual_type=$(get_logo_type "$logo_type" "$custom_image")
+logo_width=""
+case "$logo_actual_type" in kitty-direct|kitty|iterm|sixel) logo_width=20 ;; esac
 
 # Prepare temp config with adjusted logo fields
 cp "$JSON" "$TMP"
 
 # Update logo.type and logo.source inside the JSON safely with awk
-awk -v t="$logo_actual_type" -v s="$logo_source" '
-  BEGIN{ inlogo=0; has_source=0; has_type=0 }
+awk -v t="$logo_actual_type" -v s="$logo_source" -v w="$logo_width" '
+  BEGIN{ inlogo=0; has_source=0; has_type=0; has_width=0 }
   {
     # Detect logo block start
-    if ($0 ~ /"logo"\s*:\s*\{/){ 
+    if ($0 ~ /"logo"[[:space:]]*:[[:space:]]*\{/){
       inlogo=1
       has_source=0
       has_type=0
+      has_width=0
       print
+      if (t != "") print "        \"type\": \"" t "\",";
+      if (s != "") print "        \"source\": \"" s "\",";
       next
     }
     
     # Detect logo block end
-    if (inlogo==1 && $0 ~ /^\s*}\s*,?\s*$/){
-      # before closing, if s is non-empty and no source line present, insert one
-      if (s != "" && has_source==0){
-        print "        \"source\": \"" s "\",";
-      }
-      # if type is non-empty and no type line present, insert one
-      if (t != "" && has_type==0){
-        print "        \"type\": \"" t "\",";
-      }
+    if (inlogo==1 && $0 ~ /^[[:space:]]*}[[:space:]]*,?[[:space:]]*$/){
       inlogo=0
       has_source=0
       has_type=0
+      has_width=0
       print
       next
     }
     
     # Inside logo block - handle type field
-    if (inlogo==1 && $0 ~ /"type"\s*:/){
-      has_type=1
-      if (t == "") {
-        # drop type line entirely when empty (for ASCII files)
-        next
-      } else {
-        sub(/"type"\s*:\s*"[^"]*"/, "\"type\": \"" t "\"")
-        print
-        next
-      }
+    if (inlogo==1 && $0 ~ /"type"[[:space:]]*:/){
+      next
     }
     
     # Inside logo block - handle source field
-    if (inlogo==1 && $0 ~ /"source"\s*:/){
-      has_source=1
-      if (s == "") {
-        # drop source line entirely
-        next
-      } else {
-        sub(/"source"\s*:\s*"[^"]*"/, "\"source\": \"" s "\"")
-        print
-        next
-      }
+    if (inlogo==1 && $0 ~ /"source"[[:space:]]*:/){
+      next
+    }
+
+    # Image protocols need a fixed width to avoid a terminal cursor query.
+    if (inlogo==1 && $0 ~ /"width"[[:space:]]*:/){
+      has_width=1
+      if (w == "") next
+      sub(/"width"[[:space:]]*:[[:space:]]*[0-9]+/, "\"width\": " w)
+      print
+      next
+    }
+    if (inlogo==1 && $0 ~ /"height"[[:space:]]*:/){
+      if (w != "" && has_width==0) print "        \"width\": " w ","
+      print
+      next
     }
     
     # Default: print the line as-is
@@ -754,6 +796,15 @@ CONFIG_FILE="$CONFIG_DIR/config.ini"
 IMAGES_DIR="$CONFIG_DIR/images"
 LOGOS_DIR="$CONFIG_DIR/logos"
 BACKUP_DIR="$CONFIG_DIR/backups"
+
+# ImageMagick 6 exposes convert/identify; version 7 prefers magick.
+has_image_magick() { command -v magick >/dev/null 2>&1 || command -v convert >/dev/null 2>&1; }
+image_convert() {
+    if command -v magick >/dev/null 2>&1; then magick "$@"; else convert "$@"; fi
+}
+image_identify() {
+    if command -v magick >/dev/null 2>&1; then magick identify "$@"; else identify "$@"; fi
+}
 
 show_header() {
     clear
@@ -1270,67 +1321,51 @@ toggle_labels() {
     apply_preset "$preset"
 }
 
+terminal_from_ancestors() {
+    # Follow this shell's process tree, stopping at the nearest terminal.
+    # This also overrides a stale KITTY_WINDOW_ID inherited by another terminal.
+    local pid=$PPID comm line parent i
+    for ((i=0; i<16; i++)); do
+        [[ "$pid" =~ ^[0-9]+$ ]] && [ "$pid" -gt 1 ] || break
+        [ -r "/proc/$pid/comm" ] && [ -r "/proc/$pid/status" ] || break
+        IFS= read -r comm < "/proc/$pid/comm"
+        case "$comm" in
+            kitty|ghostty) echo kitty; return ;;
+            konsole) echo konsole; return ;;
+            wezterm-gui|wezterm) echo wezterm; return ;;
+            gnome-terminal*|kgx|alacritty|xterm|xfce4-terminal*|foot)
+                echo none; return ;;
+        esac
+        parent=""
+        while IFS= read -r line; do
+            case "$line" in PPid:*) parent=${line#PPid:}; parent=${parent//[[:space:]]/}; break ;; esac
+        done < "/proc/$pid/status"
+        [ -n "$parent" ] && [ "$parent" != "$pid" ] || break
+        pid=$parent
+    done
+}
+
 check_terminal_image_support() {
-    # Enhanced terminal detection with better support for various terminals
-    # Check specific terminal environment variables first
-    if [ -n "$KITTY_WINDOW_ID" ] || [ "$TERM" = "xterm-kitty" ]; then
+    # Only signals belonging to this session are useful. A process elsewhere on
+    # the machine says nothing about the terminal controlling this shell.
+    local ancestor_terminal
+    ancestor_terminal=$(terminal_from_ancestors)
+    if [ -n "$ancestor_terminal" ]; then
+        echo "$ancestor_terminal"
+        return
+    fi
+    if [ -n "${KITTY_WINDOW_ID:-}" ] || [ "${TERM:-}" = "xterm-kitty" ]; then
         echo "kitty"
-    elif [ -n "$GHOSTTY_RESOURCES_DIR" ] || [ "$TERM_PROGRAM" = "ghostty" ]; then
-        echo "kitty"  # Ghostty supports kitty graphics protocol
-    elif [ -n "$WEZTERM_EXECUTABLE" ]; then
+    elif [ -n "${GHOSTTY_RESOURCES_DIR:-}" ] || [ "${TERM_PROGRAM:-}" = "ghostty" ]; then
+        echo "kitty"
+    elif [ -n "${WEZTERM_EXECUTABLE:-}" ] || [ "${TERM_PROGRAM:-}" = "WezTerm" ]; then
         echo "wezterm"
-    elif [ "$TERM_PROGRAM" = "iTerm.app" ]; then
+    elif [ "${TERM_PROGRAM:-}" = "iTerm.app" ]; then
         echo "iterm2"
-    elif [ -n "$KONSOLE_VERSION" ] || [ -n "$KONSOLE_DBUS_SERVICE" ]; then
+    elif [ -n "${KONSOLE_VERSION:-}" ] || [ -n "${KONSOLE_DBUS_SERVICE:-}" ]; then
         echo "konsole"
-    elif [ "$TERM_PROGRAM" = "gnome-terminal" ] || [ "$TERM" = "gnome-256color" ] || [ "$TERM" = "gnome" ]; then
-        echo "none"
-    elif [ "$TERM_PROGRAM" = "terminator" ]; then
-        echo "none"
-    elif [ "$TERM_PROGRAM" = "xterm" ] || [ "$TERM" = "xterm-256color" ]; then
-        echo "none"
-    elif [ "$TERM_PROGRAM" = "foot" ]; then
-        echo "foot"  # Foot supports sixel protocol
-    elif [ "$TERM_PROGRAM" = "alacritty" ] || [ "$TERM" = "alacritty" ]; then
-        echo "none"
-    elif [ -n "$GNOME_TERMINAL_SCREEN" ]; then
-        echo "none"
-    elif [ "$TERM" = "dumb" ] || [ -z "$TERM_PROGRAM" ]; then
-        # For dumb terminals or when TERM_PROGRAM is not set, try to detect the actual terminal
-        # Check if we're in a known terminal emulator
-        if command -v kitty &> /dev/null && pgrep -x kitty > /dev/null; then
-            echo "kitty"
-        elif command -v konsole &> /dev/null && pgrep -x konsole > /dev/null; then
-            echo "konsole"
-        elif command -v wezterm &> /dev/null && pgrep -x wezterm > /dev/null; then
-            echo "wezterm"
-        elif command -v foot &> /dev/null && pgrep -x foot > /dev/null; then
-            echo "foot"  # Foot supports sixel protocol
-        elif command -v alacritty &> /dev/null && pgrep -x alacritty > /dev/null; then
-            echo "none"  # alacritty doesn't support image protocols used by this script
-        else
-            # Check for Wayland environment and common terminals
-            if [ -n "$WAYLAND_DISPLAY" ] || [ -n "$HYPRLAND_INSTANCE_SIGNATURE" ]; then
-                # We're in Wayland/Hyprland, try to detect terminal by process
-                local parent_pid=$(ps -o ppid= -p $$ 2>/dev/null | tr -d ' ')
-                local parent_cmd=$(ps -o cmd= -p $parent_pid 2>/dev/null)
-                
-                if echo "$parent_cmd" | grep -q "kitty"; then
-                    echo "kitty"
-                elif echo "$parent_cmd" | grep -q "wezterm"; then
-                    echo "wezterm"
-                elif echo "$parent_cmd" | grep -q "foot"; then
-                    echo "foot"
-                elif echo "$parent_cmd" | grep -q "konsole"; then
-                    echo "konsole"
-                else
-                    echo "none"
-                fi
-            else
-                # Default to none for unknown terminals
-                echo "none"
-            fi
-        fi
+    elif [ "${TERM_PROGRAM:-}" = "foot" ] || [ "${TERM:-}" = "foot" ]; then
+        echo "foot"
     else
         echo "none"
     fi
@@ -1897,163 +1932,163 @@ get_theme_color() {
                 primary) echo "#d79921" ;;
                 secondary) echo "#458588" ;;
                 accent) echo "#98971a" ;;
-                text) echo="#ebdbb2" ;;
-                background) echo="#282828" ;;
-                *) echo="#d79921" ;;
+                text) echo "#ebdbb2" ;;
+                background) echo "#282828" ;;
+                *) echo "#d79921" ;;
             esac
             ;;
         tokyo-night)
             case $color_type in
-                primary) echo="#7aa2f7" ;;
-                secondary) echo="#bb9af7" ;;
-                accent) echo="#9ece6a" ;;
-                text) echo="#c0caf5" ;;
-                background) echo="#1a1b26" ;;
-                *) echo="#7aa2f7" ;;
+                primary) echo "#7aa2f7" ;;
+                secondary) echo "#bb9af7" ;;
+                accent) echo "#9ece6a" ;;
+                text) echo "#c0caf5" ;;
+                background) echo "#1a1b26" ;;
+                *) echo "#7aa2f7" ;;
             esac
             ;;
         one-dark)
             case $color_type in
-                primary) echo="#61afef" ;;
-                secondary) echo="#c678dd" ;;
-                accent) echo="#98c379" ;;
-                text) echo="#abb2bf" ;;
-                background) echo="#282c34" ;;
-                *) echo="#61afef" ;;
+                primary) echo "#61afef" ;;
+                secondary) echo "#c678dd" ;;
+                accent) echo "#98c379" ;;
+                text) echo "#abb2bf" ;;
+                background) echo "#282c34" ;;
+                *) echo "#61afef" ;;
             esac
             ;;
         synthwave)
             case $color_type in
-                primary) echo="#36f9f6" ;;
-                secondary) echo="#ff7edb" ;;
-                accent) echo="#72f1b8" ;;
-                text) echo="#ffffff" ;;
-                background) echo="#2a2139" ;;
-                *) echo="#36f9f6" ;;
+                primary) echo "#36f9f6" ;;
+                secondary) echo "#ff7edb" ;;
+                accent) echo "#72f1b8" ;;
+                text) echo "#ffffff" ;;
+                background) echo "#2a2139" ;;
+                *) echo "#36f9f6" ;;
             esac
             ;;
         oceanic-next)
             case $color_type in
-                primary) echo="#6699cc" ;;
-                secondary) echo="#5fb3b3" ;;
-                accent) echo="#99c794" ;;
-                text) echo="#c0c5ce" ;;
-                background) echo="#1b2b34" ;;
-                *) echo="#6699cc" ;;
+                primary) echo "#6699cc" ;;
+                secondary) echo "#5fb3b3" ;;
+                accent) echo "#99c794" ;;
+                text) echo "#c0c5ce" ;;
+                background) echo "#1b2b34" ;;
+                *) echo "#6699cc" ;;
             esac
             ;;
         monochrome)
             case $color_type in
-                primary) echo="#a0a0a0" ;;
-                secondary) echo="#8e8e8e" ;;
-                accent) echo="#7c7c7c" ;;
-                text) echo="#ffffff" ;;
-                background) echo="#000000" ;;
-                *) echo="#a0a0a0" ;;
+                primary) echo "#a0a0a0" ;;
+                secondary) echo "#8e8e8e" ;;
+                accent) echo "#7c7c7c" ;;
+                text) echo "#ffffff" ;;
+                background) echo "#000000" ;;
+                *) echo "#a0a0a0" ;;
             esac
             ;;
         gruvbox-light)
             case $color_type in
-                primary) echo="#ff69b4" ;;    # hot pink
-                secondary) echo="#dda0dd" ;;  # plum
-                accent) echo="#98fb98" ;;     # pale green
-                text) echo="#000000" ;;       # pure black for maximum contrast
-                background) echo="#fff0f5" ;; # lavender blush
-                *) echo="#ff69b4" ;;
+                primary) echo "#ff69b4" ;;    # hot pink
+                secondary) echo "#dda0dd" ;;  # plum
+                accent) echo "#98fb98" ;;     # pale green
+                text) echo "#000000" ;;       # pure black for maximum contrast
+                background) echo "#fff0f5" ;; # lavender blush
+                *) echo "#ff69b4" ;;
             esac
             ;;
         solarized-light)
             case $color_type in
-                primary) echo="#ff85ad" ;;    # soft pink
-                secondary) echo="#d9b3ff" ;;  # light purple
-                accent) echo="#a8e6cf" ;;     # mint green
-                text) echo="#000000" ;;       # pure black for maximum contrast
-                background) echo="#f8f4ff" ;; # very light lavender
-                *) echo="#ff85ad" ;;
+                primary) echo "#ff85ad" ;;    # soft pink
+                secondary) echo "#d9b3ff" ;;  # light purple
+                accent) echo "#a8e6cf" ;;     # mint green
+                text) echo "#000000" ;;       # pure black for maximum contrast
+                background) echo "#f8f4ff" ;; # very light lavender
+                *) echo "#ff85ad" ;;
             esac
             ;;
         one-light)
             case $color_type in
-                primary) echo="#ff9ecf" ;;    # rose pink
-                secondary) echo="#e6b3ff" ;;  # light violet
-                accent) echo="#b3ffb3" ;;     # light green
-                text) echo="#000000" ;;       # pure black for maximum contrast
-                background) echo="#fff5f8" ;; # very light pink
-                *) echo="#ff9ecf" ;;
+                primary) echo "#ff9ecf" ;;    # rose pink
+                secondary) echo "#e6b3ff" ;;  # light violet
+                accent) echo "#b3ffb3" ;;     # light green
+                text) echo "#000000" ;;       # pure black for maximum contrast
+                background) echo "#fff5f8" ;; # very light pink
+                *) echo "#ff9ecf" ;;
             esac
             ;;
         ayu-light)
             case $color_type in
-                primary) echo="#ff8fa3" ;;    # soft pink
-                secondary) echo="#e6a8e6" ;;  # light pink
-                accent) echo="#a8e6a8" ;;     # light mint green
-                text) echo="#000000" ;;       # pure black for maximum contrast
-                background) echo="#fef7ff" ;; # very light lavender
-                *) echo="#ff8fa3" ;;
+                primary) echo "#ff8fa3" ;;    # soft pink
+                secondary) echo "#e6a8e6" ;;  # light pink
+                accent) echo "#a8e6a8" ;;     # light mint green
+                text) echo "#000000" ;;       # pure black for maximum contrast
+                background) echo "#fef7ff" ;; # very light lavender
+                *) echo "#ff8fa3" ;;
             esac
             ;;
         monokai-pro)
             case $color_type in
-                primary) echo="#fc9867" ;;
-                secondary) echo="#ab9df2" ;;
-                accent) echo="#a9dc76" ;;
-                text) echo="#fcfcfa" ;;
-                background) echo="#2d2a2e" ;;
-                *) echo="#fc9867" ;;
+                primary) echo "#fc9867" ;;
+                secondary) echo "#ab9df2" ;;
+                accent) echo "#a9dc76" ;;
+                text) echo "#fcfcfa" ;;
+                background) echo "#2d2a2e" ;;
+                *) echo "#fc9867" ;;
             esac
             ;;
         palenight)
             case $color_type in
-                primary) echo="#82aaff" ;;
-                secondary) echo="#c792ea" ;;
-                accent) echo="#c3e88d" ;;
-                text) echo="#a6accd" ;;
-                background) echo="#292d3e" ;;
-                *) echo="#82aaff" ;;
+                primary) echo "#82aaff" ;;
+                secondary) echo "#c792ea" ;;
+                accent) echo "#c3e88d" ;;
+                text) echo "#a6accd" ;;
+                background) echo "#292d3e" ;;
+                *) echo "#82aaff" ;;
             esac
             ;;
         sakura)
             case $color_type in
-                primary) echo="#ff69b4" ;;
-                secondary) echo="#ff1493" ;;
-                accent) echo="#98d8c8" ;;
-                text) echo="#2d2a2e" ;;
-                background) echo="#fff5f7" ;;
-                *) echo="#ff69b4" ;;
+                primary) echo "#ff69b4" ;;
+                secondary) echo "#ff1493" ;;
+                accent) echo "#98d8c8" ;;
+                text) echo "#2d2a2e" ;;
+                background) echo "#fff5f7" ;;
+                *) echo "#ff69b4" ;;
             esac
             ;;
         lavender)
             case $color_type in
-                primary) echo="#9370db" ;;
-                secondary) echo="#ba55d3" ;;
-                accent) echo="#b19cd9" ;;
-                text) echo="#2d2a2e" ;;
-                background) echo="#f5f3ff" ;;
-                *) echo="#9370db" ;;
+                primary) echo "#9370db" ;;
+                secondary) echo "#ba55d3" ;;
+                accent) echo "#b19cd9" ;;
+                text) echo "#2d2a2e" ;;
+                background) echo "#f5f3ff" ;;
+                *) echo "#9370db" ;;
             esac
             ;;
         candy)
             case $color_type in
-                primary) echo="#ff85ad" ;;
-                secondary) echo="#d9b3ff" ;;
-                accent) echo="#c2f0c2" ;;
-                text) echo="#5d4e6d" ;;
-                background) echo="#ffe6f0" ;;
-                *) echo="#ff85ad" ;;
+                primary) echo "#ff85ad" ;;
+                secondary) echo "#d9b3ff" ;;
+                accent) echo "#c2f0c2" ;;
+                text) echo "#5d4e6d" ;;
+                background) echo "#ffe6f0" ;;
+                *) echo "#ff85ad" ;;
             esac
             ;;
         strawberry)
             case $color_type in
-                primary) echo="#ff69b4" ;;    # hot pink
-                secondary) echo="#ffa0b4" ;;  # strawberry pink
-                accent) echo="#ffb6c1" ;;     # light pink
-                text) echo="#000000" ;;       # pure black for maximum contrast
-                background) echo="#fff0f5" ;; # strawberry cream
-                *) echo="#ff69b4" ;;
+                primary) echo "#ff69b4" ;;    # hot pink
+                secondary) echo "#ffa0b4" ;;  # strawberry pink
+                accent) echo "#ffb6c1" ;;     # light pink
+                text) echo "#000000" ;;       # pure black for maximum contrast
+                background) echo "#fff0f5" ;; # strawberry cream
+                *) echo "#ff69b4" ;;
             esac
             ;;
         *)
-            echo="#569cd6" ;;
+            echo "#569cd6" ;;
     esac
 }
 
@@ -2336,116 +2371,7 @@ main_menu() {
     done
 }
 
-color_settings_menu() {
-    while true; do
-        local use_theme_colors=$(get_config_value "fastfetch" "use_theme_colors")
-        [ -z "$use_theme_colors" ] && use_theme_colors="true"
-        local key_color=$(get_config_value "fastfetch" "key_color")
-        [ -z "$key_color" ] && key_color="34"
-        local value_color=$(get_config_value "fastfetch" "value_color")
-        [ -z "$value_color" ] && value_color="default"
-        
-        local options=(
-            "🎨 Use Theme Colors: $use_theme_colors"
-            "🔑 Icon Color: $key_color"
-            "📝 Text Color: $value_color"
-            "🔄 Reset to Theme Colors"
-            "← Back"
-        )
-        
-        select_option "🎨 Icon & Text Colors (Theme Colors: $use_theme_colors) [↑↓ Navigate, Enter to Select, Q to Back]" "${options[@]}"
-        local choice=$?
-        
-        [ $choice -eq 4 ] || [ $choice -eq 255 ] && return
-        
-        case $choice in
-            0) toggle_theme_colors ;;
-            1) set_icon_color ;;
-            2) set_text_color ;;
-            3) reset_to_theme_colors ;;
-        esac
-    done
-}
-
-toggle_theme_colors() {
-    local current=$(get_config_value "fastfetch" "use_theme_colors")
-    if [ "$current" = "true" ]; then
-        set_config_value "fastfetch" "use_theme_colors" "false"
-        # Set default custom colors if not already set
-        local key_color=$(get_config_value "fastfetch" "key_color")
-        local value_color=$(get_config_value "fastfetch" "value_color")
-        [ -z "$key_color" ] && set_config_value "fastfetch" "key_color" "34"
-        [ -z "$value_color" ] && set_config_value "fastfetch" "value_color" "37"
-        echo -e "\n\033[1;33m🎨 Using custom colors (Icon: 34, Text: 37)\033[0m"
-    else
-        set_config_value "fastfetch" "use_theme_colors" "true"
-        echo -e "\n\033[1;33m🎨 Using theme colors\033[0m"
-    fi
-    
-    # Re-apply current preset
-    local preset=$(get_config_value "fastfetch" "preset")
-    apply_preset "$preset"
-}
-
-set_icon_color() {
-    show_header
-    echo -e "\033[1;33m🔑 Icon Color\033[0m"
-    echo ""
-    echo -e "Available colors:"
-    echo "  31=Red, 32=Green, 33=Yellow, 34=Blue, 35=Magenta, 36=Cyan, 37=White"
-    echo ""
-    echo -ne "Enter color code (31-37): "
-    read -r color_code
-    
-    if [[ "$color_code" =~ ^[3][1-7]$ ]]; then
-        set_config_value "fastfetch" "key_color" "$color_code"
-        set_config_value "fastfetch" "use_theme_colors" "false"
-        
-        # Re-apply current preset
-        local preset=$(get_config_value "fastfetch" "preset")
-        apply_preset "$preset"
-        echo -e "\n\033[1;32m✓ Icon color updated!\033[0m"
-    else
-        echo -e "\n\033[1;31m✗ Invalid color code!\033[0m"
-    fi
-    sleep 2
-}
-
-set_text_color() {
-    show_header
-    echo -e "\033[1;33m📝 Text Color\033[0m"
-    echo ""
-    echo -e "Available options:"
-    echo "  default = Use theme colors"
-    echo "  31=Red, 32=Green, 33=Yellow, 34=Blue, 35=Magenta, 36=Cyan, 37=White"
-    echo ""
-    echo -ne "Enter color (default or 31-37): "
-    read -r color_code
-    
-    if [[ "$color_code" = "default" ]] || [[ "$color_code" =~ ^[3][1-7]$ ]]; then
-        set_config_value "fastfetch" "value_color" "$color_code"
-        set_config_value "fastfetch" "use_theme_colors" "false"
-        
-        # Re-apply current preset
-        local preset=$(get_config_value "fastfetch" "preset")
-        apply_preset "$preset"
-        echo -e "\n\033[1;32m✓ Text color updated!\033[0m"
-    else
-        echo -e "\n\033[1;31m✗ Invalid color!\033[0m"
-    fi
-    sleep 2
-}
-
-reset_to_theme_colors() {
-    set_config_value "fastfetch" "use_theme_colors" "true"
-    set_config_value "fastfetch" "key_color" "34"
-    set_config_value "fastfetch" "value_color" "default"
-    
-    # Re-apply current preset
-    local preset=$(get_config_value "fastfetch" "preset")
-    apply_preset "$preset"
-    echo -e "\n\033[1;32m✓ Reset to theme colors!\033[0m"
-}
+# Color settings use the single implementation below.
 
 # Preview callback for ASCII logos
 preview_ascii_logo() {
@@ -2626,8 +2552,8 @@ preview_image_logo() {
                 else
                     # Just show image info if chafa not available
                     echo -e "\033[1;36mFile:\033[0m $(basename "$image_path")"
-                    if command -v identify &>/dev/null; then
-                        local dimensions=$(identify -format "%wx%h" "$image_path" 2>/dev/null)
+                    if has_image_magick; then
+                        local dimensions=$(image_identify -format "%wx%h" "$image_path" 2>/dev/null)
                         [ -n "$dimensions" ] && echo -e "\033[1;36mDimensions:\033[0m $dimensions"
                     fi
                     local size=$(du -h "$image_path" 2>/dev/null | cut -f1)
@@ -2639,8 +2565,8 @@ preview_image_logo() {
             else
                 # Just show image info
                 echo -e "\033[1;36mFile:\033[0m $(basename "$image_path")"
-                if command -v identify &>/dev/null; then
-                    local dimensions=$(identify -format "%wx%h" "$image_path" 2>/dev/null)
+                if has_image_magick; then
+                    local dimensions=$(image_identify -format "%wx%h" "$image_path" 2>/dev/null)
                     [ -n "$dimensions" ] && echo -e "\033[1;36mDimensions:\033[0m $dimensions"
                 fi
                 local size=$(du -h "$image_path" 2>/dev/null | cut -f1)
@@ -2775,8 +2701,8 @@ image_logo_submenu() {
 
             # Convert to PNG if needed, preserving transparency
             if [ "$ext_lower" != "png" ]; then
-                if command -v convert &> /dev/null; then
-                    convert "$selected_image" PNG32:"$target_image" 2>/dev/null
+                if has_image_magick &> /dev/null; then
+                    image_convert "$selected_image" PNG32:"$target_image" 2>/dev/null
                 else
                     cp "$selected_image" "$IMAGES_DIR/preset_logo.$ext_lower"
                     target_image="$IMAGES_DIR/preset_logo.$ext_lower"
@@ -2786,10 +2712,10 @@ image_logo_submenu() {
             fi
 
             # Resize if too large
-            if command -v convert &> /dev/null && [ -f "$target_image" ]; then
-                local img_width=$(identify -format "%w" "$target_image" 2>/dev/null)
+            if has_image_magick &> /dev/null && [ -f "$target_image" ]; then
+                local img_width=$(image_identify -format "%w" "$target_image" 2>/dev/null)
                 if [ -n "$img_width" ] && [ "$img_width" -gt 800 ]; then
-                    convert "$target_image" -resize 800x PNG32:"$target_image" 2>/dev/null
+                    image_convert "$target_image" -resize 800x PNG32:"$target_image" 2>/dev/null
                 fi
             fi
 
@@ -2835,9 +2761,9 @@ image_logo_submenu() {
 
                     # Convert to PNG preserving transparency
                     if [ "$ext_lower" != "png" ]; then
-                        if command -v convert &> /dev/null; then
+                        if has_image_magick &> /dev/null; then
                             echo -e "\033[1;33m🔄 Converting $ext_lower to PNG...\033[0m"
-                            convert "$image_path" PNG32:"$IMAGES_DIR/custom_logo.png" 2>/dev/null
+                            image_convert "$image_path" PNG32:"$IMAGES_DIR/custom_logo.png" 2>/dev/null
                             if [ $? -eq 0 ]; then
                                 echo -e "\033[1;32m✓ Image converted successfully!\033[0m"
                             else
@@ -2863,12 +2789,12 @@ image_logo_submenu() {
                     fi
 
                     # Resize if image is too large (preserve transparency)
-                    if command -v convert &> /dev/null && [ -f "$IMAGES_DIR/custom_logo.png" ]; then
+                    if has_image_magick &> /dev/null && [ -f "$IMAGES_DIR/custom_logo.png" ]; then
                         # Get image dimensions
-                        img_width=$(identify -format "%w" "$IMAGES_DIR/custom_logo.png" 2>/dev/null)
+                        img_width=$(image_identify -format "%w" "$IMAGES_DIR/custom_logo.png" 2>/dev/null)
                         if [ -n "$img_width" ] && [ "$img_width" -gt 800 ]; then
                             echo -e "\033[1;33m📐 Resizing large image...\033[0m"
-                            convert "$IMAGES_DIR/custom_logo.png" -resize 800x PNG32:"$IMAGES_DIR/custom_logo.png" 2>/dev/null
+                            image_convert "$IMAGES_DIR/custom_logo.png" -resize 800x PNG32:"$IMAGES_DIR/custom_logo.png" 2>/dev/null
                         fi
                     fi
 
@@ -2989,7 +2915,7 @@ apply_logo_config() {
     
     # Cleanup: remove invalid/empty source fields for auto/builtin
     if [ -f "$CONFIG_DIR/fastfetch.jsonc" ]; then
-        sed -i -E '/"source"\s*:\s*""/d; /"source"\s*:\s*"auto"/d' "$CONFIG_DIR/fastfetch.jsonc" 2>/dev/null || true
+        sed -i -E '/"source"[[:space:]]*:[[:space:]]*""/d; /"source"[[:space:]]*:[[:space:]]*"auto"/d' "$CONFIG_DIR/fastfetch.jsonc" 2>/dev/null || true
     fi
 
     echo -e "\033[1;32m✓ Logo applied!\033[0m"
@@ -3839,8 +3765,10 @@ set_config_value() {
     elif grep -q "^\[$section\]" "$CONFIG_FILE"; then
         if grep -q "^$key=" "$CONFIG_FILE"; then
             # Use a temporary file for safer sed operation
-            local tmp_file=$(mktemp)
-            awk -v section="$section" -v key="$key" -v value="$value" '
+            local tmp_file
+            tmp_file=$(mktemp "$CONFIG_DIR/.config.XXXXXX") || return 1
+            cp -p -- "$CONFIG_FILE" "$tmp_file" || { rm -f -- "$tmp_file"; return 1; }
+            if awk -v section="$section" -v key="$key" -v value="$value" '
                 BEGIN { in_section=0 }
                 /^\[.*\]$/ {
                     in_section = ($0 == "["section"]")
@@ -3850,8 +3778,13 @@ set_config_value() {
                     next
                 }
                 { print }
-            ' "$CONFIG_FILE" > "$tmp_file"
-            mv "$tmp_file" "$CONFIG_FILE"
+            ' "$CONFIG_FILE" > "$tmp_file" && mv -- "$tmp_file" "$CONFIG_FILE"; then
+                :
+            else
+                rm -f -- "$tmp_file"
+                printf '%s\n' "Failed to save configuration; existing file preserved" >&2
+                return 1
+            fi
         else
             sed -i "/^\[$section\]/a $key=$escaped_value" "$CONFIG_FILE"
         fi
@@ -3859,28 +3792,39 @@ set_config_value() {
 }
 
 create_backup() {
-    local timestamp=$(date +%Y%m%d_%H%M%S)
-    local backup_file="$BACKUP_DIR/backup_$timestamp.tar.gz"
-    
-    mkdir -p "$BACKUP_DIR"
-    
-    tar -czf "$backup_file" -C "$CONFIG_DIR" . 2>/dev/null
-    
-    if [ $? -eq 0 ]; then
+    local backup_file
+    for tool in tar gzip mktemp; do
+        if ! command -v "$tool" >/dev/null 2>&1; then
+            echo "Backup requires $tool" >&2
+            return 1
+        fi
+    done
+    mkdir -p "$BACKUP_DIR" || return 1
+    backup_file=$(mktemp "$BACKUP_DIR/backup_$(date +%Y%m%d_%H%M%S)_XXXXXX.tar.gz") || return 1
+    if tar --exclude='./backups' -czf "$backup_file" -C "$CONFIG_DIR" .; then
         echo -e "\n\033[1;32m✓ Backup created: $backup_file\033[0m"
     else
+        rm -f -- "$backup_file"
         echo -e "\n\033[1;31m✗ Backup failed!\033[0m"
+        return 1
     fi
-    sleep 1
 }
 
 restore_backup() {
-    local backups=($(ls -1 "$BACKUP_DIR"/*.tar.gz 2>/dev/null))
+    local backups=() backup_file choice member
+    for tool in tar gzip; do
+        if ! command -v "$tool" >/dev/null 2>&1; then
+            echo "Restore requires $tool" >&2
+            return 1
+        fi
+    done
+    for backup_file in "$BACKUP_DIR"/*.tar.gz; do
+        [ -f "$backup_file" ] && backups+=("$backup_file")
+    done
     
     if [ ${#backups[@]} -eq 0 ]; then
         echo -e "\n\033[1;33m⚠️  No backups found!\033[0m"
-        sleep 1
-        return
+        return 1
     fi
     
     echo -e "\n\033[1;33m📂 Available backups:\033[0m"
@@ -3891,25 +3835,38 @@ restore_backup() {
     echo -ne "\n\033[1;36mEnter backup number to restore: \033[0m"
     read -r choice
     
-    if [ "$choice" -ge 1 ] && [ "$choice" -le "${#backups[@]}" ]; then
-        local backup_file="${backups[$((choice-1))]}"
+    if [[ "$choice" =~ ^[0-9]+$ ]] && (( 10#$choice >= 1 && 10#$choice <= ${#backups[@]} )); then
+        backup_file="${backups[$((10#$choice-1))]}"
+        if ! tar -tzf "$backup_file" >/dev/null; then
+            print_error "Invalid backup archive"
+            return 1
+        fi
+        while IFS= read -r member; do
+            case "$member" in
+                /*|../*|*/../*|*/..|./backups|./backups/*)
+                    print_error "Unsafe backup entry: $member"
+                    return 1 ;;
+            esac
+        done < <(tar -tzf "$backup_file")
         
         echo -e "\n\033[1;33m🔄 Restoring backup...\033[0m"
-        tar -xzf "$backup_file" -C "$CONFIG_DIR"
-        
-        if [ $? -eq 0 ]; then
+        if tar -xzf "$backup_file" -C "$CONFIG_DIR"; then
             echo -e "\033[1;32m✓ Backup restored!\033[0m"
         else
             echo -e "\033[1;31m✗ Restore failed!\033[0m"
+            return 1
         fi
     else
         echo -e "\033[1;31m✗ Invalid choice!\033[0m"
+        return 1
     fi
-    sleep 1
 }
 
 list_backups() {
-    local backups=($(ls -1 "$BACKUP_DIR"/*.tar.gz 2>/dev/null))
+    local backups=() backup_file
+    for backup_file in "$BACKUP_DIR"/*.tar.gz; do
+        [ -f "$backup_file" ] && backups+=("$backup_file")
+    done
     
     if [ ${#backups[@]} -eq 0 ]; then
         echo -e "\n\033[1;33m⚠️  No backups found!\033[0m"
@@ -4106,9 +4063,9 @@ get_logo_type() {
     local custom_image=$2
 
     case $logo_type in
-        "pikachu"|"tux"|"arch"|"cat"|"neko"|"bunny"|"heart"|"sakura"|"naruto"|"pokeball"|"spider"|"dragon"|"creeper"|"star"|"rocket"|"custom") 
-            # ASCII logos - don't specify type, let fastfetch auto-detect from file
-            echo "" ;;
+        "pikachu"|"tux"|"arch"|"cat"|"neko"|"bunny"|"heart"|"sakura"|"naruto"|"pokeball"|"spider"|"dragon"|"creeper"|"star"|"rocket"|"custom")
+            # A valid type is needed in the saved config as well as the runtime copy.
+            echo "auto" ;;
         "image")
             # ALWAYS check terminal support at runtime, even if custom image exists
             local terminal_support=$(check_terminal_image_support)
@@ -4122,19 +4079,19 @@ get_logo_type() {
                 [ -z "$fallback" ] && fallback="auto"
 
                 case $fallback in
-                    "ascii") echo "" ;;   # ASCII file - no type needed
+                    "ascii") echo "auto" ;;
                     "none") echo "none" ;;
-                    *) echo "" ;;          # Auto → distro ASCII - no type needed
+                    *) echo "auto" ;;
                 esac
             else
                 # Terminal supports images - check if custom image exists
                 if [ -n "$custom_image" ] && [ -f "$custom_image" ]; then
                     # Use appropriate protocol for this terminal
                     case $terminal_support in
-                        "kitty") echo "kitty" ;;
-                        "wezterm") echo "wezterm" ;;
-                        "iterm2") echo "iterm2" ;;
-                        "konsole") echo "kitty" ;;  # Konsole supports kitty protocol
+                        "kitty") echo "kitty-direct" ;;
+                        "wezterm") echo "kitty-direct" ;;
+                        "iterm2"|"konsole") echo "iterm" ;;
+                        "foot") echo "sixel" ;;
                         *) echo "kitty" ;;  # Default to kitty protocol
                     esac
                 else
@@ -4145,6 +4102,13 @@ get_logo_type() {
             ;;
         "none") echo "none" ;;
         *) echo "auto" ;;
+    esac
+}
+
+logo_width_json_field() {
+    # Explicit dimensions let Kitty render without querying the cursor through stdin.
+    case "$1" in
+        kitty-direct|kitty|iterm|sixel) printf '        "width": 20,\n' ;;
     esac
 }
 
@@ -4165,6 +4129,14 @@ get_theme_ansi_color() {
     local theme=$1
     local color_type=$2
     
+    # Use explicit RGB instead of relying on mutable terminal ANSI palettes.
+    local rgb
+    rgb=$(get_theme_color "$theme" "$color_type")
+    if [[ "$rgb" =~ ^#[[:xdigit:]]{6}$ ]]; then
+        printf '%s\n' "$rgb"
+        return
+    fi
+
     case $theme in
         dracula)
             case $color_type in
@@ -4420,6 +4392,7 @@ create_full_config() {
     "logo": {
         "type": "$logo_actual_type",
         "source": "$logo_source",
+$(logo_width_json_field "$logo_actual_type")
         "height": 18,
         "padding": {
             "top": 2,
@@ -4446,8 +4419,7 @@ create_full_config() {
             "key": " ├ 󰣇 ",
             "keyColor": "$color1",
             "outputColor": "$tcolor1",
-            "keyWidth": 10,
-            "keyShow": $show_labels
+            "keyWidth": 10
         },
         {
             "type": "kernel",
@@ -4455,8 +4427,7 @@ create_full_config() {
             "key": " ├ 󰌢 ",
             "keyColor": "$color1",
             "outputColor": "$tcolor1",
-            "keyWidth": 10,
-            "keyShow": $show_labels
+            "keyWidth": 10
         },
         {
             "type": "packages",
@@ -4464,8 +4435,7 @@ create_full_config() {
             "key": " ├ 󰏖 ",
             "keyColor": "$color1",
             "outputColor": "$tcolor1",
-            "keyWidth": 10,
-            "keyShow": $show_labels
+            "keyWidth": 10
         },
         {
             "type": "shell",
@@ -4473,8 +4443,7 @@ create_full_config() {
             "key": " ├ 󰆍 ",
             "keyColor": "$color1",
             "outputColor": "$tcolor1",
-            "keyWidth": 10,
-            "keyShow": $show_labels
+            "keyWidth": 10
         },
         "break",
         {
@@ -4483,8 +4452,7 @@ create_full_config() {
             "key": " ├ 󰖲 ",
             "keyColor": "$color2",
             "outputColor": "$tcolor2",
-            "keyWidth": 10,
-            "keyShow": $show_labels
+            "keyWidth": 10
         },
         {
             "type": "de",
@@ -4492,8 +4460,7 @@ create_full_config() {
             "key": " ├ 󱂬 ",
             "keyColor": "$color2",
             "outputColor": "$tcolor2",
-            "keyWidth": 10,
-            "keyShow": $show_labels
+            "keyWidth": 10
         },
         {
             "type": "wmtheme",
@@ -4501,8 +4468,7 @@ create_full_config() {
             "key": " ├ 󰉼 ",
             "keyColor": "$color2",
             "outputColor": "$tcolor2",
-            "keyWidth": 10,
-            "keyShow": $show_labels
+            "keyWidth": 10
         },
         {
             "type": "icons",
@@ -4510,8 +4476,7 @@ create_full_config() {
             "key": " ├ 󰀻 ",
             "keyColor": "$color2",
             "outputColor": "$tcolor2",
-            "keyWidth": 10,
-            "keyShow": $show_labels
+            "keyWidth": 10
         },
         {
             "type": "cursor",
@@ -4519,8 +4484,7 @@ create_full_config() {
             "key": " ├ 󰘔 ",
             "keyColor": "$color2",
             "outputColor": "$tcolor2",
-            "keyWidth": 10,
-            "keyShow": $show_labels
+            "keyWidth": 10
         },
         {
             "type": "terminal",
@@ -4528,8 +4492,7 @@ create_full_config() {
             "key": " ├ 󰆍 ",
             "keyColor": "$color2",
             "outputColor": "$tcolor2",
-            "keyWidth": 10,
-            "keyShow": $show_labels
+            "keyWidth": 10
         },
         {
             "type": "terminalfont",
@@ -4537,8 +4500,7 @@ create_full_config() {
             "key": " ├ 󰛖 ",
             "keyColor": "$color2",
             "outputColor": "$tcolor2",
-            "keyWidth": 10,
-            "keyShow": $show_labels
+            "keyWidth": 10
         },
         "break",
         {
@@ -4547,8 +4509,7 @@ create_full_config() {
             "key": " ├ 󰌢 ",
             "keyColor": "$color3",
             "outputColor": "$tcolor3",
-            "keyWidth": 10,
-            "keyShow": $show_labels
+            "keyWidth": 10
         },
         {
             "type": "cpu",
@@ -4556,8 +4517,7 @@ create_full_config() {
             "key": " ├ 󰻠 ",
             "keyColor": "$color3",
             "outputColor": "$tcolor3",
-            "keyWidth": 10,
-            "keyShow": $show_labels
+            "keyWidth": 10
         },
         {
             "type": "gpu",
@@ -4565,8 +4525,7 @@ create_full_config() {
             "key": " ├ 󰢮 ",
             "keyColor": "$color3",
             "outputColor": "$tcolor3",
-            "keyWidth": 10,
-            "keyShow": $show_labels
+            "keyWidth": 10
         },
         {
             "type": "memory",
@@ -4574,8 +4533,7 @@ create_full_config() {
             "key": " ├ 󰍛 ",
             "keyColor": "$color3",
             "outputColor": "$tcolor3",
-            "keyWidth": 10,
-            "keyShow": $show_labels
+            "keyWidth": 10
         },
         {
             "type": "swap",
@@ -4583,8 +4541,7 @@ create_full_config() {
             "key": " ├ 󰓡 ",
             "keyColor": "$color3",
             "outputColor": "$tcolor3",
-            "keyWidth": 10,
-            "keyShow": $show_labels
+            "keyWidth": 10
         },
         {
             "type": "disk",
@@ -4592,8 +4549,7 @@ create_full_config() {
             "key": " ├ 󰋊 ",
             "keyColor": "$color3",
             "outputColor": "$tcolor3",
-            "keyWidth": 10,
-            "keyShow": $show_labels
+            "keyWidth": 10
         },
         {
             "type": "battery",
@@ -4601,8 +4557,7 @@ create_full_config() {
             "key": " ├ 󰁹 ",
             "keyColor": "$color3",
             "outputColor": "$tcolor3",
-            "keyWidth": 10,
-            "keyShow": $show_labels
+            "keyWidth": 10
         },
         {
             "type": "display",
@@ -4610,8 +4565,7 @@ create_full_config() {
             "key": " ├ 󰍹 ",
             "keyColor": "$color3",
             "outputColor": "$tcolor3",
-            "keyWidth": 10,
-            "keyShow": $show_labels
+            "keyWidth": 10
         },
         "break",
         {
@@ -4620,8 +4574,7 @@ create_full_config() {
             "key": " ├ 󰣺 ",
             "keyColor": "$color4",
             "outputColor": "$tcolor4",
-            "keyWidth": 10,
-            "keyShow": $show_labels
+            "keyWidth": 10
         },
         {
             "type": "publicip",
@@ -4629,8 +4582,7 @@ create_full_config() {
             "key": " ├ 󰞉 ",
             "keyColor": "$color4",
             "outputColor": "$tcolor4",
-            "keyWidth": 10,
-            "keyShow": $show_labels
+            "keyWidth": 10
         },
         {
             "type": "wifi",
@@ -4638,8 +4590,7 @@ create_full_config() {
             "key": " ├ 󰖩 ",
             "keyColor": "$color4",
             "outputColor": "$tcolor4",
-            "keyWidth": 10,
-            "keyShow": $show_labels
+            "keyWidth": 10
         },
         "break",
         {
@@ -4648,8 +4599,7 @@ create_full_config() {
             "key": " ├ 󰅐 ",
             "keyColor": "$color5",
             "outputColor": "$tcolor5",
-            "keyWidth": 10,
-            "keyShow": $show_labels
+            "keyWidth": 10
         },
         {
             "type": "uptime",
@@ -4657,8 +4607,7 @@ create_full_config() {
             "key": " ├ 󰔚 ",
             "keyColor": "$color5",
             "outputColor": "$tcolor5",
-            "keyWidth": 10,
-            "keyShow": $show_labels
+            "keyWidth": 10
         },
         {
             "type": "media",
@@ -4666,8 +4615,7 @@ create_full_config() {
             "key": " ├ 󰎈 ",
             "keyColor": "$color5",
             "outputColor": "$tcolor5",
-            "keyWidth": 10,
-            "keyShow": $show_labels
+            "keyWidth": 10
         },
         "break",
         "break"
@@ -4755,6 +4703,7 @@ create_minimal_config() {
     "logo": {
         "type": "$logo_actual_type",
         "source": "$logo_source",
+$(logo_width_json_field "$logo_actual_type")
         "height": 12,
         "padding": {
             "top": 2,
@@ -4895,6 +4844,7 @@ create_focused_config() {
     "logo": {
         "type": "$logo_actual_type",
         "source": "$logo_source",
+$(logo_width_json_field "$logo_actual_type")
         "height": 15,
         "padding": {
             "top": 2,
@@ -5080,6 +5030,7 @@ create_developer_config() {
     "logo": {
         "type": "$logo_actual_type",
         "source": "$logo_source",
+$(logo_width_json_field "$logo_actual_type")
         "height": 16,
         "padding": {
             "top": 2,
@@ -5304,6 +5255,7 @@ create_gaming_config() {
     "logo": {
         "type": "$logo_actual_type",
         "source": "$logo_source",
+$(logo_width_json_field "$logo_actual_type")
         "height": 16,
         "padding": {
             "top": 2,
@@ -5499,6 +5451,7 @@ JSONMID
     cat >> "$CONFIG_DIR/fastfetch.jsonc" << EOF
         "type": "$logo_actual_type",
         "source": "$logo_source",
+$(logo_width_json_field "$logo_actual_type")
         "height": 16,
         "padding": {
             "top": 2,
@@ -5830,8 +5783,8 @@ setup_permissions() {
     chmod -R 755 "$INSTALL_DIR"
     chown -R "$USER:$USER" "$INSTALL_DIR"
 
-    chmod -R 755 "$CONFIG_DIR"
-    chown -R "$USER:$USER" "$CONFIG_DIR"
+    # Existing configuration may contain private files and user-selected modes.
+    # It was created by this non-root installer, so leave its ownership intact.
 
     print_success "Permissions configured"
 }
@@ -5851,11 +5804,13 @@ setup_shell_integration() {
 
 # TermFetch Studio - START
 export PATH="$HOME/.local/bin:$PATH"
+if [[ $- == *i* ]] && [ -t 1 ]; then
 [ -f ~/.config/termfetch-studio/theme.sh ] && source ~/.config/termfetch-studio/theme.sh
 if [ -x "$HOME/.local/bin/tfs-fastfetch" ]; then
     "$HOME/.local/bin/tfs-fastfetch"
 elif command -v fastfetch &> /dev/null && [ -f ~/.config/termfetch-studio/fastfetch.jsonc ]; then
     fastfetch --config ~/.config/termfetch-studio/fastfetch.jsonc
+fi
 fi
 # TermFetch Studio - END
 BASHRC
@@ -5873,9 +5828,13 @@ BASHRC
 
 # TermFetch Studio - START
 export PATH="$HOME/.local/bin:$PATH"
+if [[ -o interactive ]] && [[ -t 1 ]]; then
 [ -f ~/.config/termfetch-studio/theme.sh ] && source ~/.config/termfetch-studio/theme.sh
-if command -v fastfetch &> /dev/null && [ -f ~/.config/termfetch-studio/fastfetch.jsonc ]; then
+if [ -x "$HOME/.local/bin/tfs-fastfetch" ]; then
+    "$HOME/.local/bin/tfs-fastfetch"
+elif command -v fastfetch &> /dev/null && [ -f ~/.config/termfetch-studio/fastfetch.jsonc ]; then
     fastfetch --config ~/.config/termfetch-studio/fastfetch.jsonc
+fi
 fi
 # TermFetch Studio - END
 ZSHRC
@@ -5891,9 +5850,13 @@ ZSHRC
 
 # TermFetch Studio - START
 fish_add_path ~/.local/bin
+if status is-interactive; and test -t 1
 test -f ~/.config/termfetch-studio/theme.sh && bash ~/.config/termfetch-studio/theme.sh
-if command -v fastfetch &> /dev/null && test -f ~/.config/termfetch-studio/fastfetch.jsonc
+if test -x ~/.local/bin/tfs-fastfetch
+    ~/.local/bin/tfs-fastfetch
+else if command -v fastfetch &> /dev/null && test -f ~/.config/termfetch-studio/fastfetch.jsonc
     fastfetch --config ~/.config/termfetch-studio/fastfetch.jsonc
+end
 end
 # TermFetch Studio - END
 FISHRC
@@ -5940,7 +5903,7 @@ print_banner() {
 ║            ██║   ███████╗██║  ██║██║ ╚═╝ ██║      ║
 ║            ╚═╝   ╚══════╝╚═╝  ╚═╝╚═╝     ╚═╝      ║
 ║                                                   ║
-║              TermFetch Studio v1.0                ║
+║             TermFetch Studio v1.0.0               ║
 ║                 Uninstall Script                  ║
 ║                                                   ║
 ╚═══════════════════════════════════════════════════╝
@@ -5951,7 +5914,7 @@ EOF
 confirm_uninstall() {
     echo -e "${YELLOW}⚠️  This will completely remove TermFetch Studio from your system.${NC}"
     echo -e "${YELLOW}The following will be removed:${NC}"
-    echo "  - /usr/local/bin/termfetch-studio"
+    echo "  - $HOME/.local/bin/termfetch-studio and tfs-fastfetch"
     echo "  - $HOME/.local/share/termfetch-studio/"
     echo "  - $HOME/.config/termfetch-studio/"
     echo ""
@@ -5971,26 +5934,26 @@ remove_shell_integration() {
     TARGET_HOME=$(getent passwd "$TARGET_USER" | cut -d: -f6)
     [ -z "$TARGET_HOME" ] && TARGET_HOME="$HOME"
 
-    # Remove from bash using perl for reliable deletion
+    # Remove only the block installed by TermFetch Studio.
     if [ -f "$TARGET_HOME/.bashrc" ]; then
         if grep -q "TermFetch Studio" "$TARGET_HOME/.bashrc" 2>/dev/null; then
-            perl -i -ne 'print unless /# TermFetch Studio - START/ .. /# TermFetch Studio - END/' "$TARGET_HOME/.bashrc"
+            sed -i '/# TermFetch Studio - START/,/# TermFetch Studio - END/d' "$TARGET_HOME/.bashrc"
             print_info "Removed from .bashrc"
         fi
     fi
 
-    # Remove from zsh using perl
+    # Remove from zsh
     if [ -f "$TARGET_HOME/.zshrc" ]; then
         if grep -q "TermFetch Studio" "$TARGET_HOME/.zshrc" 2>/dev/null; then
-            perl -i -ne 'print unless /# TermFetch Studio - START/ .. /# TermFetch Studio - END/' "$TARGET_HOME/.zshrc"
+            sed -i '/# TermFetch Studio - START/,/# TermFetch Studio - END/d' "$TARGET_HOME/.zshrc"
             print_info "Removed from .zshrc"
         fi
     fi
 
-    # Remove from fish using perl
+    # Remove from fish
     if [ -f "$TARGET_HOME/.config/fish/config.fish" ]; then
         if grep -q "TermFetch Studio" "$TARGET_HOME/.config/fish/config.fish" 2>/dev/null; then
-            perl -i -ne 'print unless /# TermFetch Studio - START/ .. /# TermFetch Studio - END/' "$TARGET_HOME/.config/fish/config.fish"
+            sed -i '/# TermFetch Studio - START/,/# TermFetch Studio - END/d' "$TARGET_HOME/.config/fish/config.fish"
             print_info "Removed from config.fish"
         fi
     fi
@@ -6001,11 +5964,8 @@ remove_installation() {
     
     print_info "Removing TermFetch Studio..."
 
-    # Remove main executable
-    if [ -f "/usr/local/bin/termfetch-studio" ]; then
-        rm -f "/usr/local/bin/termfetch-studio"
-        print_info "Removed main executable"
-    fi
+    # The installer owns the per-user executable, never /usr/local/bin.
+    rm -f -- "$HOME/.local/bin/termfetch-studio" "$HOME/.local/bin/tfs-fastfetch"
 
     # Remove installation directory
     if [ -d "$HOME/.local/share/termfetch-studio" ]; then
@@ -6161,6 +6121,36 @@ main() {
     install_fastfetch_lib
     install_main_script
     install_fastfetch_wrapper
+
+    # Generate the initial configuration during installation, not on first run.
+    source "$INSTALL_DIR/lib/core.sh"
+    source "$INSTALL_DIR/lib/fastfetch.sh"
+    init_config
+
+    # Migrate the unsupported legacy keyShow field without replacing user edits.
+    # Keep an exact copy before changing an existing JSONC configuration.
+    if grep -q '"keyShow"[[:space:]]*:' "$CONFIG_DIR/fastfetch.jsonc"; then
+        local original migrated
+        mkdir -p "$CONFIG_DIR/backups"
+        original=$(mktemp "$CONFIG_DIR/backups/legacy-fastfetch.XXXXXX.jsonc") || exit 1
+        cp -p -- "$CONFIG_DIR/fastfetch.jsonc" "$original" || exit 1
+        migrated=$(mktemp "$CONFIG_DIR/.fastfetch.XXXXXX") || exit 1
+        cp -p -- "$CONFIG_DIR/fastfetch.jsonc" "$migrated" || exit 1
+        if awk '
+            /"keyShow"[[:space:]]*:/ {
+                sub(/,[[:space:]]*$/, "", previous)
+                next
+            }
+            { if (NR > 1) print previous; previous=$0 }
+            END { print previous }
+        ' "$CONFIG_DIR/fastfetch.jsonc" > "$migrated"; then
+            mv -- "$migrated" "$CONFIG_DIR/fastfetch.jsonc" || exit 1
+        else
+            rm -f -- "$migrated"
+            print_error "Legacy configuration migration failed; original retained"
+            exit 1
+        fi
+    fi
 
     # Setup permissions
     setup_permissions

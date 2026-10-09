@@ -1,5 +1,10 @@
 # Nerd Font Kurulumu - TermFetch Studio
 
+Bu kılavuzdaki dağıtım adları yalnızca font kurulum örnekleridir. TermFetch Studio
+v1.0.0 için doğrulanan dağıtım/sürüm matrisi [README](README.md) içindedir.
+Konteyner testleri font görünümünü veya terminalin gerçek resim desteğini ölçemez;
+masaüstü doğrulaması için [manuel kontrol listesine](tests/MANUAL_CHECKLIST.md) bakın.
+
 ## Neden Nerd Font Gerekli?
 
 TermFetch Studio'nun tüm ikonlarını düzgün görüntüleyebilmek için terminal yazı tipinizin bir **Nerd Font** olması gerekir. Nerd Font'lar özel ikonlar ve semboller içeren yazı tipleridir.
@@ -116,3 +121,12 @@ echo -e "\033[1;32m ⚡ 🐧 🎨 󰣇 󰌢 󰏖 󰆍 \033[0m"
 ```
 
 Bu sembollerin hepsi düzgün görünüyorsa, font kurulumu başarılıdır!
+
+## Minimal VM font fallback
+
+Nerd Font module icons and Unicode menu emoji use different glyph coverage.
+The graphical VM checks used JetBrainsMono Nerd Font plus Noto Color Emoji
+fallback where the minimal desktop lacked it (Arch `noto-fonts-emoji`, openSUSE
+`google-noto-coloremoji-fonts`). Missing emoji fallback can leave menu squares
+even when fastfetch Nerd Font icons are correct. These packages were installed
+only inside test VMs; host fonts were untouched.

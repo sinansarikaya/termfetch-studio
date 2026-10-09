@@ -19,6 +19,8 @@
 [![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/sinansarikaya/termfetch-studio)
 [![Linux](https://img.shields.io/badge/platform-Linux-green.svg)](https://www.linux.org/)
 
+Published release: [v1.0.0](https://github.com/sinansarikaya/termfetch-studio/releases/tag/v1.0.0). Current application version: 1.0.0. Installer fixes are tracked under [Unreleased](CHANGELOG.md).
+
 **Transform your terminal into a beautiful, informative workspace**
 
 [Features](#features) • [Installation](#installation) • [Usage](#usage) • [Themes](#themes) • [Screenshots](#screenshots)
@@ -64,10 +66,10 @@
 
 ### 🖼️ **Advanced Logo System**
 - **Multiple Logo Types**: Auto-detect distribution, custom images, ASCII art
-- **Image Support**: Display custom images (Kitty, WezTerm, iTerm2, Foot)
+- **Image Support**: PNG rendering verified in Kitty and Konsole VMs; WezTerm, iTerm2 and Foot still require real terminal validation
 - **Format Conversion**: Auto-convert PNG, JPG, JPEG, GIF, BMP to optimal format with transparency preservation
 - **Smart Resizing**: Automatically resize large images for better performance
-- **ASCII Fallback**: Automatic conversion for unsupported terminals
+- **ASCII Fallback**: Use a bundled text logo in unsupported terminals
 - **16 Built-in ASCII Logos**:
   - Classics: Tux 🐧, Pikachu ⚡, Arch 📐
   - Cute: Cat 🐱, Neko 🎌, Bunny 🐰, Heart 💖, Sakura 🌸
@@ -112,32 +114,62 @@ The installer will:
 ### Requirements
 
 **Required:**
-- Linux (any distribution)
-- Bash/Zsh/Fish shell
-- Fastfetch (auto-installed if missing)
+- Linux on a distribution tested below, or a compatible distribution with fastfetch already installed
+- Bash and the standard command-line tools used by the installer (`tar`, `mktemp`, `sed`)
+- Fastfetch >= 2.42.0 for RGB colors (installed by the installer on tested package-manager paths when missing)
+- `sudo` and a working package manager when dependencies need installation; Debian/Ubuntu also need `curl` or `wget` for the pinned fastfetch package
+
+On Debian-family systems, the installer downloads the official [fastfetch 2.53.0 release](https://github.com/fastfetch-cli/fastfetch/releases/tag/2.53.0) for x86_64 or aarch64 and verifies its SHA-256 checksum before installation. This fixed version was exercised on Ubuntu 24.04 and Debian 12/13 and avoids changes in a moving `latest` package. [Debian 13 also provides fastfetch 2.40.4](https://packages.debian.org/trixie/fastfetch); an already installed fastfetch is kept. This matrix tested the versions listed in the report; Debian’s 2.40.4 package is below the required 2.42.0 minimum and is rejected with an explicit message. Other architectures require fastfetch to be installed beforehand.
+
+### Compatibility evidence (x86_64)
+
+Docker runs test dependency installation, application commands, settings,
+backup/restore, reinstall, and uninstall with fastfetch both missing and
+preinstalled. They **do not** verify a desktop session. Exact image digests,
+fastfetch versions, and results are in [the test report](tests/REPORT.md).
+
+| Distribution / version | Test type | Desktop / terminal | Result |
+| --- | --- | --- | --- |
+| Ubuntu 24.04 | Docker: fastfetch missing / preinstalled | No desktop / `TERM=dumb` | Passed / passed |
+| Debian 12 | Docker: fastfetch missing / preinstalled | No desktop / `TERM=dumb` | Passed / passed |
+| Debian 13 | Docker: fastfetch missing / preinstalled | No desktop / `TERM=dumb` | Passed / passed |
+| Fedora 43 | Docker: fastfetch missing / preinstalled | No desktop / `TERM=dumb` | Passed / passed |
+| Arch Linux rolling (`20261004.0.606936`) | Docker: fastfetch missing / preinstalled | No desktop / `TERM=dumb` | Passed / passed |
+| openSUSE Tumbleweed (`20261007`) | Docker: fastfetch missing / preinstalled | No desktop / `TERM=dumb` | Passed / passed |
+| Ubuntu 24.04.5 | QEMU VM: graphical checks | GNOME 46 Wayland / GNOME Terminal 3.52 + Kitty 0.32.2 | Passed for recorded checks; [screenshots](tests/screenshots/) |
+| Debian 13.7 | QEMU VM: graphical checks | Plasma 6.3.6 Wayland / Konsole 25.04.2 + Kitty 0.41.1 | Passed for recorded checks; [screenshots](tests/screenshots/) |
+| Fedora 43 | QEMU VM: graphical checks | GNOME 49 Wayland / GNOME Terminal 3.56.3 + Kitty 0.43.1 | Passed for recorded checks; [screenshots](tests/screenshots/) |
+| Arch Linux rolling | QEMU VM: graphical checks | Hyprland 0.56.2 Wayland / Kitty 0.49.2 | Passed for recorded checks; [screenshots](tests/screenshots/) |
+| openSUSE Tumbleweed 20261007 | QEMU VM: graphical checks | Plasma 6.7.5 Wayland / Konsole 26.08.1 + Kitty 0.48.2 | Recorded checks passed after guest terminal preparation; [report](tests/REPORT.md) |
+| Ubuntu 24.04.5 | Separate QEMU X11 comparison | GNOME 46 X11 / GNOME Terminal + Kitty | Recorded checks passed; [screenshots](tests/screenshots/) |
+| CachyOS rolling (user's computer) | Daily use reported by user | Hyprland Wayland; active terminal unconfirmed | Feature tests not claimed |
+
+Other distribution IDs (including derivatives) and other versions are recognized by
+family where possible but have not been tested here. A recognized package manager
+does not guarantee that fastfetch is available in that release. A user-reported
+daily-use CachyOS environment is recorded in the [manual checklist](tests/MANUAL_CHECKLIST.md),
+without treating its features as tested.
 
 **Optional (for enhanced features):**
 - `chafa` - Image to ASCII conversion
 - `jp2a` - JPEG to ASCII conversion
 - `imagemagick` - Image processing
 
-### Supported Terminals
+### Terminal behavior and graphical evidence
 
-| Terminal | Color Support | Image Support | Theme Application | Status |
-|----------|--------------|---------------|-------------------|--------|
-| Kitty | ✅ Truecolor | ✅ Full | ✅ Auto | Full Support |
-| Alacritty | ✅ Truecolor | ❌ No | ✅ Auto | Full Support |
-| WezTerm | ✅ Truecolor | ✅ Full | ✅ Auto | Full Support |
-| GNOME Terminal | ✅ Truecolor | ❌ No | ✅ Auto | Full Support |
-| Konsole | ✅ Truecolor | ❌ No | ⚠️ Manual | Partial |
-| Foot | ✅ Truecolor | ✅ Full | ⚠️ Manual | Partial |
-| iTerm2 | ✅ Truecolor | ✅ Full | ⚠️ Manual | Partial |
-| xterm/st | ⚠️ Basic | ❌ No | ❌ No | Basic |
+| Terminal | Runtime classification from session signals | Desktop status |
+|----------|---------------------------------------------|----------------|
+| Kitty | `kitty` → `kitty-direct` PNG | Verified in the VM combinations above; fixed dimensions may affect aspect ratio |
+| Alacritty | `none` (ASCII) | Manual test pending |
+| WezTerm | `wezterm` | Manual test pending |
+| GNOME Terminal | `none` (ASCII) | Verified ASCII fallback in GNOME Wayland and Ubuntu X11 VMs |
+| Konsole | `konsole` → `iterm` PNG | Verified in Debian/openSUSE KDE Wayland VMs |
+| Foot | `foot` | Manual test pending |
+| iTerm2 | `iterm2` | Manual test pending |
+| xterm / st / unknown | `none` (ASCII) | xterm fallback verified in Debian VM; st/other terminals pending |
 
-**Theme Application:**
-- ✅ Auto - Themes are automatically applied to terminal colors
-- ⚠️ Manual - Requires manual configuration
-- ❌ No - Not supported
+Graphical findings come from the listed VMs, separately from Docker. Remaining
+combinations are in the [manual checklist](tests/MANUAL_CHECKLIST.md).
 
 ---
 
@@ -895,14 +927,14 @@ The installer should handle this automatically, but if needed:
 # Arch/Manjaro
 sudo pacman -S fastfetch
 
-# Debian/Ubuntu
-sudo apt install fastfetch
+# Debian/Ubuntu: the installer downloads and verifies fastfetch 2.53.0
+# from the upstream release when it is absent.
 
 # Fedora
 sudo dnf install fastfetch
 
-# From source (if not in repos)
-# The installer handles this automatically
+# On other distributions, install fastfetch through your distribution's
+# package manager before running the installer.
 ```
 
 ### Menu navigation not working

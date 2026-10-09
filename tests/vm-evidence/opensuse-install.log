@@ -1,0 +1,81 @@
+
+╔═══════════════════════════════════════════════════╗
+║                                                   ║
+║         ████████╗███████╗██████╗ ███╗   ███╗      ║
+║         ╚══██╔══╝██╔════╝██╔══██╗████╗ ████║      ║
+║            ██║   █████╗  ██████╔╝██╔████╔██║      ║
+║            ██║   ██╔══╝  ██╔══██╗██║╚██╔╝██║      ║
+║            ██║   ███████╗██║  ██║██║ ╚═╝ ██║      ║
+║            ╚═╝   ╚══════╝╚═╝  ╚═╝╚═╝     ╚═╝      ║
+║                                                   ║
+║             TermFetch Studio v1.0.0               ║
+║     Professional Terminal Theme Manager           ║
+║                                                   ║
+╚═══════════════════════════════════════════════════╝
+
+[INFO] Checking and installing dependencies...
+[✓] All required dependencies are installed
+[INFO] Checking for Nerd Fonts...
+[✓] Nerd Fonts already installed
+[INFO] Creating directories...
+[✓] Directories created
+[INFO] Installing ASCII logos...
+[✓] ASCII logos installed
+[INFO] Installing preset images...
+[✓] Preset images installed (14 files)
+[INFO] Installing core library...
+[✓] Core library installed
+[INFO] Installing fastfetch library...
+[✓] Fastfetch library installed
+[INFO] Installing main executable...
+[✓] Main executable installed
+[INFO] Installing fastfetch runtime wrapper...
+[✓] Fastfetch wrapper installed
+[INFO] Setting up permissions...
+[✓] Permissions configured
+[INFO] Setting up shell integration...
+[✓] Added to ~/.bashrc
+[✓] Shell integration configured
+[INFO] Creating uninstall script...
+[✓] Uninstall script created
+
+╔═══════════════════════════════════════════════════╗
+║                                                   ║
+║         ████████╗███████╗██████╗ ███╗   ███╗      ║
+║         ╚══██╔══╝██╔════╝██╔══██╗████╗ ████║      ║
+║            ██║   █████╗  ██████╔╝██╔████╔██║      ║
+║            ██║   ██╔══╝  ██╔══██╗██║╚██╔╝██║      ║
+║            ██║   ███████╗██║  ██║██║ ╚═╝ ██║      ║
+║            ╚═╝   ╚══════╝╚═╝  ╚═╝╚═╝     ╚═╝      ║
+║                                                   ║
+║             TermFetch Studio v1.0.0               ║
+║     Professional Terminal Theme Manager           ║
+║                                                   ║
+╚═══════════════════════════════════════════════════╝
+
+✨ TermFetch Studio has been successfully installed! ✨
+
+What's Next:
+  1. Run termfetch-studio to start customizing
+  2. Choose your theme and fastfetch preset
+  3. Configure logos and images
+
+Quick Commands:
+  termfetch-studio           # Interactive menu
+  termfetch-studio --preview # Quick preview
+  termfetch-studio --help    # Show help
+  termfetch-studio uninstall # Uninstall
+
+Font Setup:
+  • Make sure to set your terminal font to a Nerd Font
+  • Recommended: JetBrainsMono Nerd Font, Hack Nerd Font
+  • IMPORTANT: In your terminal settings, set font to:
+      'JetBrainsMono Nerd Font' or 'Hack Nerd Font'
+  • Without a Nerd Font, icons will not display correctly!
+
+Enjoy your beautiful terminal! 🎨
+
+
+Would you like to start TermFetch Studio now? (Y/n): 
+n
+Connection to 127.0.0.1 closed.

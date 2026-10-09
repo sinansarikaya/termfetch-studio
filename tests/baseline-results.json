@@ -1,0 +1,24 @@
+{
+  "baseline_ref": "8f26432",
+  "image": "ubuntu:24.04",
+  "cases": {
+    "baseline": {
+      "exit_code": 0,
+      "transcript": "DETECTION=unknown\n\n\u001b[1;32m\u2713 Backup created: /tmp/test/config/backups/backup_20261009_173000.tar.gz\u001b[0m\n\n\u001b[1;32m\u2713 Backup created: /tmp/test/config/backups/backup_20261009_173001.tar.gz\u001b[0m\n\nARCHIVE_ENTRIES\n./\n./config.ini\n./backups/\n./backups/backup_20261009_173000.tar.gz\n./\n./config.ini\n./backups/\n./backups/backup_20261009_173000.tar.gz\n./backups/backup_20261009_173001.tar.gz\n\nRESTORE_INVALID\n\n\u001b[1;33m\ud83d\udcc2 Available backups:\u001b[0m\n  1) backup\n  2) with\n  3) spaces.tar.gz\n\n\u001b[1;36mEnter backup number to restore: \u001b[0m\u001b[1;31m\u2717 Invalid choice!\u001b[0m\n/cases/baseline-core.sh: line 3144: [: oops: integer expression expected\nrestore_rc=0\n\nTERMINAL=kitty\n",
+      "optional_transcript": "\u001b[0;34m\u001b[1m[INFO]\u001b[0m Checking and installing dependencies...\n\u001b[0;34m\u001b[1m[INFO]\u001b[0m Installing optional dependencies: chafa imagemagick\n\u001b[1;33m\u001b[1m[!]\u001b[0m Some optional dependencies failed to install\n\u001b[0;32m\u001b[1m[\u2713]\u001b[0m Optional dependencies installed\n\u001b[0;32m\u001b[1m[\u2713]\u001b[0m All required dependencies are installed\n"
+    },
+    "fixed": {
+      "exit_code": 0,
+      "transcript": "DETECTION=suse\n\n\u001b[1;32m\u2713 Backup created: /tmp/test/config/backups/backup_20261009_173004_JEQP8E.tar.gz\u001b[0m\n\n\u001b[1;32m\u2713 Backup created: /tmp/test/config/backups/backup_20261009_173004_n17kEz.tar.gz\u001b[0m\n\nARCHIVE_ENTRIES\n./\n./config.ini\n./\n./config.ini\n\nRESTORE_INVALID\n\n\u001b[1;33m\ud83d\udcc2 Available backups:\u001b[0m\n  1) backup with spaces.tar.gz\n\n\u001b[1;36mEnter backup number to restore: \u001b[0m\u001b[1;31m\u2717 Invalid choice!\u001b[0m\nrestore_rc=1\n\nTERMINAL=none\n",
+      "optional_transcript": "\u001b[0;34m\u001b[1m[INFO]\u001b[0m Checking and installing dependencies...\n\u001b[0;34m\u001b[1m[INFO]\u001b[0m Installing optional dependencies: chafa imagemagick\n\u001b[1;33m\u001b[1m[!]\u001b[0m Some optional dependencies failed to install\nMOCK: optional package installation failed\n\u001b[0;32m\u001b[1m[\u2713]\u001b[0m All required dependencies are installed\n"
+    }
+  },
+  "assertions": {
+    "suse_identity": true,
+    "recursive_backup": true,
+    "spaced_restore_name": true,
+    "invalid_restore_input": true,
+    "unrelated_kitty": true,
+    "optional_failure_message": true
+  }
+}
