@@ -1,0 +1,12 @@
+[
+  {
+    "scenario": "missing",
+    "detection": "unknown",
+    "install": "rejected"
+  },
+  {
+    "scenario": "preinstalled",
+    "detection": "unknown",
+    "install": "passed"
+  }
+]

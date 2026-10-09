@@ -1,0 +1,47 @@
+{
+  "installer_sha256": "bfdb4c5d5825b83efdb55626ae13e3330b360a1bca555eb5792b84ae70cbd6a6",
+  "cases": [
+    {
+      "synthetic_output": "fastfetch 2.40.4",
+      "accepted": false,
+      "result": "passed",
+      "message": "fastfetch >= 2.42.0 is required for RGB configuration; found: fastfetch 2.40.4"
+    },
+    {
+      "synthetic_output": "fastfetch 2.41.9",
+      "accepted": false,
+      "result": "passed",
+      "message": "fastfetch >= 2.42.0 is required for RGB configuration; found: fastfetch 2.41.9"
+    },
+    {
+      "synthetic_output": "fastfetch 2.42.0",
+      "accepted": true,
+      "result": "passed",
+      "message": ""
+    },
+    {
+      "synthetic_output": "fastfetch 2.53.0 (x86_64)",
+      "accepted": true,
+      "result": "passed",
+      "message": ""
+    },
+    {
+      "synthetic_output": "fastfetch 2.69.0",
+      "accepted": true,
+      "result": "passed",
+      "message": ""
+    },
+    {
+      "synthetic_output": "fastfetch 3.0.0",
+      "accepted": true,
+      "result": "passed",
+      "message": ""
+    },
+    {
+      "synthetic_output": "unparseable",
+      "accepted": false,
+      "result": "passed",
+      "message": "fastfetch >= 2.42.0 is required for RGB configuration; found: unparseable"
+    }
+  ]
+}
