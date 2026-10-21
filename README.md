@@ -121,7 +121,18 @@ The installer will:
 
 On Debian-family systems, the installer downloads the official [fastfetch 2.53.0 release](https://github.com/fastfetch-cli/fastfetch/releases/tag/2.53.0) for x86_64 or aarch64 and verifies its SHA-256 checksum before installation. This fixed version was exercised on Ubuntu 24.04 and Debian 12/13 and avoids changes in a moving `latest` package. [Debian 13 also provides fastfetch 2.40.4](https://packages.debian.org/trixie/fastfetch); an already installed fastfetch is kept. This matrix tested the versions listed in the report; Debian’s 2.40.4 package is below the required 2.42.0 minimum and is rejected with an explicit message. Other architectures require fastfetch to be installed beforehand.
 
+### Terminal UI fixes
+
+The latest local fixes preserve image proportions, keep menu selection inside the
+viewport, align theme columns independently of emoji byte length, and redraw on
+resize. At fewer than 16 terminal rows, previews are hidden to keep navigation
+visible. See the [UI report and real Kitty screenshots](tests/ui-evidence/README.md).
+
 ### Compatibility evidence (x86_64)
+
+The distribution table records the October 9 compatibility run. The October 22 UI
+fix reran Ubuntu/Arch smoke scenarios and Arch/Kitty graphical checks; the
+[UI report](tests/ui-evidence/README.md) records that narrower current scope.
 
 Docker runs test dependency installation, application commands, settings,
 backup/restore, reinstall, and uninstall with fastfetch both missing and

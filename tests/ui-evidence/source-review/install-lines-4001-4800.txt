@@ -1,0 +1,800 @@
+            ;;
+    esac
+}
+
+get_theme_ansi_color() {
+    local theme=$1
+    local color_type=$2
+    
+    # Use explicit RGB instead of relying on mutable terminal ANSI palettes.
+    local rgb
+    rgb=$(get_theme_color "$theme" "$color_type")
+    if [[ "$rgb" =~ ^#[[:xdigit:]]{6}$ ]]; then
+        printf '%s\n' "$rgb"
+        return
+    fi
+
+    case $theme in
+        dracula)
+            case $color_type in
+                primary) echo "35" ;;   # magenta/purple
+                secondary) echo "33" ;; # yellow
+                accent) echo "32" ;;    # green
+                text) echo "37" ;;      # white
+                *) echo "36" ;;         # cyan
+            esac
+            ;;
+        nord)
+            case $color_type in
+                primary) echo "36" ;;   # blue
+                secondary) echo "34" ;; # light blue
+                accent) echo "32" ;;    # green
+                text) echo "37" ;;      # white
+                *) echo "36" ;;         # cyan
+            esac
+            ;;
+        gruvbox-dark)
+            case $color_type in
+                primary) echo "33" ;;   # yellow
+                secondary) echo "34" ;; # blue
+                accent) echo "32" ;;    # green
+                text) echo "37" ;;      # white
+                *) echo "33" ;;         # yellow
+            esac
+            ;;
+        tokyo-night)
+            case $color_type in
+                primary) echo "34" ;;   # blue
+                secondary) echo "35" ;; # magenta
+                accent) echo "32" ;;    # green
+                text) echo "37" ;;      # white
+                *) echo "34" ;;         # blue
+            esac
+            ;;
+        one-dark)
+            case $color_type in
+                primary) echo "36" ;;   # cyan
+                secondary) echo "35" ;; # magenta
+                accent) echo "32" ;;    # green
+                text) echo "37" ;;      # white
+                *) echo "36" ;;         # cyan
+            esac
+            ;;
+        synthwave)
+            case $color_type in
+                primary) echo "36" ;;   # cyan
+                secondary) echo "35" ;; # magenta
+                accent) echo "32" ;;    # green
+                text) echo "37" ;;      # white
+                *) echo "36" ;;         # cyan
+            esac
+            ;;
+        *)
+            echo "36" ;; # cyan
+    esac
+}
+
+# Helper function to get icon color (either custom or theme-based)
+get_fastfetch_color() {
+    local position=$1  # primary, secondary, etc.
+    local theme=$2
+
+    local use_theme_colors=$(get_config_value "fastfetch" "use_theme_colors")
+    [ -z "$use_theme_colors" ] && use_theme_colors="true"
+
+    if [ "$use_theme_colors" = "false" ]; then
+        # Use custom colors if set
+        local custom_color=$(get_config_value "fastfetch" "key_color")
+        [ -n "$custom_color" ] && [ "$custom_color" != "theme" ] && echo "$custom_color" && return
+    fi
+
+    # Fall back to theme colors
+    get_theme_ansi_color "$theme" "$position"
+}
+
+# Helper function to get text color (either custom or theme-based)
+get_fastfetch_text_color() {
+    local position=$1  # primary, secondary, etc.
+    local theme=$2
+
+    local use_theme_colors=$(get_config_value "fastfetch" "use_theme_colors")
+    [ -z "$use_theme_colors" ] && use_theme_colors="true"
+
+    if [ "$use_theme_colors" = "false" ]; then
+        # Use custom text color if set
+        local custom_text_color=$(get_config_value "fastfetch" "value_color")
+        if [ -n "$custom_text_color" ] && [ "$custom_text_color" != "default" ]; then
+            echo "$custom_text_color"
+            return
+        fi
+    fi
+
+    # Fall back to theme colors
+    get_theme_ansi_color "$theme" "$position"
+}
+
+# Helper function to get color dots string based on theme
+get_color_dots() {
+    local theme=$1
+    local color1=$(get_theme_ansi_color "$theme" "primary")
+    local color2=$(get_theme_ansi_color "$theme" "secondary")
+    local color3=$(get_theme_ansi_color "$theme" "accent")
+    local color4=$(get_theme_ansi_color "$theme" "highlight")
+    local color5=$(get_theme_ansi_color "$theme" "info")
+    local color6="$color1"
+    local color7="$color2"
+    local color8="$color3"
+
+
+    echo "\\u001b[1;${color1}m●\\u001b[0m \\u001b[1;${color2}m●\\u001b[0m \\u001b[1;${color3}m●\\u001b[0m \\u001b[1;${color4}m●\\u001b[0m \\u001b[1;${color5}m●\\u001b[0m \\u001b[1;${color6}m●\\u001b[0m \\u001b[1;${color7}m●\\u001b[0m \\u001b[1;${color8}m●\\u001b[0m"
+}
+
+# Helper function to generate format line for demo mode
+# Returns empty string if demo mode is off, or JSON format line if on
+get_demo_format_line() {
+    local module_type=$1
+    local demo_mode=$(get_config_value "fastfetch" "demo_mode")
+    
+    if [ "$demo_mode" = "true" ]; then
+        local demo_value=$(get_demo_format "$module_type")
+        if [ -n "$demo_value" ]; then
+            echo "            \"format\": \"$demo_value\","
+        fi
+    fi
+}
+
+# Check if demo mode is active
+is_demo_mode() {
+    local demo_mode=$(get_config_value "fastfetch" "demo_mode")
+    [ "$demo_mode" = "true" ]
+}
+
+# Fastfetch JSON colors accept hex; terminal SGR parameters require RGB numbers.
+theme_dot_format() {
+    local theme=$1 position color
+    local -a positions=(primary secondary accent highlight info primary secondary accent)
+    for position in "${positions[@]}"; do
+        color=$(get_theme_ansi_color "$theme" "$position")
+        if [[ "$color" =~ ^#[[:xdigit:]]{6}$ ]]; then
+            printf -v color '38;2;%d;%d;%d' "$((16#${color:1:2}))" "$((16#${color:3:2}))" "$((16#${color:5:2}))"
+        elif [[ ! "$color" =~ ^[0-9]+(\;[0-9]+)*$ ]]; then
+            color=39
+        fi
+        printf '\\u001b[1;%sm●\\u001b[0m ' "$color"
+    done
+}
+
+create_full_config() {
+    local logo_type=$1
+    local custom_image=$2
+    local theme=$3
+    local dot_format
+    dot_format=$(theme_dot_format "$theme")
+
+    local logo_source=$(get_logo_source "$logo_type" "$custom_image")
+    local logo_actual_type=$(get_logo_type "$logo_type" "$custom_image")
+
+    # Get theme-based or custom ANSI colors
+    local use_theme_colors=$(get_config_value "fastfetch" "use_theme_colors")
+    [ -z "$use_theme_colors" ] && use_theme_colors="true"
+
+    local color1 color2 color3 color4 color5
+    local output_color
+    local show_labels=$(get_config_value "fastfetch" "labels")
+    [ -z "$show_labels" ] && show_labels="false"
+    
+    
+    if [ "$use_theme_colors" = "false" ]; then
+        local custom_key=$(get_config_value "fastfetch" "key_color")
+        local custom_value=$(get_config_value "fastfetch" "value_color")
+        [ -z "$custom_key" ] && custom_key="34"
+        [ -z "$custom_value" ] && custom_value="37"
+        color1="$custom_key"
+        color2="$custom_key"
+        color3="$custom_key"
+        color4="$custom_key"
+        color5="$custom_key"
+        # Text colors - different from icon colors
+        tcolor1="$custom_value"
+        tcolor2="$custom_value"
+        tcolor3="$custom_value"
+        tcolor4="$custom_value"
+        tcolor5="$custom_value"
+        output_color="$custom_value"
+    else
+        color1=$(get_theme_ansi_color "$theme" "primary")
+        color2=$(get_theme_ansi_color "$theme" "secondary")
+        color3=$(get_theme_ansi_color "$theme" "accent")
+        color4=$(get_theme_ansi_color "$theme" "highlight")
+        color5=$(get_theme_ansi_color "$theme" "info")
+        # Text colors - each group's text color matches its icon color
+        # For light themes, use darker variants for better readability
+        local theme_type=$(get_theme_type "$theme")
+        if [ "$theme_type" = "light" ]; then
+            # Light themes: use much darker colors for text for better contrast
+            tcolor1="0"   # OS Group - pure black
+            tcolor2="0"   # WM Group - pure black
+            tcolor3="0"   # PC Group - pure black
+            tcolor4="0"   # NET Group - pure black
+            tcolor5="0"   # TIME Group - pure black
+        else
+            # Dark themes: use same colors as icons
+            tcolor1="$color1"  # OS Group - same as icon color
+            tcolor2="$color2"  # WM Group - same as icon color  
+            tcolor3="$color3"  # PC Group - same as icon color
+            tcolor4="$color4"  # NET Group - same as icon color
+            tcolor5="$color5"  # TIME Group - same as icon color
+        fi
+        output_color=$(get_fastfetch_text_color "primary" "$theme")
+    fi
+
+    # Demo mode: prepare format overrides for each module
+    local demo_mode=$(get_config_value "fastfetch" "demo_mode")
+    local fmt_title=""
+    local fmtline_os="" fmtline_kernel="" fmtline_packages="" fmtline_shell=""
+    local fmtline_wm="" fmtline_de="" fmtline_wmtheme="" fmtline_icons="" fmtline_cursor=""
+    local fmtline_terminal="" fmtline_terminalfont="" fmtline_host="" fmtline_cpu="" fmtline_gpu=""
+    local fmtline_memory="" fmtline_swap="" fmtline_disk="" fmtline_battery="" fmtline_display=""
+    local fmtline_localip="" fmtline_publicip="" fmtline_wifi="" fmtline_datetime="" fmtline_uptime="" fmtline_media=""
+    
+    if [ "$demo_mode" = "true" ]; then
+        fmt_title="hacker@linuxbox"
+        fmtline_os="\"format\": \"$(get_demo_format os)\","
+        fmtline_kernel="\"format\": \"$(get_demo_format kernel)\","
+        fmtline_packages="\"format\": \"$(get_demo_format packages)\","
+        fmtline_shell="\"format\": \"$(get_demo_format shell)\","
+        fmtline_wm="\"format\": \"$(get_demo_format wm)\","
+        fmtline_de="\"format\": \"$(get_demo_format de)\","
+        fmtline_wmtheme="\"format\": \"$(get_demo_format wmtheme)\","
+        fmtline_icons="\"format\": \"$(get_demo_format icons)\","
+        fmtline_cursor="\"format\": \"$(get_demo_format cursor)\","
+        fmtline_terminal="\"format\": \"$(get_demo_format terminal)\","
+        fmtline_terminalfont="\"format\": \"$(get_demo_format terminalfont)\","
+        fmtline_host="\"format\": \"$(get_demo_format host)\","
+        fmtline_cpu="\"format\": \"$(get_demo_format cpu)\","
+        fmtline_gpu="\"format\": \"$(get_demo_format gpu)\","
+        fmtline_memory="\"format\": \"$(get_demo_format memory)\","
+        fmtline_swap="\"format\": \"$(get_demo_format swap)\","
+        fmtline_disk="\"format\": \"$(get_demo_format disk)\","
+        fmtline_battery="\"format\": \"$(get_demo_format battery)\","
+        fmtline_display="\"format\": \"$(get_demo_format display)\","
+        fmtline_localip="\"format\": \"$(get_demo_format localip)\","
+        fmtline_publicip="\"format\": \"$(get_demo_format publicip)\","
+        fmtline_wifi="\"format\": \"$(get_demo_format wifi)\","
+        fmtline_datetime="\"format\": \"$(get_demo_format datetime)\","
+        fmtline_uptime="\"format\": \"$(get_demo_format uptime)\","
+        fmtline_media="\"format\": \"$(get_demo_format media)\","
+    else
+        fmt_title="{user-name-colored}@{host-name-colored}"
+    fi
+
+    cat > "$CONFIG_DIR/fastfetch.jsonc" << EOF
+{
+    // TermFetch Studio - Full Info Preset
+    // Theme: $theme
+    "\$schema": "https://github.com/fastfetch-cli/fastfetch/raw/dev/doc/json_schema.json",
+
+    "logo": {
+        "type": "$logo_actual_type",
+        "source": "$logo_source",
+$(logo_dimensions_json_fields "$logo_actual_type" "$logo_source" 14)
+        "padding": {
+            "top": 2,
+            "right": 4
+        }
+    },
+
+    "display": {
+        "separator": " ➜ "
+    },
+
+    "modules": [
+        "break",
+        "break",
+        {
+            "type": "title",
+            "format": "$fmt_title",
+            "key": ""
+        },
+        "break",
+        {
+            "type": "os",
+            $fmtline_os
+            "key": " ├ 󰣇 ",
+            "keyColor": "$color1",
+            "outputColor": "$tcolor1",
+            "keyWidth": 10
+        },
+        {
+            "type": "kernel",
+            $fmtline_kernel
+            "key": " ├ 󰌢 ",
+            "keyColor": "$color1",
+            "outputColor": "$tcolor1",
+            "keyWidth": 10
+        },
+        {
+            "type": "packages",
+            $fmtline_packages
+            "key": " ├ 󰏖 ",
+            "keyColor": "$color1",
+            "outputColor": "$tcolor1",
+            "keyWidth": 10
+        },
+        {
+            "type": "shell",
+            $fmtline_shell
+            "key": " ├ 󰆍 ",
+            "keyColor": "$color1",
+            "outputColor": "$tcolor1",
+            "keyWidth": 10
+        },
+        "break",
+        {
+            "type": "wm",
+            $fmtline_wm
+            "key": " ├ 󰖲 ",
+            "keyColor": "$color2",
+            "outputColor": "$tcolor2",
+            "keyWidth": 10
+        },
+        {
+            "type": "de",
+            $fmtline_de
+            "key": " ├ 󱂬 ",
+            "keyColor": "$color2",
+            "outputColor": "$tcolor2",
+            "keyWidth": 10
+        },
+        {
+            "type": "wmtheme",
+            $fmtline_wmtheme
+            "key": " ├ 󰉼 ",
+            "keyColor": "$color2",
+            "outputColor": "$tcolor2",
+            "keyWidth": 10
+        },
+        {
+            "type": "icons",
+            $fmtline_icons
+            "key": " ├ 󰀻 ",
+            "keyColor": "$color2",
+            "outputColor": "$tcolor2",
+            "keyWidth": 10
+        },
+        {
+            "type": "cursor",
+            $fmtline_cursor
+            "key": " ├ 󰘔 ",
+            "keyColor": "$color2",
+            "outputColor": "$tcolor2",
+            "keyWidth": 10
+        },
+        {
+            "type": "terminal",
+            $fmtline_terminal
+            "key": " ├ 󰆍 ",
+            "keyColor": "$color2",
+            "outputColor": "$tcolor2",
+            "keyWidth": 10
+        },
+        {
+            "type": "terminalfont",
+            $fmtline_terminalfont
+            "key": " ├ 󰛖 ",
+            "keyColor": "$color2",
+            "outputColor": "$tcolor2",
+            "keyWidth": 10
+        },
+        "break",
+        {
+            "type": "host",
+            $fmtline_host
+            "key": " ├ 󰌢 ",
+            "keyColor": "$color3",
+            "outputColor": "$tcolor3",
+            "keyWidth": 10
+        },
+        {
+            "type": "cpu",
+            $fmtline_cpu
+            "key": " ├ 󰻠 ",
+            "keyColor": "$color3",
+            "outputColor": "$tcolor3",
+            "keyWidth": 10
+        },
+        {
+            "type": "gpu",
+            $fmtline_gpu
+            "key": " ├ 󰢮 ",
+            "keyColor": "$color3",
+            "outputColor": "$tcolor3",
+            "keyWidth": 10
+        },
+        {
+            "type": "memory",
+            $fmtline_memory
+            "key": " ├ 󰍛 ",
+            "keyColor": "$color3",
+            "outputColor": "$tcolor3",
+            "keyWidth": 10
+        },
+        {
+            "type": "swap",
+            $fmtline_swap
+            "key": " ├ 󰓡 ",
+            "keyColor": "$color3",
+            "outputColor": "$tcolor3",
+            "keyWidth": 10
+        },
+        {
+            "type": "disk",
+            $fmtline_disk
+            "key": " ├ 󰋊 ",
+            "keyColor": "$color3",
+            "outputColor": "$tcolor3",
+            "keyWidth": 10
+        },
+        {
+            "type": "battery",
+            $fmtline_battery
+            "key": " ├ 󰁹 ",
+            "keyColor": "$color3",
+            "outputColor": "$tcolor3",
+            "keyWidth": 10
+        },
+        {
+            "type": "display",
+            $fmtline_display
+            "key": " ├ 󰍹 ",
+            "keyColor": "$color3",
+            "outputColor": "$tcolor3",
+            "keyWidth": 10
+        },
+        "break",
+        {
+            "type": "localip",
+            $fmtline_localip
+            "key": " ├ 󰣺 ",
+            "keyColor": "$color4",
+            "outputColor": "$tcolor4",
+            "keyWidth": 10
+        },
+        {
+            "type": "publicip",
+            $fmtline_publicip
+            "key": " ├ 󰞉 ",
+            "keyColor": "$color4",
+            "outputColor": "$tcolor4",
+            "keyWidth": 10
+        },
+        {
+            "type": "wifi",
+            $fmtline_wifi
+            "key": " ├ 󰖩 ",
+            "keyColor": "$color4",
+            "outputColor": "$tcolor4",
+            "keyWidth": 10
+        },
+        "break",
+        {
+            "type": "datetime",
+            $fmtline_datetime
+            "key": " ├ 󰅐 ",
+            "keyColor": "$color5",
+            "outputColor": "$tcolor5",
+            "keyWidth": 10
+        },
+        {
+            "type": "uptime",
+            $fmtline_uptime
+            "key": " ├ 󰔚 ",
+            "keyColor": "$color5",
+            "outputColor": "$tcolor5",
+            "keyWidth": 10
+        },
+        {
+            "type": "media",
+            $fmtline_media
+            "key": " ├ 󰎈 ",
+            "keyColor": "$color5",
+            "outputColor": "$tcolor5",
+            "keyWidth": 10
+        },
+        "break",
+        "break"
+    ]
+}
+EOF
+
+    # Clean up empty lines from JSON (when demo mode is off, fmtline vars are empty)
+    sed -i '/^[[:space:]]*$/d' "$CONFIG_DIR/fastfetch.jsonc"
+}
+
+create_minimal_config() {
+    local logo_type=$1
+    local custom_image=$2
+    local theme=$3
+    local dot_format
+    dot_format=$(theme_dot_format "$theme")
+
+    local logo_source=$(get_logo_source "$logo_type" "$custom_image")
+    local logo_actual_type=$(get_logo_type "$logo_type" "$custom_image")
+
+    # Get theme-based or custom ANSI colors
+    local use_theme_colors=$(get_config_value "fastfetch" "use_theme_colors")
+    [ -z "$use_theme_colors" ] && use_theme_colors="true"
+
+    local color1 color2 color3 color4 color5 color6 color7 color8
+    local output_color
+    local show_labels=$(get_config_value "fastfetch" "labels")
+    [ -z "$show_labels" ] && show_labels="false"
+    
+    
+    if [ "$use_theme_colors" = "false" ]; then
+        local custom_key=$(get_config_value "fastfetch" "key_color")
+        local custom_value=$(get_config_value "fastfetch" "value_color")
+        [ -z "$custom_key" ] && custom_key="34"
+        [ -z "$custom_value" ] && custom_value="37"
+        color1="$custom_key"
+        color2="$custom_key"
+        color3="$custom_key"
+        color4="$custom_key"
+        color5="$custom_key"
+        color6="$custom_key"
+        color7="$custom_key"
+        color8="$custom_key"
+        output_color="$custom_value"
+    else
+        color1=$(get_theme_ansi_color "$theme" "primary")
+        color2=$(get_theme_ansi_color "$theme" "secondary")
+        color3=$(get_theme_ansi_color "$theme" "accent")
+        color4=$(get_theme_ansi_color "$theme" "highlight")
+        color5=$(get_theme_ansi_color "$theme" "info")
+        color6="$color1"
+        color7="$color2"
+        color8="$color3"
+        output_color=$(get_fastfetch_text_color "primary" "$theme")
+    fi
+
+    # Demo mode: prepare format overrides
+    local demo_mode=$(get_config_value "fastfetch" "demo_mode")
+    local fmt_title="" fmtline_os="" fmtline_kernel="" fmtline_shell="" fmtline_uptime=""
+    
+    if [ "$demo_mode" = "true" ]; then
+        fmt_title="hacker@linuxbox"
+        fmtline_os="\"format\": \"$(get_demo_format os)\","
+        fmtline_kernel="\"format\": \"$(get_demo_format kernel)\","
+        fmtline_shell="\"format\": \"$(get_demo_format shell)\","
+        fmtline_uptime="\"format\": \"$(get_demo_format uptime)\","
+    else
+        fmt_title="{user-name-colored}@{host-name-colored}"
+    fi
+
+    cat > "$CONFIG_DIR/fastfetch.jsonc" << EOF
+{
+    // TermFetch Studio - Minimal Preset
+    // Theme: $theme
+    "\$schema": "https://github.com/fastfetch-cli/fastfetch/raw/dev/doc/json_schema.json",
+
+    "logo": {
+        "type": "$logo_actual_type",
+        "source": "$logo_source",
+$(logo_dimensions_json_fields "$logo_actual_type" "$logo_source" 10)
+        "padding": {
+            "top": 2,
+            "right": 3
+        }
+    },
+
+    "display": {
+        "separator": " ➜ "
+    },
+
+    "modules": [
+        "break",
+        "break",
+        {
+            "type": "title",
+            "format": "$fmt_title",
+            "key": ""
+        },
+        "break",
+        {
+            "type": "custom",
+            "format": "${dot_format}"
+        },
+        "break",
+        {
+            "type": "os",
+            $fmtline_os
+            "key": " ├ 󰣇 ",
+            "keyColor": "$color1",
+            "outputColor": "$output_color"
+        },
+        {
+            "type": "kernel",
+            $fmtline_kernel
+            "key": " ├ 󰌢 ",
+            "keyColor": "$color1",
+            "outputColor": "$output_color"
+        },
+        {
+            "type": "shell",
+            $fmtline_shell
+            "key": " ├ 󰆍 ",
+            "keyColor": "$color1",
+            "outputColor": "$output_color"
+        },
+        {
+            "type": "uptime",
+            $fmtline_uptime
+            "key": " ├ 󰔚 ",
+            "keyColor": "$color1",
+            "outputColor": "$output_color"
+        },
+        "break",
+        {
+            "type": "custom",
+            "format": "${dot_format}"
+        },
+        "break"
+    ]
+}
+EOF
+
+    # Clean up empty lines from JSON
+    sed -i '/^[[:space:]]*$/d' "$CONFIG_DIR/fastfetch.jsonc"
+}
+
+create_focused_config() {
+    local logo_type=$1
+    local custom_image=$2
+    local theme=$3
+    local dot_format
+    dot_format=$(theme_dot_format "$theme")
+
+    local logo_source=$(get_logo_source "$logo_type" "$custom_image")
+    local logo_actual_type=$(get_logo_type "$logo_type" "$custom_image")
+
+    # Get theme-based ANSI colors
+    local color1=$(get_theme_ansi_color "$theme" "primary")
+    local color2=$(get_theme_ansi_color "$theme" "secondary")
+    local color3=$(get_theme_ansi_color "$theme" "accent")
+
+    local color4 color5 color6 color7 color8
+    local output_color
+    local use_theme_colors=$(get_config_value "fastfetch" "use_theme_colors")
+    [ -z "$use_theme_colors" ] && use_theme_colors="true"
+
+    if [ "$use_theme_colors" = "false" ]; then
+        local custom_key=$(get_config_value "fastfetch" "key_color")
+        local custom_value=$(get_config_value "fastfetch" "value_color")
+        [ -z "$custom_key" ] && custom_key="34"
+        [ -z "$custom_value" ] && custom_value="default"
+        # Override existing color1, color2, color3 with custom_key
+        color1="$custom_key"
+        color2="$custom_key"
+        color3="$custom_key"
+        color4="$custom_key"
+        color5="$custom_key"
+        color6="$custom_key"
+        color7="$custom_key"
+        color8="$custom_key"
+        output_color=$(get_fastfetch_text_color "primary" "$theme")
+    else
+        # Keep existing theme color assignments for color1, color2, color3
+        # Add these:
+        color4=$(get_theme_ansi_color "$theme" "highlight")
+        color5=$(get_theme_ansi_color "$theme" "info")
+        color6="$color1"
+        color7="$color2"
+        color8="$color3"
+        output_color=$(get_fastfetch_text_color "primary" "$theme")
+    fi
+
+    # Demo mode: prepare format overrides
+    local demo_mode=$(get_config_value "fastfetch" "demo_mode")
+    local fmt_title="" fmtline_os="" fmtline_kernel="" fmtline_packages="" fmtline_uptime=""
+    local fmtline_terminal="" fmtline_shell="" fmtline_cpu="" fmtline_memory="" fmtline_disk=""
+    
+    if [ "$demo_mode" = "true" ]; then
+        fmt_title="hacker@linuxbox"
+        fmtline_os="\"format\": \"$(get_demo_format os)\","
+        fmtline_kernel="\"format\": \"$(get_demo_format kernel)\","
+        fmtline_packages="\"format\": \"$(get_demo_format packages)\","
+        fmtline_uptime="\"format\": \"$(get_demo_format uptime)\","
+        fmtline_terminal="\"format\": \"$(get_demo_format terminal)\","
+        fmtline_shell="\"format\": \"$(get_demo_format shell)\","
+        fmtline_cpu="\"format\": \"$(get_demo_format cpu)\","
+        fmtline_memory="\"format\": \"$(get_demo_format memory)\","
+        fmtline_disk="\"format\": \"$(get_demo_format disk)\","
+    else
+        fmt_title="{user-name-colored}@{host-name-colored}"
+    fi
+
+    cat > "$CONFIG_DIR/fastfetch.jsonc" << EOF
+{
+    // TermFetch Studio - Focused Preset
+    // Theme: $theme
+    "\$schema": "https://github.com/fastfetch-cli/fastfetch/raw/dev/doc/json_schema.json",
+
+    "logo": {
+        "type": "$logo_actual_type",
+        "source": "$logo_source",
+$(logo_dimensions_json_fields "$logo_actual_type" "$logo_source" 12)
+        "padding": {
+            "top": 2,
+            "right": 3
+        }
+    },
+
+    "display": {
+        "separator": " ➜ "
+    },
+
+    "modules": [
+        "break",
+        "break",
+        {
+            "type": "title",
+            "format": "$fmt_title",
+            "key": ""
+        },
+        "break",
+        {
+            "type": "custom",
+            "format": "${dot_format}"
+        },
+        "break",
+        {
+            "type": "os",
+            $fmtline_os
+            "key": " ├ 󰣇 ",
+            "keyColor": "$color1",
+            "outputColor": "$output_color"
+        },
+        {
+            "type": "kernel",
+            $fmtline_kernel
+            "key": " ├ 󰌢 ",
+            "keyColor": "$color1",
+            "outputColor": "$output_color"
+        },
+        {
+            "type": "packages",
+            $fmtline_packages
+            "key": " ├ 󰏖 ",
+            "keyColor": "$color1",
+            "outputColor": "$output_color"
+        },
+        {
+            "type": "uptime",
+            $fmtline_uptime
+            "key": " ├ 󰔟 ",
+            "keyColor": "$color1",
+            "outputColor": "$output_color"
+        },
+        "break",
+        {
+            "type": "terminal",
+            $fmtline_terminal
+            "key": " ├ 󰆍 ",
+            "keyColor": "$color2",
+            "outputColor": "$output_color"
+        },
+        {
+            "type": "shell",
+            $fmtline_shell
+            "key": " ├ 󰆍 ",
+            "keyColor": "$color2",
+            "outputColor": "$output_color"
+        },
+        "break",
+        {
+            "type": "cpu",
+            $fmtline_cpu
+            "key": " ├ 󰻠 ",
+            "keyColor": "$color3",
+            "outputColor": "$output_color"
+        },

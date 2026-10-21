@@ -692,7 +692,7 @@ set -e
 INSTALL_DIR="$HOME/.local/share/termfetch-studio"
 CONFIG_DIR="$HOME/.config/termfetch-studio"
 JSON="$CONFIG_DIR/fastfetch.jsonc"
-TMP="$CONFIG_DIR/.fastfetch.current.jsonc"
+
 
 # If base config missing, run fastfetch normally
 if [ ! -f "$JSON" ]; then
@@ -718,58 +718,50 @@ custom_image=$(get_config_value "fastfetch" "custom_image")
 logo_source=$(get_logo_source "$logo_type" "$custom_image")
 logo_actual_type=$(get_logo_type "$logo_type" "$custom_image")
 logo_width=""
-case "$logo_actual_type" in kitty-direct|kitty|iterm|sixel) logo_width=20 ;; esac
+logo_height=""
+case "$logo_actual_type" in
+  kitty-direct|kitty|iterm|sixel)
+    if [ -n "$logo_source" ] && [ -f "$logo_source" ] && declare -f compute_logo_dimensions >/dev/null 2>&1; then
+      dims=$(compute_logo_dimensions "$logo_source" 20 14)
+      read -r logo_width logo_height <<< "$dims"
+    else
+      logo_width=20
+      logo_height=10
+    fi
+    ;;
+esac
 
 # Prepare temp config with adjusted logo fields
-cp "$JSON" "$TMP"
+TMP=$(mktemp "$CONFIG_DIR/.fastfetch.XXXXXXXX.jsonc")
+trap 'rm -f -- "$TMP"' EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+trap 'exit 129' HUP
 
 # Update logo.type and logo.source inside the JSON safely with awk
-awk -v t="$logo_actual_type" -v s="$logo_source" -v w="$logo_width" '
-  BEGIN{ inlogo=0; has_source=0; has_type=0; has_width=0 }
+awk -v t="$logo_actual_type" -v s="$logo_source" -v w="$logo_width" -v h="$logo_height" '
+  BEGIN{ inlogo=0 }
   {
     # Detect logo block start
     if ($0 ~ /"logo"[[:space:]]*:[[:space:]]*\{/){
       inlogo=1
-      has_source=0
-      has_type=0
-      has_width=0
       print
       if (t != "") print "        \"type\": \"" t "\",";
       if (s != "") print "        \"source\": \"" s "\",";
+      if (w != "") print "        \"width\": " w ",";
+      if (h != "") print "        \"height\": " h ",";
       next
     }
     
     # Detect logo block end
     if (inlogo==1 && $0 ~ /^[[:space:]]*}[[:space:]]*,?[[:space:]]*$/){
       inlogo=0
-      has_source=0
-      has_type=0
-      has_width=0
       print
       next
     }
     
-    # Inside logo block - handle type field
-    if (inlogo==1 && $0 ~ /"type"[[:space:]]*:/){
-      next
-    }
-    
-    # Inside logo block - handle source field
-    if (inlogo==1 && $0 ~ /"source"[[:space:]]*:/){
-      next
-    }
-
-    # Image protocols need a fixed width to avoid a terminal cursor query.
-    if (inlogo==1 && $0 ~ /"width"[[:space:]]*:/){
-      has_width=1
-      if (w == "") next
-      sub(/"width"[[:space:]]*:[[:space:]]*[0-9]+/, "\"width\": " w)
-      print
-      next
-    }
-    if (inlogo==1 && $0 ~ /"height"[[:space:]]*:/){
-      if (w != "" && has_width==0) print "        \"width\": " w ","
-      print
+    # Inside logo block - skip overridden fields
+    if (inlogo==1 && ($0 ~ /"type"[[:space:]]*:/ || $0 ~ /"source"[[:space:]]*:/ || $0 ~ /"width"[[:space:]]*:/ || $0 ~ /"height"[[:space:]]*:/)){
       next
     }
     
@@ -779,7 +771,7 @@ awk -v t="$logo_actual_type" -v s="$logo_source" -v w="$logo_width" '
 ' "$JSON" > "$TMP"
 
 # Run fastfetch with the temp config
-exec fastfetch --config "$TMP" "$@"
+fastfetch --config "$TMP" "$@"
 WRAPPER
     
     chmod +x "$BIN_DIR/tfs-fastfetch"
@@ -806,389 +798,353 @@ image_identify() {
     if command -v magick >/dev/null 2>&1; then magick identify "$@"; else identify "$@"; fi
 }
 
+get_image_pixel_dimensions() {
+    local img="$1"
+    [ -f "$img" ] || return 1
+
+    # 1. ImageMagick identify
+    if command -v magick >/dev/null 2>&1; then
+        local out
+        out=$(magick identify -format "%w %h" "$img" 2>/dev/null)
+        if [[ "$out" =~ ^([0-9]+)[[:space:]]+([0-9]+)$ ]]; then
+            echo "${BASH_REMATCH[1]} ${BASH_REMATCH[2]}"
+            return 0
+        fi
+    elif command -v identify >/dev/null 2>&1; then
+        local out
+        out=$(identify -format "%w %h" "$img" 2>/dev/null)
+        if [[ "$out" =~ ^([0-9]+)[[:space:]]+([0-9]+)$ ]]; then
+            echo "${BASH_REMATCH[1]} ${BASH_REMATCH[2]}"
+            return 0
+        fi
+    fi
+
+    # 2. file command
+    if command -v file >/dev/null 2>&1; then
+        local f_out
+        f_out=$(file -b "$img" 2>/dev/null)
+        if [[ "$f_out" =~ ([0-9]+)[[:space:]]*x[[:space:]]*([0-9]+) ]]; then
+            echo "${BASH_REMATCH[1]} ${BASH_REMATCH[2]}"
+            return 0
+        fi
+    fi
+
+    # 3. Python standard library (no third-party dependencies)
+    if command -v python3 >/dev/null 2>&1; then
+        local py_out
+        py_out=$(python3 -c '
+import sys, struct
+p = sys.argv[1]
+w, h = 0, 0
+try:
+    with open(p, "rb") as f:
+        head = f.read(32)
+        if head.startswith(b"\x89PNG\r\n\x1a\n") and len(head) >= 24:
+            w, h = struct.unpack(">II", head[16:24])
+        elif head[:2] == b"\xff\xd8":
+            f.seek(2)
+            while True:
+                b = f.read(2)
+                if len(b) < 2 or b[0] != 0xff: break
+                while b[1] == 0xff: b = b[0:1] + f.read(1)
+                m = b[1]
+                if m in (0xc0, 0xc1, 0xc2, 0xc3, 0xc5, 0xc6, 0xc7, 0xc9, 0xca, 0xcb, 0xcd, 0xce, 0xcf):
+                    L = struct.unpack(">H", f.read(2))[0]
+                    d = f.read(L - 2)
+                    h, w = struct.unpack(">HH", d[1:5])
+                    break
+                elif m in (0xd9, 0xda): break
+                else:
+                    L = struct.unpack(">H", f.read(2))[0]
+                    f.seek(L - 2, 1)
+        elif head[:6] in (b"GIF87a", b"GIF89a"):
+            w, h = struct.unpack("<HH", head[6:10])
+        elif head[:2] == b"BM":
+            w, h = struct.unpack("<ii", head[18:26])
+            h = abs(h)
+except Exception:
+    pass
+if w > 0 and h > 0:
+    print(f"{w} {h}")
+' "$img" 2>/dev/null)
+        if [[ "$py_out" =~ ^([0-9]+)[[:space:]]+([0-9]+)$ ]]; then
+            echo "${BASH_REMATCH[1]} ${BASH_REMATCH[2]}"
+            return 0
+        fi
+    fi
+
+    return 1
+}
+
+ui_terminal_size() {
+    local rows cols
+    read -r rows cols < <(stty size 2>/dev/null) || true
+    [[ "$cols" =~ ^[1-9][0-9]*$ ]] || cols=${COLUMNS:-80}
+    [[ "$rows" =~ ^[1-9][0-9]*$ ]] || rows=${LINES:-24}
+    [[ "$cols" =~ ^[1-9][0-9]*$ ]] || cols=80
+    [[ "$rows" =~ ^[1-9][0-9]*$ ]] || rows=24
+    printf '%s %s\n' "$cols" "$rows"
+}
+
+get_terminal_cell_dimensions() {
+    # Kernel winsize is a read-only query; no cursor/device response is consumed.
+    local pixels cols rows cw ch
+    if [ -t 0 ] && command -v python3 >/dev/null 2>&1; then
+        pixels=$(python3 -c 'import os,fcntl,termios,struct
+try:
+ fd=os.open("/dev/tty",os.O_RDONLY|os.O_NOCTTY)
+ r,c,w,h=struct.unpack("HHHH",fcntl.ioctl(fd,termios.TIOCGWINSZ,b"\0"*8));os.close(fd)
+ if r and c and w and h: print(max(1,w//c),max(1,h//r))
+except OSError: pass' 2>/dev/null)
+        if [[ "$pixels" =~ ^([1-9][0-9]*)[[:space:]]+([1-9][0-9]*)$ ]]; then
+            printf '%s\n' "$pixels"
+            return
+        fi
+    fi
+    if [ -t 0 ] && [ -n "${KITTY_WINDOW_ID:-}" ] && command -v kitten >/dev/null 2>&1 && command -v timeout >/dev/null 2>&1; then
+        pixels=$(timeout 1s kitten icat --print-window-size 2>/dev/null) || pixels=""
+        if [[ "$pixels" =~ ^([1-9][0-9]*)x([1-9][0-9]*)$ ]]; then
+            local pw=${BASH_REMATCH[1]} ph=${BASH_REMATCH[2]}
+            read -r cols rows < <(ui_terminal_size)
+            cw=$((pw / cols)); ch=$((ph / rows))
+            if (( cw > 0 && ch > 0 )); then printf '%s %s\n' "$cw" "$ch"; return; fi
+        fi
+    fi
+    # Without pixel metadata use conventional cells, with explicit bounded sizes.
+    printf '1 2\n'
+}
+
+compute_logo_dimensions() {
+    local img=$1 max_w=${2:-20} max_h=${3:-14}
+    local cols rows pw=1 ph=1 cw ch dims w h
+    read -r cols rows < <(ui_terminal_size)
+    read -r cw ch < <(get_terminal_cell_dimensions)
+    [[ "$max_w" =~ ^[1-9][0-9]*$ ]] || max_w=20
+    [[ "$max_h" =~ ^[1-9][0-9]*$ ]] || max_h=14
+    local bound_w=$((cols / 3)) bound_h=$((rows - 4))
+    ((bound_w < 1)) && bound_w=1
+    ((bound_h < 1)) && bound_h=1
+    ((bound_w > max_w)) && bound_w=$max_w
+    ((bound_h > max_h)) && bound_h=$max_h
+    dims=$(get_image_pixel_dimensions "$img") || dims='1 1'
+    if [[ "$dims" =~ ^([1-9][0-9]*)[[:space:]]+([1-9][0-9]*)$ ]]; then
+        pw=${BASH_REMATCH[1]}; ph=${BASH_REMATCH[2]}
+        # Reject absurd metadata before integer multiplication.
+        ((pw > 1000000 || ph > 1000000)) && { pw=1; ph=1; }
+    fi
+    w=$bound_w
+    h=$(((w * ph * cw + pw * ch / 2) / (pw * ch)))
+    ((h < 1)) && h=1
+    if ((h > bound_h)); then
+        h=$bound_h
+        w=$(((h * pw * ch + ph * cw / 2) / (ph * cw)))
+        ((w > bound_w)) && w=$bound_w
+        ((w < 1)) && w=1
+    fi
+    # Prefer the largest integer-cell rectangle within 5% of the pixel ratio.
+    # This avoids avoidable rounding distortion for wide and tall images.
+    local candidate_h candidate_w delta target area best_area=0 best_w=$w best_h=$h
+    for ((candidate_h=1; candidate_h<=bound_h; candidate_h++)); do
+        candidate_w=$(((candidate_h * pw * ch + ph * cw / 2) / (ph * cw)))
+        ((candidate_w >= 1 && candidate_w <= bound_w)) || continue
+        target=$((candidate_h * pw * ch))
+        delta=$((candidate_w * ph * cw - target)); ((delta < 0)) && delta=$((-delta))
+        area=$((candidate_w * candidate_h))
+        if ((delta * 100 <= target * 5 && area > best_area)); then
+            best_area=$area; best_w=$candidate_w; best_h=$candidate_h
+        fi
+    done
+    w=$best_w; h=$best_h
+    printf '%s %s\n' "$w" "$h"
+}
+
+ui_clip_text() {
+    # Conservative cell widths keep emoji/combining sequences from wrapping.
+    local text=$1 budget=$2 ch cp width used=0 output='' i
+    for ((i=0; i<${#text}; i++)); do
+        ch=${text:i:1}
+        printf -v cp '%d' "'$ch"
+        ((cp < 32 || (cp >= 127 && cp <= 159))) && continue
+        width=1
+        if (( (cp >= 768 && cp <= 879) || cp == 8205 || (cp >= 65024 && cp <= 65039) )); then
+            width=0
+        elif (( (cp >= 4352 && cp <= 4607) || (cp >= 9728 && cp <= 10175) || (cp >= 11904 && cp <= 42191) || (cp >= 44032 && cp <= 55203) || (cp >= 63744 && cp <= 64255) || (cp >= 65040 && cp <= 65049) || (cp >= 65072 && cp <= 65135) || (cp >= 65280 && cp <= 65376) || (cp >= 65504 && cp <= 65510) || (cp >= 127744 && cp <= 129791) )); then
+            width=2
+        fi
+        ((used + width > budget)) && break
+        output+=$ch; used=$((used + width))
+    done
+    printf '%s' "$output"
+}
+
 show_header() {
-    clear
-    echo -e "\033[1;36m"
-    cat << "EOF"
-╔═══════════════════════════════════════════════════╗
-║            TermFetch Studio v1.0                  ║
-║     Professional Terminal Theme Manager           ║
-╚═══════════════════════════════════════════════════╝
-EOF
-    echo -e "\033[0m"
-}
-
-select_option() {
-    local prompt="$1"
-    shift
-    local options=("$@")
-    local selected=0
-    local total=${#options[@]}
-    local preview_callback=""
-
-    # Check if last argument is a preview callback function
-    if [ $# -gt 0 ] && declare -f "${!#}" &>/dev/null; then
-        preview_callback="${!#}"
-        unset 'options[-1]'
-        ((total--))
+    local cols rows
+    read -r cols rows < <(ui_terminal_size)
+    printf '\033[H\033[2J\033[1;36m'
+    if ((cols >= 56 && rows >= 20)); then
+        printf '%s\n' '╔═══════════════════════════════════════════════════╗' '║            TermFetch Studio v1.0                  ║' '║     Professional Terminal Theme Manager           ║' '╚═══════════════════════════════════════════════════╝'
+    else
+        ui_clip_text 'TermFetch Studio v1.0' "$((cols - 1))"
+        printf '\n'
     fi
-
-    # Helper function to draw menu
-    draw_menu() {
-        show_header
-        echo ""
-        echo -e "\033[1;33m$prompt\033[0m"
-        echo ""
-
-        # Check terminal width for responsive layout
-        local term_width=$(tput cols 2>/dev/null || echo 80)
-        local use_side_layout=false
-        local menu_col_width=45
-        local preview_start_col=$((menu_col_width + 5))
-        
-        # Use side-by-side layout if terminal is wide enough (100+ cols)
-        # BUT NOT for image/logo previews as chafa output breaks cursor positioning
-        if [ -n "$preview_callback" ] && [ $term_width -ge 100 ]; then
-            # Disable side layout for image/logo previews
-            if [[ "$preview_callback" != *"image"* ]] && [[ "$preview_callback" != *"logo"* ]] && [[ "$preview_callback" != *"ascii"* ]]; then
-                use_side_layout=true
-            fi
-        fi
-
-        # Get starting line for menu items
-        local menu_start_line=7  # After header
-
-        for i in "${!options[@]}"; do
-            if [ $i -eq $selected ]; then
-                echo -e "  \033[1;32m▶\033[0m \033[7m${options[$i]}\033[0m"
-            else
-                echo -e "    ${options[$i]}"
-            fi
-        done
-
-        # Show preview
-        if [ -n "$preview_callback" ]; then
-            if [ "$use_side_layout" = true ]; then
-                # Side-by-side layout: draw preview on the right
-                local preview_output=$($preview_callback $selected 2>&1)
-                
-                # Save cursor position, move to right column, draw preview
-                echo -e "\033[${menu_start_line};${preview_start_col}H\033[1;33m👁️  Preview:\033[0m"
-                
-                local line_num=$((menu_start_line + 1))
-                while IFS= read -r line; do
-                    # Truncate line if too long
-                    local max_width=$((term_width - preview_start_col - 2))
-                    line="${line:0:$max_width}"
-                    echo -e "\033[${line_num};${preview_start_col}H${line}"
-                    ((line_num++))
-                    # Limit preview height
-                    [ $((line_num - menu_start_line)) -gt 15 ] && break
-                done <<< "$preview_output"
-                
-                # Move cursor back to bottom
-                echo -e "\033[$((total + 10));1H"
-            else
-                # Below layout: draw preview under menu
-                echo ""
-                echo -e "\033[1;36m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m"
-                echo -e "\033[1;33m👁️  Preview:\033[0m"
-                echo ""
-
-                local preview_output=$($preview_callback $selected 2>&1)
-                echo "$preview_output"
-
-                # Dynamic padding based on terminal height
-                local term_height=$(tput lines 2>/dev/null || echo 24)
-                local menu_lines=$((total + 8))
-                local available=$((term_height - menu_lines - 5))
-                local preview_lines=$(echo "$preview_output" | wc -l)
-                
-                local max_padding=10
-                [ $available -lt $max_padding ] && max_padding=$available
-                [ $max_padding -lt 0 ] && max_padding=0
-                
-                local padding=$((max_padding - preview_lines))
-                if [ $padding -gt 0 ]; then
-                    for ((i=0; i<padding; i++)); do
-                        echo ""
-                    done
-                fi
-            fi
-        fi
-    }
-
-    tput civis 2>/dev/null
-    draw_menu
-
-    while true; do
-        read -rsn1 key
-
-        if [[ $key == $'\x1b' ]]; then
-            read -rsn2 key
-            case $key in
-                '[A')
-                    ((selected--))
-                    [ $selected -lt 0 ] && selected=$((total - 1))
-                    draw_menu
-                    ;;
-                '[B')
-                    ((selected++))
-                    [ $selected -ge $total ] && selected=0
-                    draw_menu
-                    ;;
-            esac
-        elif [[ $key == "" ]]; then
-            tput cnorm 2>/dev/null
-            clear
-            return $selected
-        elif [[ $key == "q" ]] || [[ $key == "Q" ]]; then
-            tput cnorm 2>/dev/null
-            clear
-            return 255
-        fi
-    done
+    printf '\033[0m'
 }
 
-select_option_2col() {
-    local prompt="$1"
-    shift
-    local options=("$@")
-    local selected=0
-    local total=${#options[@]}
-    local cols=2
-    local rows=$(( (total + cols - 1) / cols ))
-
-    tput civis 2>/dev/null
-
-    while true; do
-        show_header
-        echo ""
-        echo -e "\033[1;33m$prompt\033[0m"
-        echo ""
-
-        # Display items in 2 columns
-        for ((row=0; row<rows; row++)); do
-            local left_idx=$row
-            local right_idx=$((rows + row))
-
-            # Left column
-            if [ $left_idx -lt $total ]; then
-                if [ $left_idx -eq $selected ]; then
-                    printf "  \033[1;32m▶\033[0m \033[7m%-28s\033[0m" "${options[$left_idx]}"
-                else
-                    printf "    %-28s" "${options[$left_idx]}"
-                fi
-            else
-                printf "%-30s" ""
-            fi
-
-            # Right column
-            if [ $right_idx -lt $total ]; then
-                if [ $right_idx -eq $selected ]; then
-                    printf "  \033[1;32m▶\033[0m \033[7m%s\033[0m\n" "${options[$right_idx]}"
-                else
-                    printf "    %s\n" "${options[$right_idx]}"
-                fi
-            else
-                echo ""
-            fi
-        done
-
-        read -rsn1 key
-
-        if [[ $key == $'\x1b' ]]; then
-            read -rsn2 key
-            case $key in
-                '[A')  # Up arrow
-                    if [ $selected -lt $rows ]; then
-                        # In left column
-                        if [ $selected -gt 0 ]; then
-                            selected=$((selected - 1))
-                        else
-                            # Wrap to bottom of left column
-                            selected=$((rows - 1))
-                        fi
-                    else
-                        # In right column
-                        if [ $selected -gt $rows ]; then
-                            selected=$((selected - 1))
-                        else
-                            # Wrap to bottom of right column
-                            selected=$((total - 1))
-                        fi
-                    fi
-                    ;;
-                '[B')  # Down arrow
-                    if [ $selected -lt $rows ]; then
-                        # In left column
-                        if [ $selected -lt $((rows - 1)) ]; then
-                            selected=$((selected + 1))
-                        else
-                            # Wrap to top of left column
-                            selected=0
-                        fi
-                    else
-                        # In right column
-                        if [ $selected -lt $((total - 1)) ]; then
-                            selected=$((selected + 1))
-                        else
-                            # Wrap to top of right column
-                            selected=$rows
-                        fi
-                    fi
-                    ;;
-                '[C')  # Right arrow
-                    if [ $selected -lt $rows ] && [ $((selected + rows)) -lt $total ]; then
-                        selected=$((selected + rows))
-                    fi
-                    ;;
-                '[D')  # Left arrow
-                    if [ $selected -ge $rows ]; then
-                        selected=$((selected - rows))
-                    fi
-                    ;;
-            esac
-        elif [[ $key == "" ]]; then
-            tput cnorm 2>/dev/null
-            return $selected
-        elif [[ $key == "q" ]] || [[ $key == "Q" ]]; then
-            tput cnorm 2>/dev/null
-            return 255
-        fi
-    done
+_ui_put() {
+    local row=$1 col=$2 budget=$3 text=$4 style=${5:-'\033[0m'}
+    ((row >= 1 && row <= _ui_height && col >= 1 && col <= _ui_width && budget > 0)) || return 0
+    printf '\033[%d;%dH%b' "$row" "$col" "$style"
+    ui_clip_text "$text" "$budget"
+    printf '\033[0m'
 }
 
-select_option_2col_with_preview() {
-    local prompt="$1"
-    shift
-    local options=("$@")
-    local preview_callback=""
-    
-    # Check if last argument is a preview callback function
-    if [ $# -gt 0 ] && declare -f "${!#}" &>/dev/null; then
-        preview_callback="${!#}"
-        unset 'options[-1]'
+_ui_teardown() {
+    [ "${_ui_active:-0}" = 1 ] || return 0
+    _ui_active=0
+    printf '\033[?2026l\033[0m\033[?25h\033[?1049l'
+    [ -n "$_ui_stty" ] && stty "$_ui_stty" 2>/dev/null || true
+    trap - EXIT INT TERM HUP WINCH
+    local saved
+    for saved in "$_ui_old_exit" "$_ui_old_int" "$_ui_old_term" "$_ui_old_hup" "$_ui_old_winch"; do
+        [ -n "$saved" ] && eval "$saved"
+    done
+    return 0
+}
+
+_ui_draw_menu() {
+    local header=2 list_start cols=1 logical_rows sel_row visible start end row index col cell_w
+    (( _ui_height >= 20 && _ui_width >= 60 )) && header=5
+    (( _ui_two && _ui_width >= 68 )) && cols=2
+    logical_rows=$(((_ui_total + cols - 1) / cols))
+    list_start=$((header + 3))
+    _ui_preview_rows=0
+    if [ -n "$_ui_preview" ] && ((_ui_height >= 16)); then
+        _ui_preview_rows=3
+        [[ "$_ui_preview" == preview_image_logo ]] && _ui_preview_rows=6
+        ((_ui_height < 24 && _ui_preview_rows > 3)) && _ui_preview_rows=3
     fi
-    
-    local selected=0
-    local total=${#options[@]}
-    local cols=2
-    local rows=$(( (total + cols - 1) / cols ))
-    local last_selected=-1
-
-    tput civis 2>/dev/null
-
-    while true; do
-        show_header
-        echo ""
-        echo -e "\033[1;33m$prompt\033[0m"
-        echo ""
-
-        # Display items in 2 columns
-        for ((row=0; row<rows; row++)); do
-            local left_idx=$row
-            local right_idx=$((rows + row))
-
-            # Left column
-            if [ $left_idx -lt $total ]; then
-                if [ $left_idx -eq $selected ]; then
-                    printf "  \033[1;32m▶\033[0m \033[7m%-28s\033[0m" "${options[$left_idx]}"
-                else
-                    printf "    %-28s" "${options[$left_idx]}"
-                fi
+    visible=$((_ui_height - list_start - 1))
+    ((_ui_preview_rows > 0)) && visible=$((visible - _ui_preview_rows - 2))
+    ((visible < 1)) && visible=1
+    ((visible > logical_rows)) && visible=$logical_rows
+    sel_row=$((_ui_selected % logical_rows))
+    ((_ui_start > sel_row)) && _ui_start=$sel_row
+    ((sel_row >= _ui_start + visible)) && _ui_start=$((sel_row - visible + 1))
+    ((_ui_start > logical_rows - visible)) && _ui_start=$((logical_rows - visible))
+    ((_ui_start < 0)) && _ui_start=0
+    start=$_ui_start; end=$((start + visible)); cell_w=$((_ui_width / cols))
+    printf '\033[?2026h\033[H\033[2J'
+    if ((_ui_height < 8 || _ui_width < 20)); then
+        _ui_put 1 1 "$((_ui_width - 1))" 'Resize terminal; Q to back'
+        printf '\033[?2026l'
+        return
+    fi
+    if ((header == 5)); then
+        _ui_put 1 1 "$((_ui_width - 1))" '╔═══════════════════════════════════════════════════╗' '\033[1;36m'
+        _ui_put 2 1 "$((_ui_width - 1))" '║            TermFetch Studio v1.0                  ║' '\033[1;36m'
+        _ui_put 3 1 "$((_ui_width - 1))" '║     Professional Terminal Theme Manager           ║' '\033[1;36m'
+        _ui_put 4 1 "$((_ui_width - 1))" '╚═══════════════════════════════════════════════════╝' '\033[1;36m'
+    else
+        _ui_put 1 1 "$((_ui_width - 1))" 'TermFetch Studio v1.0' '\033[1;36m'
+    fi
+    _ui_put "$((header + 1))" 1 "$((_ui_width - 1))" "$_ui_prompt" '\033[1;33m'
+    for ((row=start; row<end; row++)); do
+        for ((col=0; col<cols; col++)); do
+            index=$((row + col * logical_rows))
+            ((index >= _ui_total)) && continue
+            local x=$((col * cell_w + 1)) y=$((list_start + row - start))
+            if ((index == _ui_selected)); then
+                _ui_put "$y" "$x" 3 ' ▶ ' '\033[1;32m'
+                _ui_put "$y" "$((x + 4))" "$((cell_w - 5))" "${_ui_options[index]}" '\033[7m'
             else
-                printf "%-30s" ""
-            fi
-
-            # Right column
-            if [ $right_idx -lt $total ]; then
-                if [ $right_idx -eq $selected ]; then
-                    printf "  \033[1;32m▶\033[0m \033[7m%s\033[0m\n" "${options[$right_idx]}"
-                else
-                    printf "    %s\n" "${options[$right_idx]}"
-                fi
-            else
-                echo ""
+                _ui_put "$y" "$((x + 4))" "$((cell_w - 5))" "${_ui_options[index]}"
             fi
         done
-
-        # Show theme preview if callback provided and selection changed
-        if [ -n "$preview_callback" ] && [ $selected -ne $last_selected ]; then
-            echo ""
-            echo -e "\033[1;36m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m"
-            echo -e "\033[1;33m🎨 Theme Preview:\033[0m"
-            echo ""
-            
-            # Apply theme preview
-            $preview_callback $selected
-            
-            last_selected=$selected
+    done
+    if ((_ui_preview_rows > 0)); then
+        local preview_y=$((list_start + visible + 1))
+        local UI_PREVIEW_COLS=$((_ui_width - 2)) UI_PREVIEW_ROWS=$_ui_preview_rows
+        _ui_put "$preview_y" 1 "$((_ui_width - 1))" 'Preview:' '\033[1;33m'
+        printf '\033[%d;1H' "$((preview_y + 1))"
+        if [[ "$_ui_preview" == preview_image_logo || "$_ui_preview" == preview_theme ]]; then
+            # These callbacks honor the allocated rectangle and stream graphics directly.
+            "$_ui_preview" "$_ui_selected" 2>/dev/null || true
+        else
+            local output line n=0
+            output=$("$_ui_preview" "$_ui_selected" 2>/dev/null | head -n "$_ui_preview_rows")
+            output=$(printf '%s' "$output" | sed $'s/\033\\[[0-9;]*[A-Za-z]//g')
+            while IFS= read -r line && ((n < _ui_preview_rows)); do
+                _ui_put "$((preview_y + 1 + n))" 1 "$((_ui_width - 1))" "$line"
+                n=$((n + 1))
+            done <<< "$output"
         fi
+    fi
+    _ui_put "$((_ui_height - 1))" 1 "$((_ui_width - 1))" "Items $((start + 1))-$end/$logical_rows | Selected $((_ui_selected + 1))/$_ui_total" '\033[2m'
+    local keys='Arrows: move  Enter: apply  Q/Esc: back'
+    ((_ui_width < 50)) && keys='↑↓ Enter Q:back'
+    ((_ui_height < 16 && _ui_width >= 36 && ${#_ui_preview} > 0)) && keys+=' | preview hidden'
+    _ui_put "$_ui_height" 1 "$((_ui_width - 1))" "$keys" '\033[2m'
+    printf '\033[?2026l'
+    _ui_cols=$cols; _ui_rows=$logical_rows
+}
 
-        read -rsn1 key
-
-        if [[ $key == $'\x1b' ]]; then
-            read -rsn2 key
-            case $key in
-                '[A')  # Up arrow
-                    if [ $selected -lt $rows ]; then
-                        # In left column
-                        if [ $selected -gt 0 ]; then
-                            selected=$((selected - 1))
-                        else
-                            # Wrap to bottom of left column
-                            selected=$((rows - 1))
-                        fi
-                    else
-                        # In right column
-                        if [ $selected -gt $rows ]; then
-                            selected=$((selected - 1))
-                        else
-                            # Wrap to bottom of right column
-                            selected=$((total - 1))
-                        fi
-                    fi
-                    ;;
-                '[B')  # Down arrow
-                    if [ $selected -lt $rows ]; then
-                        # In left column
-                        if [ $selected -lt $((rows - 1)) ]; then
-                            selected=$((selected + 1))
-                        else
-                            # Wrap to top of left column
-                            selected=0
-                        fi
-                    else
-                        # In right column
-                        if [ $selected -lt $((total - 1)) ]; then
-                            selected=$((selected + 1))
-                        else
-                            # Wrap to top of right column
-                            selected=$rows
-                        fi
-                    fi
-                    ;;
-                '[C')  # Right arrow
-                    if [ $selected -lt $rows ] && [ $((selected + rows)) -lt $total ]; then
-                        selected=$((selected + rows))
-                    fi
-                    ;;
-                '[D')  # Left arrow
-                    if [ $selected -ge $rows ]; then
-                        selected=$((selected - rows))
-                    fi
-                    ;;
-            esac
-        elif [[ $key == "" ]]; then
-            tput cnorm 2>/dev/null
-            return $selected
-        elif [[ $key == "q" ]] || [[ $key == "Q" ]]; then
-            tput cnorm 2>/dev/null
-            return 255
+_ui_menu() {
+    local _ui_two=$1 _ui_prompt=$2
+    shift 2
+    local _ui_options=("$@") _ui_preview='' _ui_total=$# _ui_selected=0 _ui_start=0
+    if (($# > 0)) && declare -F "${!#}" >/dev/null; then
+        _ui_preview=${!#}; unset '_ui_options[-1]'; _ui_total=$((_ui_total - 1))
+    fi
+    ((_ui_total > 0)) && [ -t 0 ] && [ -t 1 ] || return 255
+    local _ui_width=0 _ui_height=0 _ui_cols=1 _ui_rows=1 _ui_active=1 _ui_resize=1
+    local _ui_stty _ui_old_exit _ui_old_int _ui_old_term _ui_old_hup _ui_old_winch
+    _ui_stty=$(stty -g 2>/dev/null) || _ui_stty=''
+    _ui_old_exit=$(trap -p EXIT); _ui_old_int=$(trap -p INT); _ui_old_term=$(trap -p TERM)
+    _ui_old_hup=$(trap -p HUP); _ui_old_winch=$(trap -p WINCH)
+    trap '_ui_teardown' EXIT
+    trap '_ui_teardown; exit 130' INT
+    trap '_ui_teardown; exit 143' TERM
+    trap '_ui_teardown; exit 129' HUP
+    trap '_ui_resize=1' WINCH
+    printf '\033[?1049h\033[?25l'
+    local key rest status w h result=255
+    while true; do
+        read -r w h < <(ui_terminal_size)
+        if ((_ui_resize || w != _ui_width || h != _ui_height)); then
+            _ui_width=$w; _ui_height=$h; _ui_resize=0
+            _ui_draw_menu
+        fi
+        key=''
+        if read -rsn1 -t 0.2 key; then
+            if [[ "$key" == $'\004' || "$key" == q || "$key" == Q ]]; then break
+            elif ((_ui_height < 8 || _ui_width < 20)); then continue
+            elif [[ -z "$key" ]]; then result=$_ui_selected; break
+            elif [[ "$key" == $'\033' ]]; then
+                rest=''; read -rsn2 -t 0.1 rest || true
+                [[ -z "$rest" ]] && break
+                local row=$((_ui_selected % _ui_rows)) base=$((_ui_selected / _ui_rows * _ui_rows)) count=$_ui_rows
+                ((base + count > _ui_total)) && count=$((_ui_total - base))
+                case "$rest" in
+                    '[A') _ui_selected=$((base + (row + count - 1) % count)) ;;
+                    '[B') _ui_selected=$((base + (row + 1) % count)) ;;
+                    '[C') ((_ui_cols == 2 && _ui_selected < _ui_rows && _ui_selected + _ui_rows < _ui_total)) && _ui_selected=$((_ui_selected + _ui_rows)) ;;
+                    '[D') ((_ui_cols == 2 && _ui_selected >= _ui_rows)) && _ui_selected=$((_ui_selected - _ui_rows)) ;;
+                esac
+                _ui_resize=1
+            fi
+        else
+            status=$?
+            ((status > 128)) && continue
+            break
         fi
     done
+    _ui_teardown
+    return "$result"
 }
+
+select_option() { _ui_menu 0 "$@"; }
+select_option_2col() { _ui_menu 1 "$@"; }
+select_option_2col_with_preview() { _ui_menu 1 "$@"; }
 
 # Preview fastfetch preset function
 preview_fastfetch_preset() {
@@ -1242,64 +1198,18 @@ preview_fastfetch_preset() {
 # Preview theme function for theme menu
 preview_theme() {
     local selection=$1
-    
-    # Theme mapping (same order as in theme_menu)
     local themes=(dracula nord gruvbox-dark tokyo-night one-dark oceanic-next monochrome
                   gruvbox-light solarized-light one-light ayu-light synthwave monokai-pro palenight sakura lavender candy
                   matrix cyberpunk naruto pokemon spiderman doom valorant minecraft)
-    
-    # Don't preview if selection is "Back" or invalid
-    if [ $selection -ge ${#themes[@]} ] || [ $selection -lt 0 ]; then
-        # Back button - no theme application, just return
-        return
-    fi
-    
-    local theme="${themes[$selection]}"
-    
-    # Apply theme colors temporarily for preview
+    ((selection >= 0 && selection < ${#themes[@]})) || return 0
+    local theme=${themes[selection]} budget=${UI_PREVIEW_COLS:-60}
     apply_terminal_colors "$theme" 2>/dev/null || true
-    
-    # Show a small fastfetch preview with the theme
-    if command -v fastfetch &> /dev/null; then
-        # Create a temporary config for preview
-        local temp_config="/tmp/termfetch_preview.jsonc"
-        
-        # Generate a minimal config for preview
-        cat > "$temp_config" << EOF
-{
-    "logo": {
-        "type": "none"
-    },
-    "display": {
-        "separator": " ",
-        "padding": [0, 1],
-        "linePrefix": "├─ "
-    },
-    "modules": [
-        {
-            "type": "title",
-            "key": "title",
-            "format": "TermFetch Studio Preview"
-        },
-        {
-            "type": "os",
-            "key": "os",
-            "format": "{3} {5}"
-        },
-        {
-            "type": "theme",
-            "key": "theme",
-            "format": "Theme: $theme"
-        }
-    ]
-}
-EOF
-        
-        # Show preview (suppress errors)
-        fastfetch --config "$temp_config" 2>/dev/null | head -10 || true
-        
-        # Clean up
-        rm -f "$temp_config" 2>/dev/null
+    ui_clip_text "Theme: $theme" "$budget"
+    if ((${UI_PREVIEW_ROWS:-3} >= 2)); then
+        printf '\r\n'
+        local color
+        for ((color=31; color<=37 && (color-30)*3<=budget; color++)); do printf '\033[%sm██ ' "$color"; done
+        printf '\033[0m'
     fi
 }
 
@@ -2532,52 +2442,16 @@ ascii_logo_submenu() {
 
 # Preview callback for image logos
 preview_image_logo() {
-    local selected=$1
-
-    # Access the preset_images array from parent scope
-    local num_preset=${#PREVIEW_PRESET_IMAGES[@]}
-
-    # Check if selected is a preset image
-    if [ $selected -lt $num_preset ]; then
-        local image_path="${PREVIEW_PRESET_IMAGES[$selected]}"
-
-        if [ -f "$image_path" ]; then
-            # Check terminal support
-            local terminal_support=$(check_terminal_image_support)
-
-            if [ "$terminal_support" = "kitty" ]; then
-                # Use chafa for consistent, non-overlapping preview with smaller size
-                if command -v chafa &>/dev/null; then
-                    chafa -s 30x8 "$image_path" </dev/null 2>/dev/null || echo -e "\033[1;31mPreview not available\033[0m"
-                else
-                    # Just show image info if chafa not available
-                    echo -e "\033[1;36mFile:\033[0m $(basename "$image_path")"
-                    if has_image_magick; then
-                        local dimensions=$(image_identify -format "%wx%h" "$image_path" 2>/dev/null)
-                        [ -n "$dimensions" ] && echo -e "\033[1;36mDimensions:\033[0m $dimensions"
-                    fi
-                    local size=$(du -h "$image_path" 2>/dev/null | cut -f1)
-                    [ -n "$size" ] && echo -e "\033[1;36mFile Size:\033[0m $size"
-                fi
-            elif command -v chafa &>/dev/null; then
-                # Use chafa as fallback for ASCII art preview with smaller size
-                chafa -s 30x8 "$image_path" </dev/null 2>/dev/null || echo -e "\033[1;31mPreview not available\033[0m"
-            else
-                # Just show image info
-                echo -e "\033[1;36mFile:\033[0m $(basename "$image_path")"
-                if has_image_magick; then
-                    local dimensions=$(image_identify -format "%wx%h" "$image_path" 2>/dev/null)
-                    [ -n "$dimensions" ] && echo -e "\033[1;36mDimensions:\033[0m $dimensions"
-                fi
-                local size=$(du -h "$image_path" 2>/dev/null | cut -f1)
-                [ -n "$size" ] && echo -e "\033[1;36mFile Size:\033[0m $size"
-            fi
-        else
-            echo -e "\033[1;31mFile not found\033[0m"
-        fi
+    local selected=$1 width=${UI_PREVIEW_COLS:-28} height=${UI_PREVIEW_ROWS:-5}
+    ((selected >= 0 && selected < ${#PREVIEW_PRESET_IMAGES[@]})) || return 0
+    local image_path=${PREVIEW_PRESET_IMAGES[selected]} format=symbols cw ch
+    [ -f "$image_path" ] || { ui_clip_text 'Image unavailable' "$width"; return 0; }
+    if command -v chafa >/dev/null 2>&1; then
+        [ "$(check_terminal_image_support)" = kitty ] && format=kitty
+        read -r cw ch < <(get_terminal_cell_dimensions)
+        chafa -f "$format" --animate=off --font-ratio "$cw/$ch" -s "${width}x${height}" "$image_path" </dev/null 2>/dev/null || ui_clip_text 'Preview unavailable' "$width"
     else
-        # Custom image or other options - no preview
-        return
+        ui_clip_text "Image: ${image_path##*/} (install chafa for preview)" "$width"
     fi
 }
 
@@ -4105,10 +3979,13 @@ get_logo_type() {
     esac
 }
 
-logo_width_json_field() {
-    # Explicit dimensions let Kitty render without querying the cursor through stdin.
+logo_dimensions_json_fields() {
     case "$1" in
-        kitty-direct|kitty|iterm|sixel) printf '        "width": 20,\n' ;;
+        kitty-direct|kitty|iterm|sixel)
+            local w h
+            read -r w h < <(compute_logo_dimensions "${2:-}" 20 "${3:-14}")
+            printf '        "width": %s,\n        "height": %s,\n' "$w" "$h"
+            ;;
     esac
 }
 
@@ -4272,10 +4149,27 @@ is_demo_mode() {
     [ "$demo_mode" = "true" ]
 }
 
+# Fastfetch JSON colors accept hex; terminal SGR parameters require RGB numbers.
+theme_dot_format() {
+    local theme=$1 position color
+    local -a positions=(primary secondary accent highlight info primary secondary accent)
+    for position in "${positions[@]}"; do
+        color=$(get_theme_ansi_color "$theme" "$position")
+        if [[ "$color" =~ ^#[[:xdigit:]]{6}$ ]]; then
+            printf -v color '38;2;%d;%d;%d' "$((16#${color:1:2}))" "$((16#${color:3:2}))" "$((16#${color:5:2}))"
+        elif [[ ! "$color" =~ ^[0-9]+(\;[0-9]+)*$ ]]; then
+            color=39
+        fi
+        printf '\\u001b[1;%sm●\\u001b[0m ' "$color"
+    done
+}
+
 create_full_config() {
     local logo_type=$1
     local custom_image=$2
     local theme=$3
+    local dot_format
+    dot_format=$(theme_dot_format "$theme")
 
     local logo_source=$(get_logo_source "$logo_type" "$custom_image")
     local logo_actual_type=$(get_logo_type "$logo_type" "$custom_image")
@@ -4289,15 +4183,6 @@ create_full_config() {
     local show_labels=$(get_config_value "fastfetch" "labels")
     [ -z "$show_labels" ] && show_labels="false"
     
-    # Color dots should be independent of icon colors
-    local dot_color1=$(get_theme_ansi_color "$theme" "primary")
-    local dot_color2=$(get_theme_ansi_color "$theme" "secondary")
-    local dot_color3=$(get_theme_ansi_color "$theme" "accent")
-    local dot_color4=$(get_theme_ansi_color "$theme" "highlight")
-    local dot_color5=$(get_theme_ansi_color "$theme" "info")
-    local dot_color6="$dot_color1"
-    local dot_color7="$dot_color2"
-    local dot_color8="$dot_color3"
     
     if [ "$use_theme_colors" = "false" ]; then
         local custom_key=$(get_config_value "fastfetch" "key_color")
@@ -4392,8 +4277,7 @@ create_full_config() {
     "logo": {
         "type": "$logo_actual_type",
         "source": "$logo_source",
-$(logo_width_json_field "$logo_actual_type")
-        "height": 18,
+$(logo_dimensions_json_fields "$logo_actual_type" "$logo_source" 14)
         "padding": {
             "top": 2,
             "right": 4
@@ -4631,6 +4515,8 @@ create_minimal_config() {
     local logo_type=$1
     local custom_image=$2
     local theme=$3
+    local dot_format
+    dot_format=$(theme_dot_format "$theme")
 
     local logo_source=$(get_logo_source "$logo_type" "$custom_image")
     local logo_actual_type=$(get_logo_type "$logo_type" "$custom_image")
@@ -4644,15 +4530,6 @@ create_minimal_config() {
     local show_labels=$(get_config_value "fastfetch" "labels")
     [ -z "$show_labels" ] && show_labels="false"
     
-    # Color dots should be independent of icon colors
-    local dot_color1=$(get_theme_ansi_color "$theme" "primary")
-    local dot_color2=$(get_theme_ansi_color "$theme" "secondary")
-    local dot_color3=$(get_theme_ansi_color "$theme" "accent")
-    local dot_color4=$(get_theme_ansi_color "$theme" "highlight")
-    local dot_color5=$(get_theme_ansi_color "$theme" "info")
-    local dot_color6="$dot_color1"
-    local dot_color7="$dot_color2"
-    local dot_color8="$dot_color3"
     
     if [ "$use_theme_colors" = "false" ]; then
         local custom_key=$(get_config_value "fastfetch" "key_color")
@@ -4703,8 +4580,7 @@ create_minimal_config() {
     "logo": {
         "type": "$logo_actual_type",
         "source": "$logo_source",
-$(logo_width_json_field "$logo_actual_type")
-        "height": 12,
+$(logo_dimensions_json_fields "$logo_actual_type" "$logo_source" 10)
         "padding": {
             "top": 2,
             "right": 3
@@ -4726,7 +4602,7 @@ $(logo_width_json_field "$logo_actual_type")
         "break",
         {
             "type": "custom",
-            "format": "\\u001b[1;${dot_color1}m●\\u001b[0m \\u001b[1;${dot_color2}m●\\u001b[0m \\u001b[1;${dot_color3}m●\\u001b[0m \\u001b[1;${dot_color4}m●\\u001b[0m \\u001b[1;${dot_color5}m●\\u001b[0m \\u001b[1;${dot_color6}m●\\u001b[0m \\u001b[1;${dot_color7}m●\\u001b[0m \\u001b[1;${dot_color8}m●\\u001b[0m"
+            "format": "${dot_format}"
         },
         "break",
         {
@@ -4760,7 +4636,7 @@ $(logo_width_json_field "$logo_actual_type")
         "break",
         {
             "type": "custom",
-            "format": "\\u001b[1;${dot_color1}m●\\u001b[0m \\u001b[1;${dot_color2}m●\\u001b[0m \\u001b[1;${dot_color3}m●\\u001b[0m \\u001b[1;${dot_color4}m●\\u001b[0m \\u001b[1;${dot_color5}m●\\u001b[0m \\u001b[1;${dot_color6}m●\\u001b[0m \\u001b[1;${dot_color7}m●\\u001b[0m \\u001b[1;${dot_color8}m●\\u001b[0m"
+            "format": "${dot_format}"
         },
         "break"
     ]
@@ -4775,6 +4651,8 @@ create_focused_config() {
     local logo_type=$1
     local custom_image=$2
     local theme=$3
+    local dot_format
+    dot_format=$(theme_dot_format "$theme")
 
     local logo_source=$(get_logo_source "$logo_type" "$custom_image")
     local logo_actual_type=$(get_logo_type "$logo_type" "$custom_image")
@@ -4844,8 +4722,7 @@ create_focused_config() {
     "logo": {
         "type": "$logo_actual_type",
         "source": "$logo_source",
-$(logo_width_json_field "$logo_actual_type")
-        "height": 15,
+$(logo_dimensions_json_fields "$logo_actual_type" "$logo_source" 12)
         "padding": {
             "top": 2,
             "right": 3
@@ -4867,7 +4744,7 @@ $(logo_width_json_field "$logo_actual_type")
         "break",
         {
             "type": "custom",
-            "format": "\\u001b[1;${dot_color1}m●\\u001b[0m \\u001b[1;${dot_color2}m●\\u001b[0m \\u001b[1;${dot_color3}m●\\u001b[0m \\u001b[1;${dot_color4}m●\\u001b[0m \\u001b[1;${dot_color5}m●\\u001b[0m \\u001b[1;${dot_color6}m●\\u001b[0m \\u001b[1;${dot_color7}m●\\u001b[0m \\u001b[1;${dot_color8}m●\\u001b[0m"
+            "format": "${dot_format}"
         },
         "break",
         {
@@ -4938,7 +4815,7 @@ $(logo_width_json_field "$logo_actual_type")
         "break",
         {
             "type": "custom",
-            "format": "\\u001b[1;${dot_color1}m●\\u001b[0m \\u001b[1;${dot_color2}m●\\u001b[0m \\u001b[1;${dot_color3}m●\\u001b[0m \\u001b[1;${dot_color4}m●\\u001b[0m \\u001b[1;${dot_color5}m●\\u001b[0m \\u001b[1;${dot_color6}m●\\u001b[0m \\u001b[1;${dot_color7}m●\\u001b[0m \\u001b[1;${dot_color8}m●\\u001b[0m"
+            "format": "${dot_format}"
         },
         "break"
     ]
@@ -4953,6 +4830,8 @@ create_developer_config() {
     local logo_type=$1
     local custom_image=$2
     local theme=$3
+    local dot_format
+    dot_format=$(theme_dot_format "$theme")
 
     local logo_source=$(get_logo_source "$logo_type" "$custom_image")
     local logo_actual_type=$(get_logo_type "$logo_type" "$custom_image")
@@ -5030,8 +4909,7 @@ create_developer_config() {
     "logo": {
         "type": "$logo_actual_type",
         "source": "$logo_source",
-$(logo_width_json_field "$logo_actual_type")
-        "height": 16,
+$(logo_dimensions_json_fields "$logo_actual_type" "$logo_source" 14)
         "padding": {
             "top": 2,
             "right": 4
@@ -5053,7 +4931,7 @@ $(logo_width_json_field "$logo_actual_type")
         "break",
         {
             "type": "custom",
-            "format": "\\u001b[1;${dot_color1}m●\\u001b[0m \\u001b[1;${dot_color2}m●\\u001b[0m \\u001b[1;${dot_color3}m●\\u001b[0m \\u001b[1;${dot_color4}m●\\u001b[0m \\u001b[1;${dot_color5}m●\\u001b[0m \\u001b[1;${dot_color6}m●\\u001b[0m \\u001b[1;${dot_color7}m●\\u001b[0m \\u001b[1;${dot_color8}m●\\u001b[0m"
+            "format": "${dot_format}"
         },
         "break",
         {
@@ -5167,7 +5045,7 @@ $(logo_width_json_field "$logo_actual_type")
         "break",
         {
             "type": "custom",
-            "format": "\\u001b[1;${dot_color1}m●\\u001b[0m \\u001b[1;${dot_color2}m●\\u001b[0m \\u001b[1;${dot_color3}m●\\u001b[0m \\u001b[1;${dot_color4}m●\\u001b[0m \\u001b[1;${dot_color5}m●\\u001b[0m \\u001b[1;${dot_color6}m●\\u001b[0m \\u001b[1;${dot_color7}m●\\u001b[0m \\u001b[1;${dot_color8}m●\\u001b[0m"
+            "format": "${dot_format}"
         },
         "break"
     ]
@@ -5182,6 +5060,8 @@ create_gaming_config() {
     local logo_type=$1
     local custom_image=$2
     local theme=$3
+    local dot_format
+    dot_format=$(theme_dot_format "$theme")
 
     local logo_source=$(get_logo_source "$logo_type" "$custom_image")
     local logo_actual_type=$(get_logo_type "$logo_type" "$custom_image")
@@ -5255,8 +5135,7 @@ create_gaming_config() {
     "logo": {
         "type": "$logo_actual_type",
         "source": "$logo_source",
-$(logo_width_json_field "$logo_actual_type")
-        "height": 16,
+$(logo_dimensions_json_fields "$logo_actual_type" "$logo_source" 14)
         "padding": {
             "top": 2,
             "right": 4
@@ -5278,7 +5157,7 @@ $(logo_width_json_field "$logo_actual_type")
         "break",
         {
             "type": "custom",
-            "format": "\\u001b[1;${dot_color1}m●\\u001b[0m \\u001b[1;${dot_color2}m●\\u001b[0m \\u001b[1;${dot_color3}m●\\u001b[0m \\u001b[1;${dot_color4}m●\\u001b[0m \\u001b[1;${dot_color5}m●\\u001b[0m \\u001b[1;${dot_color6}m●\\u001b[0m \\u001b[1;${dot_color7}m●\\u001b[0m \\u001b[1;${dot_color8}m●\\u001b[0m"
+            "format": "${dot_format}"
         },
         "break",
         {
@@ -5370,7 +5249,7 @@ $(logo_width_json_field "$logo_actual_type")
         "break",
         {
             "type": "custom",
-            "format": "\\u001b[1;${dot_color1}m●\\u001b[0m \\u001b[1;${dot_color2}m●\\u001b[0m \\u001b[1;${dot_color3}m●\\u001b[0m \\u001b[1;${dot_color4}m●\\u001b[0m \\u001b[1;${dot_color5}m●\\u001b[0m \\u001b[1;${dot_color6}m●\\u001b[0m \\u001b[1;${dot_color7}m●\\u001b[0m \\u001b[1;${dot_color8}m●\\u001b[0m"
+            "format": "${dot_format}"
         },
         "break"
     ]
@@ -5386,6 +5265,8 @@ create_custom_config() {
     local logo_type=$1
     local custom_image=$2
     local theme=$3
+    local dot_format
+    dot_format=$(theme_dot_format "$theme")
 
     local logo_source=$(get_logo_source "$logo_type" "$custom_image")
     local logo_actual_type=$(get_logo_type "$logo_type" "$custom_image")
@@ -5451,8 +5332,7 @@ JSONMID
     cat >> "$CONFIG_DIR/fastfetch.jsonc" << EOF
         "type": "$logo_actual_type",
         "source": "$logo_source",
-$(logo_width_json_field "$logo_actual_type")
-        "height": 16,
+$(logo_dimensions_json_fields "$logo_actual_type" "$logo_source" 14)
         "padding": {
             "top": 2,
             "right": 3
@@ -5474,7 +5354,7 @@ $(logo_width_json_field "$logo_actual_type")
         "break",
         {
             "type": "custom",
-            "format": "\\u001b[1;${dot_color1}m●\\u001b[0m \\u001b[1;${dot_color2}m●\\u001b[0m \\u001b[1;${dot_color3}m●\\u001b[0m \\u001b[1;${dot_color4}m●\\u001b[0m \\u001b[1;${dot_color5}m●\\u001b[0m \\u001b[1;${dot_color6}m●\\u001b[0m \\u001b[1;${dot_color7}m●\\u001b[0m \\u001b[1;${dot_color8}m●\\u001b[0m"
+            "format": "${dot_format}"
         },
         "break"
 EOF
@@ -5525,7 +5405,7 @@ EOF
         ,"break"
         ,{
             "type": "custom",
-            "format": "\\u001b[1;${dot_color1}m●\\u001b[0m \\u001b[1;${dot_color2}m●\\u001b[0m \\u001b[1;${dot_color3}m●\\u001b[0m \\u001b[1;${dot_color4}m●\\u001b[0m \\u001b[1;${dot_color5}m●\\u001b[0m \\u001b[1;${dot_color6}m●\\u001b[0m \\u001b[1;${dot_color7}m●\\u001b[0m \\u001b[1;${dot_color8}m●\\u001b[0m"
+            "format": "${dot_format}"
         }
 EOF
 

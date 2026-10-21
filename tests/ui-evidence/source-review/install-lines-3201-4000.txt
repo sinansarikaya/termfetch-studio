@@ -1,0 +1,800 @@
+        "minimal") create_minimal_config "$logo_type" "$custom_image" "$theme" ;;
+        "focused") create_focused_config "$logo_type" "$custom_image" "$theme" ;;
+        "developer") create_developer_config "$logo_type" "$custom_image" "$theme" ;;
+        "gaming") create_gaming_config "$logo_type" "$custom_image" "$theme" ;;
+        "custom") create_custom_config "$logo_type" "$custom_image" "$theme" ;;
+        *) create_full_config "$logo_type" "$custom_image" "$theme" ;;
+    esac
+
+    # Save theme to a sourced file for persistence
+    mkdir -p "$CONFIG_DIR"
+    cat > "$CONFIG_DIR/theme.sh" << THEMESCRIPT
+#!/bin/bash
+# TermFetch Studio Theme - Auto-generated
+# Theme: $theme
+# This file is sourced on terminal startup
+
+# Apply terminal colors (if supported by your terminal)
+THEMESCRIPT
+
+    # Append the theme color function (for terminals that support it)
+    declare -f apply_terminal_colors >> "$CONFIG_DIR/theme.sh"
+    echo "apply_terminal_colors '$theme' 2>/dev/null || true" >> "$CONFIG_DIR/theme.sh"
+
+    # Try to apply terminal colors (will silently fail on unsupported terminals)
+    apply_terminal_colors "$theme" 2>/dev/null || true
+
+    # Clear screen and show new theme
+    clear
+
+    # Re-run fastfetch to show the new theme immediately
+    if command -v fastfetch &> /dev/null; then
+        fastfetch --config "$CONFIG_DIR/fastfetch.jsonc" 2>/dev/null || true
+    fi
+}
+
+apply_preset() {
+    local preset=$1
+    echo ""
+    echo -e "\033[1;36m📊 Applying $preset preset...\033[0m"
+    
+    local logo_type=$(get_config_value "fastfetch" "logo_type")
+    local custom_image=$(get_config_value "fastfetch" "custom_image")
+    local theme=$(get_config_value "colors" "theme")
+    
+    # Set defaults if values are empty
+    [ -z "$theme" ] && theme="dracula"
+    [ -z "$logo_type" ] && logo_type="auto"
+    
+    # Ensure config directory exists
+    mkdir -p "$CONFIG_DIR"
+    
+    # Save defaults if they were not set
+    set_config_value "colors" "theme" "$theme"
+    set_config_value "fastfetch" "logo_type" "$logo_type"
+    
+    case $preset in
+        "full") create_full_config "$logo_type" "$custom_image" "$theme" ;;
+        "minimal") create_minimal_config "$logo_type" "$custom_image" "$theme" ;;
+        "focused") create_focused_config "$logo_type" "$custom_image" "$theme" ;;
+        "developer") create_developer_config "$logo_type" "$custom_image" "$theme" ;;
+        "gaming") create_gaming_config "$logo_type" "$custom_image" "$theme" ;;
+        "custom") create_custom_config "$logo_type" "$custom_image" "$theme" ;;
+    esac
+    
+    set_config_value "fastfetch" "preset" "$preset"
+    
+    echo -e "\033[1;32m✓ Preset applied!\033[0m"
+}
+
+toggle_icons() {
+    local current=$(get_config_value "fastfetch" "icons")
+    if [ "$current" = "true" ]; then
+        set_config_value "fastfetch" "icons" "false"
+        echo ""
+        echo -e "\033[1;31m🎭 Icons disabled\033[0m"
+    else
+        set_config_value "fastfetch" "icons" "true"
+        echo ""
+        echo -e "\033[1;32m🎭 Icons enabled\033[0m"
+    fi
+    
+    # Re-apply current preset to update icons
+    local preset=$(get_config_value "fastfetch" "preset")
+    apply_preset "$preset"
+}
+
+reset_fastfetch() {
+    echo ""
+    echo -e "\033[1;33m🔄 Resetting fastfetch configuration...\033[0m"
+    
+    set_config_value "fastfetch" "preset" "full"
+    set_config_value "fastfetch" "icons" "true"
+    set_config_value "fastfetch" "logo_type" "auto"
+    set_config_value "fastfetch" "custom_image" ""
+    
+    local theme=$(get_config_value "colors" "theme")
+    create_full_config "auto" "" "$theme"
+    
+    echo -e "\033[1;32m✓ Fastfetch reset to defaults!\033[0m"
+    sleep 1
+}
+
+reset_all_settings() {
+    echo ""
+    echo -e "\033[1;31m⚠️  This will reset ALL settings to defaults!\033[0m"
+    echo -ne "\033[1;33mAre you sure? (y/N): \033[0m"
+    read -n 1 -r
+    echo
+    
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        echo ""
+        echo -e "\033[1;33m🗑️  Resetting all settings...\033[0m"
+        
+        rm -f "$CONFIG_FILE"
+        rm -f "$CONFIG_DIR/fastfetch.jsonc"
+        rm -rf "$IMAGES_DIR"
+        rm -rf "$LOGOS_DIR"
+        
+        mkdir -p "$IMAGES_DIR"
+        mkdir -p "$LOGOS_DIR"
+        
+        init_config
+        
+        echo -e "\033[1;32m✓ All settings reset!\033[0m"
+        sleep 1
+    fi
+}
+
+edit_config_file() {
+    if command -v nano &> /dev/null; then
+        nano "$CONFIG_FILE"
+    elif command -v vim &> /dev/null; then
+        vim "$CONFIG_FILE"
+    elif command -v vi &> /dev/null; then
+        vi "$CONFIG_FILE"
+    else
+        echo -e "\033[1;31m✗ No text editor found!\033[0m"
+        sleep 1
+    fi
+}
+
+preview_setup() {
+    echo ""
+    echo -e "\033[1;36m👁️  Previewing current setup...\033[0m"
+    echo ""
+    
+    # Apply current theme colors
+    local current_theme=$(get_config_value "colors" "theme")
+    apply_terminal_colors "$current_theme"
+    
+    # Show fastfetch
+    fastfetch -c "$CONFIG_DIR/fastfetch.jsonc"
+    
+    echo ""
+    echo -e "\033[1;33mPress any key to continue...\033[0m"
+    read -n 1 -s
+}
+
+help_info_menu() {
+    show_header
+    echo -e "\033[1;33m❓ Help & Information\033[0m"
+    echo ""
+
+    echo -e "\033[1;36m📚 Quick Commands:\033[0m"
+    echo -e "  \033[1;32mtermfetch-studio\033[0m           # Start interactive menu"
+    echo -e "  \033[1;32mtermfetch-studio --preview\033[0m # Quick preview current setup"
+    echo -e "  \033[1;32mtermfetch-studio --help\033[0m    # Show help message"
+    echo -e "  \033[1;32mtermfetch-studio --backup\033[0m  # Create configuration backup"
+    echo -e "  \033[1;32mtermfetch-studio --restore\033[0m # Restore from backup"
+    echo -e "  \033[1;32mtermfetch-studio uninstall\033[0m # Uninstall application"
+    echo ""
+
+    echo -e "\033[1;36m🎨 Features:\033[0m"
+    echo -e "  \033[1;34m•\033[0m 25+ color themes with theme-adaptive colors"
+    echo -e "  \033[1;34m•\033[0m 6 fastfetch presets (Full, Minimal, Focused, Developer, Gaming, Custom)"
+    echo -e "  \033[1;34m•\033[0m Custom logo support (ASCII, Images, None)"
+    echo -e "  \033[1;34m•\033[0m Customizable icon and text colors"
+    echo -e "  \033[1;34m•\033[0m Live preview and easy configuration"
+    echo -e "  \033[1;34m•\033[0m Backup & restore system"
+    echo ""
+
+    echo -e "\033[1;36m📍 File Locations:\033[0m"
+    echo -e "  \033[1;34mConfig:\033[0m ~/.config/termfetch-studio/"
+    echo -e "  \033[1;34mData:\033[0m ~/.local/share/termfetch-studio/"
+    echo -e "  \033[1;34mBinary:\033[0m ~/.local/bin/termfetch-studio"
+    echo ""
+
+    echo -e "\033[1;36m⌨️  Navigation:\033[0m"
+    echo -e "  \033[1;34m↑↓\033[0m      Move up/down in menus"
+    echo -e "  \033[1;34mEnter\033[0m   Select option"
+    echo -e "  \033[1;34mQ\033[0m       Go back / Quit"
+    echo ""
+
+    echo -e "\033[1;36m🎨 Color Settings:\033[0m"
+    echo -e "  \033[1;34m•\033[0m Theme Colors: Icons and text adapt to selected theme"
+    echo -e "  \033[1;34m•\033[0m Custom Colors: Set your own icon and text colors"
+    echo -e "  \033[1;34m•\033[0m Toggle between modes in Advanced Settings → Color Settings"
+    echo ""
+
+    echo -e "\033[1;36m🐛 Troubleshooting:\033[0m"
+    echo -e "  \033[1;34m•\033[0m Command not found? Add ~/.local/bin to PATH:"
+    echo -e "    \033[1;32mexport PATH=\"\$HOME/.local/bin:\$PATH\"\033[0m"
+    echo -e "  \033[1;34m•\033[0m Icons not showing? Install a Nerd Font"
+    echo -e "  \033[1;34m•\033[0m Colors broken? Check terminal ANSI color support"
+    echo ""
+
+    echo -e "\033[1;36m🔗 Resources:\033[0m"
+    echo -e "  \033[1;34mGitHub:\033[0m https://github.com/sinansarikaya/termfetch-studio"
+    echo -e "  \033[1;34mVersion:\033[0m 1.0.0"
+    echo ""
+
+    echo -e "\033[1;33mPress any key to return to menu...\033[0m"
+    read -n 1 -s
+}
+
+system_info() {
+    show_header
+    echo -e "\033[1;33mℹ️  System Information\033[0m"
+    echo ""
+    
+    echo -e "\033[1;36mSystem:\033[0m"
+    echo -e "  \033[1;34mOS:\033[0m $(lsb_release -d 2>/dev/null | cut -f2 || uname -o)"
+    echo -e "  \033[1;34mKernel:\033[0m $(uname -r)"
+    echo -e "  \033[1;34mArchitecture:\033[0m $(uname -m)"
+    echo -e "  \033[1;34mHostname:\033[0m $(hostname)"
+    
+    echo ""
+    echo -e "\033[1;36mTerminal:\033[0m"
+    echo -e "  \033[1;34mTerminal:\033[0m $TERM"
+    echo -e "  \033[1;34mTerminal Program:\033[0m $TERM_PROGRAM"
+    echo -e "  \033[1;34mShell:\033[0m $SHELL"
+    echo -e "  \033[1;34mImage Support:\033[0m $(check_terminal_image_support)"
+    
+    echo ""
+    echo -e "\033[1;36mEnvironment:\033[0m"
+    echo -e "  \033[1;34mDisplay:\033[0m $DISPLAY"
+    echo -e "  \033[1;34mWayland Display:\033[0m $WAYLAND_DISPLAY"
+    echo -e "  \033[1;34mHyprland Instance:\033[0m $HYPRLAND_INSTANCE_SIGNATURE"
+    
+    echo ""
+    echo -e "\033[1;36mTermFetch Studio:\033[0m"
+    echo -e "  \033[1;34mConfig Dir:\033[0m $CONFIG_DIR"
+    echo -e "  \033[1;34mInstall Dir:\033[0m $INSTALL_DIR"
+    echo -e "  \033[1;34mCurrent Theme:\033[0m $(get_config_value "colors" "theme")"
+    echo -e "  \033[1;34mCurrent Preset:\033[0m $(get_config_value "fastfetch" "preset")"
+    
+    echo ""
+    echo -e "\033[1;36mImage Diagnostics:\033[0m"
+    local terminal_support=$(check_terminal_image_support)
+    case $terminal_support in
+        "kitty")
+            echo -e "  \033[1;32m✓ Kitty detected - Full image support available\033[0m"
+            ;;
+        "wezterm")
+            echo -e "  \033[1;32m✓ WezTerm detected - Full image support available\033[0m"
+            ;;
+        "foot")
+            echo -e "  \033[1;33m⚠ Foot detected - Limited image support (sixel)\033[0m"
+            ;;
+        "konsole")
+            echo -e "  \033[1;33m⚠ Konsole detected - Limited image support\033[0m"
+            ;;
+        "iterm2")
+            echo -e "  \033[1;32m✓ iTerm2 detected - Full image support available\033[0m"
+            ;;
+        "none")
+            echo -e "  \033[1;31m✗ No image support detected\033[0m"
+            echo -e "  \033[1;33m💡 Try using Kitty, WezTerm, or Foot for image support\033[0m"
+            if [ -n "$WAYLAND_DISPLAY" ] || [ -n "$HYPRLAND_INSTANCE_SIGNATURE" ]; then
+                echo -e "  \033[1;33m💡 You're in Wayland/Hyprland - ensure your terminal supports image protocols\033[0m"
+            fi
+            ;;
+    esac
+    
+    echo ""
+    echo -e "\033[1;33mPress any key to continue...\033[0m"
+    read -n 1 -s
+}
+
+setup_wizard() {
+    show_header
+    echo -e "\033[1;32m🎉 Welcome to TermFetch Studio Setup Wizard! 🎉\033[0m"
+    echo ""
+    
+    local options=(
+        "🌙 Dark & Modern (Dracula + Full)"
+        "☀️ Light & Clean (Solarized + Minimal)"
+        "🎨 Colorful & Vibrant (Synthwave + Full)"
+        "⚫ Minimal & Simple (Monochrome + Minimal)"
+        "🎮 Gaming Setup (One Dark + Gaming)"
+        "💻 Developer Setup (Nord + Developer)"
+        "⏭️ Skip Setup"
+    )
+    
+    select_option "🎨 Choose your preferred setup style:" "${options[@]}"
+    local choice=$?
+    
+    [ $choice -eq 255 ] && choice=6
+    
+    case $choice in
+        0)
+            apply_theme "dracula"
+            apply_preset "full"
+            ;;
+        1)
+            apply_theme "solarized-light"
+            apply_preset "minimal"
+            ;;
+        2)
+            apply_theme "synthwave"
+            apply_preset "full"
+            ;;
+        3)
+            apply_theme "monochrome"
+            apply_preset "minimal"
+            ;;
+        4)
+            apply_theme "one-dark"
+            apply_preset "gaming"
+            ;;
+        5)
+            apply_theme "nord"
+            apply_preset "developer"
+            ;;
+        6)
+            return
+            ;;
+    esac
+    
+    echo ""
+    echo -e "\033[1;32m✨ Setup complete! Your terminal is now customized. ✨\033[0m"
+    echo -e "\033[1;33mYou can always run 'termfetch-studio' to change settings.\033[0m"
+    echo ""
+    sleep 3
+}
+
+first_run_wizard() {
+    if [ ! -f "$CONFIG_FILE" ]; then
+        show_header
+        echo -e "\033[1;32m🎉 Welcome to TermFetch Studio! 🎉\033[0m"
+        echo ""
+        echo -e "\033[1;36mLet's set up your terminal experience...\033[0m"
+        echo ""
+        
+        setup_wizard
+        set_config_value "general" "first_run" "false"
+    fi
+}
+
+init_config() {
+    if [ ! -f "$CONFIG_FILE" ]; then
+        mkdir -p "$(dirname "$CONFIG_FILE")"
+
+        cat > "$CONFIG_FILE" << EOF
+[colors]
+theme=dracula
+
+[fastfetch]
+preset=full
+icons=true
+logo_type=auto
+custom_image=
+use_theme_colors=true
+key_color=theme
+value_color=theme
+labels=false
+
+[general]
+first_run=true
+backup_enabled=true
+
+[terminal]
+font=JetBrainsMono Nerd Font
+font_size=12
+EOF
+    else
+        # Repair config if sections are missing
+        if ! grep -q "^\[fastfetch\]" "$CONFIG_FILE"; then
+            echo "" >> "$CONFIG_FILE"
+            echo "[fastfetch]" >> "$CONFIG_FILE"
+            echo "preset=full" >> "$CONFIG_FILE"
+            echo "icons=true" >> "$CONFIG_FILE"
+            echo "logo_type=auto" >> "$CONFIG_FILE"
+            echo "custom_image=" >> "$CONFIG_FILE"
+            echo "use_theme_colors=true" >> "$CONFIG_FILE"
+            echo "key_color=theme" >> "$CONFIG_FILE"
+            echo "value_color=theme" >> "$CONFIG_FILE"
+            echo "labels=false" >> "$CONFIG_FILE"
+        fi
+
+        if ! grep -q "^\[general\]" "$CONFIG_FILE"; then
+            echo "" >> "$CONFIG_FILE"
+            echo "[general]" >> "$CONFIG_FILE"
+            echo "first_run=false" >> "$CONFIG_FILE"
+            echo "backup_enabled=true" >> "$CONFIG_FILE"
+        fi
+
+        if ! grep -q "^\[terminal\]" "$CONFIG_FILE"; then
+            echo "" >> "$CONFIG_FILE"
+            echo "[terminal]" >> "$CONFIG_FILE"
+            echo "font=JetBrainsMono Nerd Font" >> "$CONFIG_FILE"
+            echo "font_size=12" >> "$CONFIG_FILE"
+        fi
+    fi
+
+    # Create default fastfetch config
+    if [ ! -f "$CONFIG_DIR/fastfetch.jsonc" ]; then
+        local theme=$(get_config_value "colors" "theme")
+        [ -z "$theme" ] && theme="dracula"
+        create_full_config "auto" "" "$theme"
+    fi
+}
+
+get_config_value() {
+    local section=$1
+    local key=$2
+    awk -F '=' -v section="$section" -v key="$key" '
+        /^\[/ { current_section = substr($0, 2, length($0)-2) }
+        current_section == section && $1 == key { print $2 }
+    ' "$CONFIG_FILE" 2>/dev/null
+}
+
+set_config_value() {
+    local section=$1
+    local key=$2
+    local value=$3
+
+    if [ ! -f "$CONFIG_FILE" ]; then
+        init_config
+    fi
+
+    # Escape special characters for sed
+    local escaped_value=$(printf '%s\n' "$value" | sed 's/[\/&]/\\&/g')
+
+    if ! grep -q "^\[$section\]" "$CONFIG_FILE"; then
+        echo "" >> "$CONFIG_FILE"
+        echo "[$section]" >> "$CONFIG_FILE"
+        echo "$key=$value" >> "$CONFIG_FILE"
+    elif grep -q "^\[$section\]" "$CONFIG_FILE"; then
+        if grep -q "^$key=" "$CONFIG_FILE"; then
+            # Use a temporary file for safer sed operation
+            local tmp_file
+            tmp_file=$(mktemp "$CONFIG_DIR/.config.XXXXXX") || return 1
+            cp -p -- "$CONFIG_FILE" "$tmp_file" || { rm -f -- "$tmp_file"; return 1; }
+            if awk -v section="$section" -v key="$key" -v value="$value" '
+                BEGIN { in_section=0 }
+                /^\[.*\]$/ {
+                    in_section = ($0 == "["section"]")
+                }
+                in_section && $0 ~ "^"key"=" {
+                    print key"="value
+                    next
+                }
+                { print }
+            ' "$CONFIG_FILE" > "$tmp_file" && mv -- "$tmp_file" "$CONFIG_FILE"; then
+                :
+            else
+                rm -f -- "$tmp_file"
+                printf '%s\n' "Failed to save configuration; existing file preserved" >&2
+                return 1
+            fi
+        else
+            sed -i "/^\[$section\]/a $key=$escaped_value" "$CONFIG_FILE"
+        fi
+    fi
+}
+
+create_backup() {
+    local backup_file
+    for tool in tar gzip mktemp; do
+        if ! command -v "$tool" >/dev/null 2>&1; then
+            echo "Backup requires $tool" >&2
+            return 1
+        fi
+    done
+    mkdir -p "$BACKUP_DIR" || return 1
+    backup_file=$(mktemp "$BACKUP_DIR/backup_$(date +%Y%m%d_%H%M%S)_XXXXXX.tar.gz") || return 1
+    if tar --exclude='./backups' -czf "$backup_file" -C "$CONFIG_DIR" .; then
+        echo -e "\n\033[1;32m✓ Backup created: $backup_file\033[0m"
+    else
+        rm -f -- "$backup_file"
+        echo -e "\n\033[1;31m✗ Backup failed!\033[0m"
+        return 1
+    fi
+}
+
+restore_backup() {
+    local backups=() backup_file choice member
+    for tool in tar gzip; do
+        if ! command -v "$tool" >/dev/null 2>&1; then
+            echo "Restore requires $tool" >&2
+            return 1
+        fi
+    done
+    for backup_file in "$BACKUP_DIR"/*.tar.gz; do
+        [ -f "$backup_file" ] && backups+=("$backup_file")
+    done
+    
+    if [ ${#backups[@]} -eq 0 ]; then
+        echo -e "\n\033[1;33m⚠️  No backups found!\033[0m"
+        return 1
+    fi
+    
+    echo -e "\n\033[1;33m📂 Available backups:\033[0m"
+    for i in "${!backups[@]}"; do
+        echo "  $((i+1))) $(basename "${backups[$i]}")"
+    done
+    
+    echo -ne "\n\033[1;36mEnter backup number to restore: \033[0m"
+    read -r choice
+    
+    if [[ "$choice" =~ ^[0-9]+$ ]] && (( 10#$choice >= 1 && 10#$choice <= ${#backups[@]} )); then
+        backup_file="${backups[$((10#$choice-1))]}"
+        if ! tar -tzf "$backup_file" >/dev/null; then
+            print_error "Invalid backup archive"
+            return 1
+        fi
+        while IFS= read -r member; do
+            case "$member" in
+                /*|../*|*/../*|*/..|./backups|./backups/*)
+                    print_error "Unsafe backup entry: $member"
+                    return 1 ;;
+            esac
+        done < <(tar -tzf "$backup_file")
+        
+        echo -e "\n\033[1;33m🔄 Restoring backup...\033[0m"
+        if tar -xzf "$backup_file" -C "$CONFIG_DIR"; then
+            echo -e "\033[1;32m✓ Backup restored!\033[0m"
+        else
+            echo -e "\033[1;31m✗ Restore failed!\033[0m"
+            return 1
+        fi
+    else
+        echo -e "\033[1;31m✗ Invalid choice!\033[0m"
+        return 1
+    fi
+}
+
+list_backups() {
+    local backups=() backup_file
+    for backup_file in "$BACKUP_DIR"/*.tar.gz; do
+        [ -f "$backup_file" ] && backups+=("$backup_file")
+    done
+    
+    if [ ${#backups[@]} -eq 0 ]; then
+        echo -e "\n\033[1;33m⚠️  No backups found!\033[0m"
+    else
+        echo -e "\n\033[1;33m📂 Available backups:\033[0m"
+        for backup in "${backups[@]}"; do
+            echo "  📄 $(basename "$backup")"
+        done
+    fi
+    
+    echo ""
+    echo -e "\033[1;33mPress any key to continue...\033[0m"
+    read -n 1 -s
+}
+CORELIB
+    
+    chmod +x "$INSTALL_DIR/lib/core.sh"
+    print_success "Core library installed"
+}
+
+install_fastfetch_lib() {
+    print_info "Installing fastfetch library..."
+    
+    tee "$INSTALL_DIR/lib/fastfetch.sh" > /dev/null << 'FASTFETCHLIB'
+#!/bin/bash
+
+# Provide no-op logger if core lib isn't sourced
+type log_debug >/dev/null 2>&1 || log_debug() { :; }
+
+# Return distro-appropriate ASCII logo path for auto fallback on unsupported terminals
+get_distro_ascii_logo_path() {
+    local id=""
+    if [ -f /etc/os-release ]; then
+        . /etc/os-release
+        id="${ID:-}"
+    fi
+    case "$id" in
+        arch|endeavouros|manjaro|cachyos) echo "$HOME/.local/share/termfetch-studio/logos/arch.txt" ;;
+        *) echo "$HOME/.local/share/termfetch-studio/logos/tux.txt" ;;
+    esac
+}
+
+get_logo_source() {
+    local logo_type=$1
+    local custom_image=$2
+
+    case $logo_type in
+        "pikachu")
+            if [ -f "$HOME/.local/share/termfetch-studio/logos/pikachu.txt" ]; then
+                echo "$HOME/.local/share/termfetch-studio/logos/pikachu.txt"
+            else
+                echo "auto"
+            fi
+            ;;
+        "tux")
+            if [ -f "$HOME/.local/share/termfetch-studio/logos/tux.txt" ]; then
+                echo "$HOME/.local/share/termfetch-studio/logos/tux.txt"
+            else
+                echo "auto"
+            fi
+            ;;
+        "arch")
+            if [ -f "$HOME/.local/share/termfetch-studio/logos/arch.txt" ]; then
+                echo "$HOME/.local/share/termfetch-studio/logos/arch.txt"
+            else
+                echo "auto"
+            fi
+            ;;
+        "cat")
+            if [ -f "$HOME/.local/share/termfetch-studio/logos/cat.txt" ]; then
+                echo "$HOME/.local/share/termfetch-studio/logos/cat.txt"
+            else
+                echo "auto"
+            fi
+            ;;
+        "neko")
+            if [ -f "$HOME/.local/share/termfetch-studio/logos/neko.txt" ]; then
+                echo "$HOME/.local/share/termfetch-studio/logos/neko.txt"
+            else
+                echo "auto"
+            fi
+            ;;
+        "bunny")
+            if [ -f "$HOME/.local/share/termfetch-studio/logos/bunny.txt" ]; then
+                echo "$HOME/.local/share/termfetch-studio/logos/bunny.txt"
+            else
+                echo "auto"
+            fi
+            ;;
+        "heart")
+            if [ -f "$HOME/.local/share/termfetch-studio/logos/heart.txt" ]; then
+                echo "$HOME/.local/share/termfetch-studio/logos/heart.txt"
+            else
+                echo "auto"
+            fi
+            ;;
+        "sakura")
+            if [ -f "$HOME/.local/share/termfetch-studio/logos/sakura.txt" ]; then
+                echo "$HOME/.local/share/termfetch-studio/logos/sakura.txt"
+            else
+                echo "auto"
+            fi
+            ;;
+        "naruto")
+            if [ -f "$HOME/.local/share/termfetch-studio/logos/naruto.txt" ]; then
+                echo "$HOME/.local/share/termfetch-studio/logos/naruto.txt"
+            else
+                echo "auto"
+            fi
+            ;;
+        "pokeball")
+            if [ -f "$HOME/.local/share/termfetch-studio/logos/pokeball.txt" ]; then
+                echo "$HOME/.local/share/termfetch-studio/logos/pokeball.txt"
+            else
+                echo "auto"
+            fi
+            ;;
+        "spider")
+            if [ -f "$HOME/.local/share/termfetch-studio/logos/spider.txt" ]; then
+                echo "$HOME/.local/share/termfetch-studio/logos/spider.txt"
+            else
+                echo "auto"
+            fi
+            ;;
+        "dragon")
+            if [ -f "$HOME/.local/share/termfetch-studio/logos/dragon.txt" ]; then
+                echo "$HOME/.local/share/termfetch-studio/logos/dragon.txt"
+            else
+                echo "auto"
+            fi
+            ;;
+        "creeper")
+            if [ -f "$HOME/.local/share/termfetch-studio/logos/creeper.txt" ]; then
+                echo "$HOME/.local/share/termfetch-studio/logos/creeper.txt"
+            else
+                echo "auto"
+            fi
+            ;;
+        "star")
+            if [ -f "$HOME/.local/share/termfetch-studio/logos/star.txt" ]; then
+                echo "$HOME/.local/share/termfetch-studio/logos/star.txt"
+            else
+                echo "auto"
+            fi
+            ;;
+        "rocket")
+            if [ -f "$HOME/.local/share/termfetch-studio/logos/rocket.txt" ]; then
+                echo "$HOME/.local/share/termfetch-studio/logos/rocket.txt"
+            else
+                echo "auto"
+            fi
+            ;;
+        "custom")
+            if [ -f "$LOGOS_DIR/custom.txt" ]; then
+                echo "$LOGOS_DIR/custom.txt"
+            else
+                echo "auto"
+            fi
+            ;;
+        "image")
+            # ALWAYS check terminal support at runtime
+            local terminal_support=$(check_terminal_image_support)
+
+            if [ "$terminal_support" = "none" ]; then
+                # Terminal doesn't support images - use fallback
+                local fallback=$(get_config_value "fastfetch" "logo_fallback")
+                [ -z "$fallback" ] && fallback="auto"
+
+                case $fallback in
+                    "ascii")
+                        # Use pikachu ASCII logo as fallback
+                        echo "$HOME/.local/share/termfetch-studio/logos/pikachu.txt"
+                        ;;
+                    "none") echo "none" ;;
+                    *) echo "$(get_distro_ascii_logo_path)" ;;  # Auto → distro ASCII fallback
+                esac
+            else
+                # Terminal supports images
+                if [ -n "$custom_image" ] && [ -f "$custom_image" ]; then
+                    echo "$custom_image"
+                else
+                    # Use builtin distro logo; leave source empty for auto
+                    echo ""
+                fi
+            fi
+            ;;
+        "none") echo "none" ;;
+        *) echo "" ;;  # For auto/builtin, no explicit source
+    esac
+}
+
+get_logo_type() {
+    local logo_type=$1
+    local custom_image=$2
+
+    case $logo_type in
+        "pikachu"|"tux"|"arch"|"cat"|"neko"|"bunny"|"heart"|"sakura"|"naruto"|"pokeball"|"spider"|"dragon"|"creeper"|"star"|"rocket"|"custom")
+            # A valid type is needed in the saved config as well as the runtime copy.
+            echo "auto" ;;
+        "image")
+            # ALWAYS check terminal support at runtime, even if custom image exists
+            local terminal_support=$(check_terminal_image_support)
+
+            # Debug logging
+            log_debug "get_logo_type: terminal_support=$terminal_support, custom_image=$custom_image"
+
+            if [ "$terminal_support" = "none" ]; then
+                # Terminal doesn't support images - use fallback
+                local fallback=$(get_config_value "fastfetch" "logo_fallback")
+                [ -z "$fallback" ] && fallback="auto"
+
+                case $fallback in
+                    "ascii") echo "auto" ;;
+                    "none") echo "none" ;;
+                    *) echo "auto" ;;
+                esac
+            else
+                # Terminal supports images - check if custom image exists
+                if [ -n "$custom_image" ] && [ -f "$custom_image" ]; then
+                    # Use appropriate protocol for this terminal
+                    case $terminal_support in
+                        "kitty") echo "kitty-direct" ;;
+                        "wezterm") echo "kitty-direct" ;;
+                        "iterm2"|"konsole") echo "iterm" ;;
+                        "foot") echo "sixel" ;;
+                        *) echo "kitty" ;;  # Default to kitty protocol
+                    esac
+                else
+                    # No custom image - use distro auto logo
+                    echo "auto"
+                fi
+            fi
+            ;;
+        "none") echo "none" ;;
+        *) echo "auto" ;;
+    esac
+}
+
+logo_dimensions_json_fields() {
+    case "$1" in
+        kitty-direct|kitty|iterm|sixel)
+            local w h
+            read -r w h < <(compute_logo_dimensions "${2:-}" 20 "${3:-14}")
+            printf '        "width": %s,\n        "height": %s,\n' "$w" "$h"
+            ;;
+    esac
+}
+
+get_theme_type() {
+    local theme=$1
+    
+    case $theme in
+        "gruvbox-light"|"solarized-light"|"one-light"|"ayu-light"|"strawberry")
+            echo "light"
+            ;;
+        *)
+            echo "dark"
