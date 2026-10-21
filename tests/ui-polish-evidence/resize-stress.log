@@ -1,0 +1,10 @@
+test_resize_redraws_without_keypress (<run_path>.UIRegression.test_resize_redraws_without_keypress) ... ok
+test_resize_redraws_without_keypress (<run_path>.UIRegression.test_resize_redraws_without_keypress) ... ok
+test_resize_redraws_without_keypress (<run_path>.UIRegression.test_resize_redraws_without_keypress) ... ok
+test_resize_redraws_without_keypress (<run_path>.UIRegression.test_resize_redraws_without_keypress) ... ok
+test_resize_redraws_without_keypress (<run_path>.UIRegression.test_resize_redraws_without_keypress) ... ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 5.755s
+
+OK

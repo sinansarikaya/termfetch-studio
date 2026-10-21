@@ -1,0 +1,9 @@
+{
+  "image": "ubuntu:24.04",
+  "checks": {
+    "bash": "passed: syntax, quiet noninteractive startup, PTY fastfetch startup",
+    "zsh": "passed: syntax, quiet noninteractive startup, PTY fastfetch startup",
+    "fish": "passed: syntax, quiet noninteractive startup, PTY fastfetch startup"
+  },
+  "fastfetch": "fastfetch 2.53.0 (x86_64)"
+}

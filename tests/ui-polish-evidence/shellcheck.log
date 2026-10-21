@@ -1,0 +1,2 @@
+Bash syntax: passed (installer, five generated scripts and Bash startup block)
+ShellCheck findings: {'SC1090 (warning)': 3, 'SC2034 (warning)': 2, 'SC2155 (warning)': 123}

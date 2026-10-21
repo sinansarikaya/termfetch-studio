@@ -1,0 +1,146 @@
+                echo -e "  \033[1;32msudo pacman -S chafa\033[0m   # Arch"
+                echo -e "  \033[1;32msudo apt install chafa\033[0m # Debian/Ubuntu"
+            fi
+            sleep 2
+        # Handle fallback options for unsupported terminals
+        elif [ $choice -eq $((num_preset + num_custom)) ] && [ "$terminal_support" = "none" ]; then
+            # Safe ASCII Fallback
+            set_config_value "fastfetch" "logo_type" "auto"
+            set_config_value "fastfetch" "custom_image" ""
+            apply_logo_config
+            echo -e "\033[1;32m✓ Safe ASCII fallback enabled!\033[0m"
+        elif [ $choice -eq $((num_preset + num_custom + 1)) ] && [ "$terminal_support" = "none" ]; then
+            # Auto Fallback (Recommended)
+            set_config_value "fastfetch" "logo_type" "auto"
+            set_config_value "fastfetch" "custom_image" ""
+            set_config_value "fastfetch" "logo_fallback" "auto"
+            apply_logo_config
+            echo -e "\033[1;32m✓ Auto fallback enabled (recommended)!\033[0m"
+        fi
+    done
+}
+
+logo_size_menu() {
+    local current choice size
+    current=$(get_config_value fastfetch logo_size)
+    select_option "Image Logo Size (Current: ${current:-medium})" 'Small' 'Medium' 'Large' '← Back'
+    choice=$?
+    case "$choice" in
+        0) size=small ;; 1) size=medium ;; 2) size=large ;; *) return ;;
+    esac
+    set_config_value fastfetch logo_size "$size"
+    apply_logo_config
+}
+
+logo_menu() {
+    while true; do
+        local current=$(get_config_value "fastfetch" "logo_type")
+        local custom_image=$(get_config_value "fastfetch" "custom_image")
+        local terminal_support=$(check_terminal_image_support)
+        local size=$(get_config_value fastfetch logo_size)
+        local fallback=$(get_config_value "fastfetch" "logo_fallback")
+        [ -z "$fallback" ] && fallback="auto"
+
+        local options=(
+            "🐧 Auto (Distribution Logo)"
+            "📝 ASCII Logos"
+            "🖼️ Image Logos"
+            "🔄 Image Fallback (Unsupported Terminals): $fallback"
+            "❌ No Logo"
+            "↔ Image Size: ${size:-medium}"
+            "← Back"
+        )
+
+        select_option "🖼️  Logo Settings (Current: $current | Terminal: $terminal_support)" "${options[@]}"
+        local choice=$?
+
+        [ $choice -eq 6 ] || [ $choice -eq 255 ] && return
+
+        case $choice in
+            0)
+                set_config_value "fastfetch" "logo_type" "auto"
+                set_config_value "fastfetch" "custom_image" ""
+                apply_logo_config
+                ;;
+            1)
+                ascii_logo_submenu
+                ;;
+            2)
+                image_logo_submenu
+                ;;
+            3)
+                # Image fallback submenu
+                local fallback_options=(
+                    "🐧 Auto (Distribution Logo)"
+                    "📝 ASCII Logo"
+                    "❌ No Logo"
+                    "← Back"
+                )
+                select_option "🔄 Fallback for Unsupported Terminals" "${fallback_options[@]}"
+                local fb_choice=$?
+
+                case $fb_choice in
+                    0) set_config_value "fastfetch" "logo_fallback" "auto" ;;
+                    1) set_config_value "fastfetch" "logo_fallback" "ascii" ;;
+                    2) set_config_value "fastfetch" "logo_fallback" "none" ;;
+                esac
+                ;;
+            5) logo_size_menu ;;
+            4)
+                set_config_value "fastfetch" "logo_type" "none"
+                set_config_value "fastfetch" "custom_image" ""
+                apply_logo_config
+                ;;
+        esac
+    done
+}
+
+apply_logo_config() {
+    local logo_type=$(get_config_value "fastfetch" "logo_type")
+    local custom_image=$(get_config_value "fastfetch" "custom_image")
+    
+    echo ""
+    echo -e "\033[1;36m🖼️  Applying logo configuration...\033[0m"
+    
+    # Regenerate fastfetch config with new logo
+    local preset=$(get_config_value "fastfetch" "preset")
+    local theme=$(get_config_value "colors" "theme")
+    
+    case $preset in
+        "full") create_full_config "$logo_type" "$custom_image" "$theme" ;;
+        "minimal") create_minimal_config "$logo_type" "$custom_image" "$theme" ;;
+        "focused") create_focused_config "$logo_type" "$custom_image" "$theme" ;;
+        "developer") create_developer_config "$logo_type" "$custom_image" "$theme" ;;
+        "gaming") create_gaming_config "$logo_type" "$custom_image" "$theme" ;;
+        "custom") create_custom_config "$logo_type" "$custom_image" "$theme" ;;
+        *) create_full_config "$logo_type" "$custom_image" "$theme" ;;
+    esac
+    
+    # Cleanup: remove invalid/empty source fields for auto/builtin
+    if [ -f "$CONFIG_DIR/fastfetch.jsonc" ]; then
+        sed -i -E '/"source"[[:space:]]*:[[:space:]]*""/d; /"source"[[:space:]]*:[[:space:]]*"auto"/d' "$CONFIG_DIR/fastfetch.jsonc" 2>/dev/null || true
+    fi
+
+    echo -e "\033[1;32m✓ Logo applied!\033[0m"
+}
+
+theme_menu() {
+    while true; do
+        local current=$(get_config_value "colors" "theme")
+        
+        # Always apply current theme when entering menu
+        apply_terminal_colors "$current" 2>/dev/null || true
+
+        local options=(
+            "🦇 Dracula"
+            "❄️ Nord"
+            "🍂 Gruvbox Dark"
+            "🌃 Tokyo Night"
+            "🌑 One Dark"
+            "🌊 Oceanic Next"
+            "⚫ Monochrome"
+            "☀️ Gruvbox Light"
+            "🌅 Solarized Light"
+            "🌞 One Light"
+            "🏖️ Ayu Light"
+            "🌈 Synthwave"

@@ -121,12 +121,17 @@ The installer will:
 
 On Debian-family systems, the installer downloads the official [fastfetch 2.53.0 release](https://github.com/fastfetch-cli/fastfetch/releases/tag/2.53.0) for x86_64 or aarch64 and verifies its SHA-256 checksum before installation. This fixed version was exercised on Ubuntu 24.04 and Debian 12/13 and avoids changes in a moving `latest` package. [Debian 13 also provides fastfetch 2.40.4](https://packages.debian.org/trixie/fastfetch); an already installed fastfetch is kept. This matrix tested the versions listed in the report; Debian’s 2.40.4 package is below the required 2.42.0 minimum and is rejected with an explicit message. Other architectures require fastfetch to be installed beforehand.
 
-### Terminal UI fixes
+### Terminal menus and logo size
 
-The latest local fixes preserve image proportions, keep menu selection inside the
-viewport, align theme columns independently of emoji byte length, and redraw on
-resize. At fewer than 16 terminal rows, previews are hidden to keep navigation
-visible. See the [UI report and real Kitty screenshots](tests/ui-evidence/README.md).
+Menus use a compact title, separate icon/text columns and a single navigation
+footer. Preview stays on the right from 110 terminal columns, moves below the
+list in narrower windows, and is hidden below 16 rows. Selection survives resize.
+
+Choose **Logo & Image Settings → Image Size → Small / Medium / Large** to save
+an image-logo size. Medium preserves the previous default; all sizes preserve
+aspect ratio and remain bounded by the current terminal. ASCII logos are unchanged.
+See [current UI evidence and real Kitty screenshots](tests/ui-polish-evidence/README.md)
+and the [earlier bug reproduction](tests/ui-evidence/README.md).
 
 ### Compatibility evidence (x86_64)
 
