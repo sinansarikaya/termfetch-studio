@@ -959,11 +959,11 @@ compute_logo_dimensions() {
 }
 
 configured_logo_dimensions() {
-    local image=$1 height=${2:-14} width=20 size
+    local image=$1 height=22 width=36 size
     size=$(get_config_value fastfetch logo_size)
     case "$size" in
-        small) width=14; height=$((height * 2 / 3)) ;;
-        large) width=30; height=$((height * 3 / 2)) ;;
+        small) width=20; height=14 ;;
+        large) width=52; height=32 ;;
     esac
     compute_logo_dimensions "$image" "$width" "$height"
 }
@@ -1018,6 +1018,7 @@ _ui_put() {
 _ui_teardown() {
     [ "${_ui_active:-0}" = 1 ] || return 0
     _ui_active=0
+    [ -n "${_ui_frame_file:-}" ] && rm -f -- "$_ui_frame_file"
     printf '\033[?2026l\033[0m\033[?25h\033[?1049l'
     [ -n "$_ui_stty" ] && stty "$_ui_stty" 2>/dev/null || true
     trap - EXIT INT TERM HUP WINCH
@@ -1029,6 +1030,13 @@ _ui_teardown() {
 }
 
 _ui_draw_menu() {
+    # Prepare the complete frame off screen, including slow image conversion.
+    # Never clear the visible preview while waiting for its replacement.
+    _ui_render_menu > "$_ui_frame_file"
+    cat -- "$_ui_frame_file"
+}
+
+_ui_render_menu() {
     local list_start=5 cols=1 logical_rows sel_row visible start end row index col cell_w
     local list_width=$_ui_width preview_x=1 preview_y=0 preview_cols=$((_ui_width - 2)) side=0
     _ui_preview_rows=0
@@ -1119,6 +1127,8 @@ _ui_menu() {
     fi
     ((_ui_total > 0)) && [ -t 0 ] && [ -t 1 ] || return 255
     local _ui_width=0 _ui_height=0 _ui_cols=1 _ui_rows=1 _ui_active=1 _ui_resize=1 _ui_signal=0
+    local _ui_frame_file
+    _ui_frame_file=$(mktemp "${TMPDIR:-/tmp}/tfs-frame.XXXXXXXX") || return 255
     local _ui_stty _ui_old_exit _ui_old_int _ui_old_term _ui_old_hup _ui_old_winch
     _ui_stty=$(stty -g 2>/dev/null) || _ui_stty=''
     _ui_old_exit=$(trap -p EXIT); _ui_old_int=$(trap -p INT); _ui_old_term=$(trap -p TERM)

@@ -20,6 +20,15 @@
 - **Changed Files**: []
 - **Evidence Paths**: ["tests/ui-polish-evidence", "tests/ui_regression.py"]
 - **Accepted At**: 2026-10-21T22:40:35Z
+
+### Task: preview-size-review - Independent read-only review of narrow follow-up. Read tests/preview-fix-evidence/changes.patch and evidence README, tests/ui_regression.py and tests/vm_preview_capture.py. Changes enlarge configured image bounds from20/14/30 to20/36/52 with same aspect-fit helper and terminal bounds; complete menu frame is rendered to private mktemp file then cat to stdout after ready, removed by scoped teardown. Assess correctness/security of frame file lifecycle and signal behavior, meaningful slow-preview regression baseline failure/new14passes, changed Docker numeric expectations reflect deliberate increased size not weakening. Native sampled frames are limited observation not universal flicker proof; PNG leader scope. No source edits. Return significant bugs or clear acceptance; run compileall.
+- **Status**: Done (Accepted)
+- **Role**: code-reviewer
+- **Provider**: codex
+- **Leader Summary**: Reviewed source, old-code reproduction, 14 PTY tests, 112 Docker checks and sampled native Kitty frames; larger logo and prepared-frame replacement validated within documented limits.
+- **Changed Files**: []
+- **Evidence Paths**: ["tests/preview-fix-evidence", "tests/ui_regression.py", "tests/vm_preview_capture.py", "tests/docker_matrix.py"]
+- **Accepted At**: 2026-10-21T22:48:14Z
 <!-- AI-TEAM-TASKS-END -->
 
 ## Initial attempt (not accepted)
@@ -56,3 +65,7 @@
 - Isolated Docker tests and native Kitty VM evidence in tests/ui-polish-evidence/.
 - Host installation and settings remain untouched; source version stays 1.0.0.
 - ui-polish-review accepted: no open significant findings; 13 PTY tests, 5 resize repeats, 4 Docker scenarios/112 checks, native screenshots and reopen persistence verified.
+
+## Preview follow-up
+- Reproduced slow-preview blanking; enlarged image sizes and moved full-frame preparation off screen.
+- 14 regression tests, 112 Docker checks and native Kitty sampled frames passed. preview-size-review accepted; no significant open findings.

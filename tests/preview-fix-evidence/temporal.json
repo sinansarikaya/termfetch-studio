@@ -1,0 +1,71 @@
+{
+  "method": "12 real QEMU framebuffer samples after down key; saturated fixture pixels >500 in every frame",
+  "region": [
+    715,
+    160,
+    475,
+    330
+  ],
+  "frames": [
+    {
+      "frame": 0,
+      "elapsed_ms": 42,
+      "preview_colored_pixels": 3664
+    },
+    {
+      "frame": 1,
+      "elapsed_ms": 34,
+      "preview_colored_pixels": 3664
+    },
+    {
+      "frame": 2,
+      "elapsed_ms": 34,
+      "preview_colored_pixels": 13318
+    },
+    {
+      "frame": 3,
+      "elapsed_ms": 34,
+      "preview_colored_pixels": 13318
+    },
+    {
+      "frame": 4,
+      "elapsed_ms": 40,
+      "preview_colored_pixels": 13318
+    },
+    {
+      "frame": 5,
+      "elapsed_ms": 38,
+      "preview_colored_pixels": 13318
+    },
+    {
+      "frame": 6,
+      "elapsed_ms": 33,
+      "preview_colored_pixels": 13318
+    },
+    {
+      "frame": 7,
+      "elapsed_ms": 39,
+      "preview_colored_pixels": 13318
+    },
+    {
+      "frame": 8,
+      "elapsed_ms": 39,
+      "preview_colored_pixels": 13318
+    },
+    {
+      "frame": 9,
+      "elapsed_ms": 34,
+      "preview_colored_pixels": 13318
+    },
+    {
+      "frame": 10,
+      "elapsed_ms": 39,
+      "preview_colored_pixels": 13318
+    },
+    {
+      "frame": 11,
+      "elapsed_ms": 33,
+      "preview_colored_pixels": 13318
+    }
+  ]
+}

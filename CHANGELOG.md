@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Enlarge medium/large image-logo limits while retaining source proportions and terminal bounds.
+- Prepare complete menu frames before display so slow preview conversion does not blank the visible preview.
+
 - Simplify menu headers and navigation hints; draw icons and labels in separate cell columns.
 - Keep previews on the right in wide windows, below the list in narrower windows, and hidden in very small windows.
 - Add persistent small/medium/large image-logo sizing with bounded aspect-preserving dimensions.

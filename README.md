@@ -128,9 +128,11 @@ footer. Preview stays on the right from 110 terminal columns, moves below the
 list in narrower windows, and is hidden below 16 rows. Selection survives resize.
 
 Choose **Logo & Image Settings → Image Size → Small / Medium / Large** to save
-an image-logo size. Medium preserves the previous default; all sizes preserve
+an image-logo size. Medium now allows up to 36 columns and Large up to 52; all sizes preserve
 aspect ratio and remain bounded by the current terminal. ASCII logos are unchanged.
-See [current UI evidence and real Kitty screenshots](tests/ui-polish-evidence/README.md)
+Previews are prepared off screen before replacing the visible frame. See the
+[latest preview/size regression evidence](tests/preview-fix-evidence/README.md) and
+[current UI evidence and real Kitty screenshots](tests/ui-polish-evidence/README.md)
 and the [earlier bug reproduction](tests/ui-evidence/README.md).
 
 ### Compatibility evidence (x86_64)
