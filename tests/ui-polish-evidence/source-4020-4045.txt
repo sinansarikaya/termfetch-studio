@@ -1,0 +1,26 @@
+                else
+                    # No custom image - use distro auto logo
+                    echo "auto"
+                fi
+            fi
+            ;;
+        "none") echo "none" ;;
+        *) echo "auto" ;;
+    esac
+}
+
+logo_dimensions_json_fields() {
+    case "$1" in
+        kitty-direct|kitty|iterm|sixel)
+            local w h
+            read -r w h < <(configured_logo_dimensions "${2:-}" "${3:-14}")
+            printf '        "width": %s,\n        "height": %s,\n' "$w" "$h"
+            ;;
+    esac
+}
+
+get_theme_type() {
+    local theme=$1
+    
+    case $theme in
+        "gruvbox-light"|"solarized-light"|"one-light"|"ayu-light"|"strawberry")

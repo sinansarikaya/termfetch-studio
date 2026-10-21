@@ -80,7 +80,10 @@ class Terminal:
 
     def finish(self, keys=b'q'):
         self.send(keys)
-        result = self.process.wait(timeout=3)
+        deadline = time.monotonic() + 3
+        while self.process.poll() is None and time.monotonic() < deadline:
+            self.read(.05)
+        result = self.process.wait(timeout=.1)
         self.read()
         return result
 
@@ -189,6 +192,18 @@ class UIRegression(unittest.TestCase):
         self.assertEqual(failed.returncode, 7)
         self.assertFalse(Path(json.loads(failed.stdout)['path']).exists())
 
+    def test_runtime_wrapper_obeys_saved_logo_sizes(self):
+        self.test_runtime_wrapper_and_all_generated_presets()
+        bindir = self.home / '.local/bin'
+        env = os.environ | {'HOME': str(self.home), 'PATH': str(bindir) + ':' + os.environ['PATH'], 'KITTY_WINDOW_ID': '1', 'TERM': 'xterm-kitty', 'COLUMNS': '120', 'LINES': '30'}
+        config = self.home / '.config/termfetch-studio/config.ini'
+        for size, expected in [('small', (14, 7)), ('medium', (20, 10)), ('large', (30, 15))]:
+            config.write_text(config.read_text().split('logo_size=')[0] + 'logo_size=' + size + '\n')
+            result = subprocess.run(['bash', str(bindir / 'tfs-fastfetch')], env=env, capture_output=True, text=True, timeout=5)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            logo = json.loads(result.stdout)['logo']
+            self.assertEqual((logo['width'], logo['height']), expected)
+
     def test_small_menu_frames_and_selection_stay_visible(self):
         for columns, rows in [(80, 24), (60, 16), (40, 12)]:
             session = self.terminal('preview_image_fixture() { printf "Preview %s\\n" {1..8}; }; options=(); for i in {0..17}; do options+=("Image $i"); done; select_option "Images" "${options[@]}" preview_image_fixture; exit $?', columns, rows)
@@ -219,6 +234,48 @@ class UIRegression(unittest.TestCase):
         session.send(b'\x1b[B')
         self.assertIn('Selected 2/4', session.text)
         self.assertEqual(session.finish(b'\r'), 1)
+
+    def test_compact_header_fixed_icon_columns_and_responsive_preview(self):
+        body = 'preview_fixture() { printf "RIGHT_MARKER\\nsecond line"; }; select_option "Choices [Old navigation hint]" "⚡ Short" "❄️ Longer" "Plain" preview_fixture; exit $?'
+        session = self.terminal(body, 120, 24)
+        self.assertNotIn('Old navigation', session.text)
+        self.assertNotIn('Professional', session.text)
+        self.assertIn('Enter Apply', session.text)
+        self.assertIn('Short', session.screen.display[4])
+        self.assertIn('Longer', session.screen.display[5])
+        for row, initial in [(4, 'S'), (5, 'L'), (6, 'P')]:
+            self.assertEqual(session.screen.buffer[row][7].data, initial)
+        self.assertGreater(session.screen.display[4].index('RIGHT_MARKER'), 60)
+        session.resize(80, 24); session.read(.5)
+        marker_row = next(i for i, v in enumerate(session.screen.display) if 'RIGHT_MARKER' in v)
+        self.assertGreater(marker_row, 7)
+        session.resize(40, 12); session.read(.5)
+        self.assertNotIn('RIGHT_MARKER', session.text)
+        self.assertEqual(session.finish(), 255)
+
+    def test_logo_size_choice_persists_and_scales_within_bounds(self):
+        config = self.home / 'config'; config.mkdir()
+        (config / 'config.ini').write_text('[fastfetch]\nlogo_size=medium\n')
+        png(self.home / 'square.png', 400, 400)
+        values = []
+        for size in ['small', 'medium', 'large']:
+            result = self.bash('set_config_value fastfetch logo_size ' + size + '; configured_logo_dimensions "$HOME/square.png" 14')
+            self.assertEqual(result.returncode, 0, result.stderr)
+            values.append(tuple(map(int, result.stdout.split())))
+            self.assertIn('logo_size=' + size, (config / 'config.ini').read_text())
+        self.assertLess(values[0][0], values[1][0]); self.assertLess(values[1][0], values[2][0])
+        self.assertTrue(all(w <= 26 and h <= 20 for w, h in values))
+        for w, h in values: self.assertLess(abs(w / (h * 2) - 1), .06)
+        # Exercise actual size submenu through a PTY and reopen its persisted config.
+        (self.home / 'fastfetch.sh').write_text(generated('FASTFETCHLIB'))
+        result = self.bash('source "$HOME/fastfetch.sh"; set_config_value fastfetch preset custom; set_config_value fastfetch logo_type auto; set_config_value colors theme nord; set_config_value custom modules os,kernel; apply_logo_config >/dev/null')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('Custom Preset', (config / 'fastfetch.jsonc').read_text())
+        self.assertIn('modules=os,kernel', (config / 'config.ini').read_text())
+        session = self.terminal('CONFIG_DIR="$HOME/config"; CONFIG_FILE="$CONFIG_DIR/config.ini"; source "$HOME/fastfetch.sh"; apply_logo_config() { :; }; logo_size_menu; get_config_value fastfetch logo_size > "$HOME/chosen"')
+        session.send(b'\x1b[B'); session.send(b'\x1b[B'); session.finish(b'\r')
+        self.assertEqual((self.home / 'chosen').read_text().strip(), 'large')
+        self.assertEqual(self.bash('get_config_value fastfetch logo_size').stdout.strip(), 'large')
 
     def test_resize_redraws_without_keypress(self):
         session = self.terminal('options=(); for i in {0..17}; do options+=("Item $i"); done; select_option "Resize" "${options[@]}"; exit $?')

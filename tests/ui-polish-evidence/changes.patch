@@ -1,0 +1,435 @@
+diff --git a/install.sh b/install.sh
+index fb833f4..cfc9d3d 100755
+--- a/install.sh
++++ b/install.sh
+@@ -722,7 +722,7 @@ logo_height=""
+ case "$logo_actual_type" in
+   kitty-direct|kitty|iterm|sixel)
+     if [ -n "$logo_source" ] && [ -f "$logo_source" ] && declare -f compute_logo_dimensions >/dev/null 2>&1; then
+-      dims=$(compute_logo_dimensions "$logo_source" 20 14)
++      dims=$(configured_logo_dimensions "$logo_source" 14)
+       read -r logo_width logo_height <<< "$dims"
+     else
+       logo_width=20
+@@ -958,6 +958,16 @@ compute_logo_dimensions() {
+     printf '%s %s\n' "$w" "$h"
+ }
+ 
++configured_logo_dimensions() {
++    local image=$1 height=${2:-14} width=20 size
++    size=$(get_config_value fastfetch logo_size)
++    case "$size" in
++        small) width=14; height=$((height * 2 / 3)) ;;
++        large) width=30; height=$((height * 3 / 2)) ;;
++    esac
++    compute_logo_dimensions "$image" "$width" "$height"
++}
++
+ ui_clip_text() {
+     # Conservative cell widths keep emoji/combining sequences from wrapping.
+     local text=$1 budget=$2 ch cp width used=0 output='' i
+@@ -981,13 +991,20 @@ show_header() {
+     local cols rows
+     read -r cols rows < <(ui_terminal_size)
+     printf '\033[H\033[2J\033[1;36m'
+-    if ((cols >= 56 && rows >= 20)); then
+-        printf '%s\n' '╔═══════════════════════════════════════════════════╗' '║            TermFetch Studio v1.0                  ║' '║     Professional Terminal Theme Manager           ║' '╚═══════════════════════════════════════════════════╝'
+-    else
+-        ui_clip_text 'TermFetch Studio v1.0' "$((cols - 1))"
+-        printf '\n'
++    ui_clip_text 'TermFetch Studio 1.0.0' "$((cols - 1))"
++    printf '\033[0m\n\n'
++}
++
++# Separate decorative icons from labels; labels always start at one cell anchor.
++ui_option_parts() {
++    local value=$1 first=${1%% *} cp
++    UI_OPTION_ICON='' UI_OPTION_LABEL=$value
++    printf -v cp '%d' "'${first:0:1}"
++    if [[ "$value" == *' '* ]] && ((cp > 127)); then
++        UI_OPTION_ICON=$first
++        UI_OPTION_LABEL=${value#* }
++        while [[ "$UI_OPTION_LABEL" == ' '* ]]; do UI_OPTION_LABEL=${UI_OPTION_LABEL# }; done
+     fi
+-    printf '\033[0m'
+ }
+ 
+ _ui_put() {
+@@ -1012,19 +1029,26 @@ _ui_teardown() {
+ }
+ 
+ _ui_draw_menu() {
+-    local header=2 list_start cols=1 logical_rows sel_row visible start end row index col cell_w
+-    (( _ui_height >= 20 && _ui_width >= 60 )) && header=5
+-    (( _ui_two && _ui_width >= 68 )) && cols=2
+-    logical_rows=$(((_ui_total + cols - 1) / cols))
+-    list_start=$((header + 3))
++    local list_start=5 cols=1 logical_rows sel_row visible start end row index col cell_w
++    local list_width=$_ui_width preview_x=1 preview_y=0 preview_cols=$((_ui_width - 2)) side=0
+     _ui_preview_rows=0
+     if [ -n "$_ui_preview" ] && ((_ui_height >= 16)); then
+-        _ui_preview_rows=3
+-        [[ "$_ui_preview" == preview_image_logo ]] && _ui_preview_rows=6
+-        ((_ui_height < 24 && _ui_preview_rows > 3)) && _ui_preview_rows=3
++        if ((_ui_width >= 110)); then
++            side=1; list_width=$((_ui_width * 55 / 100))
++            preview_x=$((list_width + 3)); preview_y=4
++            preview_cols=$((_ui_width - preview_x - 1))
++            _ui_preview_rows=$((_ui_height - 7))
++            ((_ui_preview_rows > 14)) && _ui_preview_rows=14
++        else
++            _ui_preview_rows=3
++            [[ "$_ui_preview" == preview_image_logo ]] && _ui_preview_rows=6
++            ((_ui_height < 24 && _ui_preview_rows > 3)) && _ui_preview_rows=3
++        fi
+     fi
++    ((_ui_two && list_width >= 68)) && cols=2
++    logical_rows=$(((_ui_total + cols - 1) / cols))
+     visible=$((_ui_height - list_start - 1))
+-    ((_ui_preview_rows > 0)) && visible=$((visible - _ui_preview_rows - 2))
++    ((!side && _ui_preview_rows > 0)) && visible=$((visible - _ui_preview_rows - 2))
+     ((visible < 1)) && visible=1
+     ((visible > logical_rows)) && visible=$logical_rows
+     sel_row=$((_ui_selected % logical_rows))
+@@ -1032,57 +1056,55 @@ _ui_draw_menu() {
+     ((sel_row >= _ui_start + visible)) && _ui_start=$((sel_row - visible + 1))
+     ((_ui_start > logical_rows - visible)) && _ui_start=$((logical_rows - visible))
+     ((_ui_start < 0)) && _ui_start=0
+-    start=$_ui_start; end=$((start + visible)); cell_w=$((_ui_width / cols))
++    start=$_ui_start; end=$((start + visible)); cell_w=$((list_width / cols))
+     printf '\033[?2026h\033[H\033[2J'
+     if ((_ui_height < 8 || _ui_width < 20)); then
+         _ui_put 1 1 "$((_ui_width - 1))" 'Resize terminal; Q to back'
+         printf '\033[?2026l'
+         return
+     fi
+-    if ((header == 5)); then
+-        _ui_put 1 1 "$((_ui_width - 1))" '╔═══════════════════════════════════════════════════╗' '\033[1;36m'
+-        _ui_put 2 1 "$((_ui_width - 1))" '║            TermFetch Studio v1.0                  ║' '\033[1;36m'
+-        _ui_put 3 1 "$((_ui_width - 1))" '║     Professional Terminal Theme Manager           ║' '\033[1;36m'
+-        _ui_put 4 1 "$((_ui_width - 1))" '╚═══════════════════════════════════════════════════╝' '\033[1;36m'
+-    else
+-        _ui_put 1 1 "$((_ui_width - 1))" 'TermFetch Studio v1.0' '\033[1;36m'
+-    fi
+-    _ui_put "$((header + 1))" 1 "$((_ui_width - 1))" "$_ui_prompt" '\033[1;33m'
++    _ui_put 1 1 "$((_ui_width - 1))" 'TermFetch Studio 1.0.0' '\033[1;36m'
++    # Navigation belongs in the footer, not in every menu title.
++    local title=${_ui_prompt%% \[*}
++    _ui_put 3 1 "$((_ui_width - 1))" "$title" '\033[1;33m'
++    local UI_OPTION_ICON UI_OPTION_LABEL style x y
+     for ((row=start; row<end; row++)); do
+         for ((col=0; col<cols; col++)); do
+             index=$((row + col * logical_rows))
+             ((index >= _ui_total)) && continue
+-            local x=$((col * cell_w + 1)) y=$((list_start + row - start))
++            x=$((col * cell_w + 1)); y=$((list_start + row - start)); style='\033[0m'
+             if ((index == _ui_selected)); then
+-                _ui_put "$y" "$x" 3 ' ▶ ' '\033[1;32m'
+-                _ui_put "$y" "$((x + 4))" "$((cell_w - 5))" "${_ui_options[index]}" '\033[7m'
+-            else
+-                _ui_put "$y" "$((x + 4))" "$((cell_w - 5))" "${_ui_options[index]}"
++                _ui_put "$y" "$x" 2 '▶' '\033[1;32m'
++                style='\033[7m'
+             fi
++            ui_option_parts "${_ui_options[index]}"
++            _ui_put "$y" "$((x + 3))" 2 "$UI_OPTION_ICON"
++            _ui_put "$y" "$((x + 7))" "$((cell_w - 8))" "$UI_OPTION_LABEL" "$style"
+         done
+     done
+     if ((_ui_preview_rows > 0)); then
+-        local preview_y=$((list_start + visible + 1))
+-        local UI_PREVIEW_COLS=$((_ui_width - 2)) UI_PREVIEW_ROWS=$_ui_preview_rows
+-        _ui_put "$preview_y" 1 "$((_ui_width - 1))" 'Preview:' '\033[1;33m'
+-        printf '\033[%d;1H' "$((preview_y + 1))"
++        ((!side)) && preview_y=$((list_start + visible + 1))
++        local UI_PREVIEW_COLS=$preview_cols UI_PREVIEW_ROWS=$_ui_preview_rows
++        local UI_PREVIEW_X=$preview_x UI_PREVIEW_Y=$((preview_y + 1))
++        _ui_put "$preview_y" "$preview_x" "$preview_cols" 'Preview' '\033[1;33m'
++        printf '\033[%d;%dH' "$UI_PREVIEW_Y" "$preview_x"
+         if [[ "$_ui_preview" == preview_image_logo || "$_ui_preview" == preview_theme ]]; then
+-            # These callbacks honor the allocated rectangle and stream graphics directly.
+             "$_ui_preview" "$_ui_selected" 2>/dev/null || true
+         else
+             local output line n=0
+             output=$("$_ui_preview" "$_ui_selected" 2>/dev/null | head -n "$_ui_preview_rows")
+             output=$(printf '%s' "$output" | sed $'s/\033\\[[0-9;]*[A-Za-z]//g')
+             while IFS= read -r line && ((n < _ui_preview_rows)); do
+-                _ui_put "$((preview_y + 1 + n))" 1 "$((_ui_width - 1))" "$line"
++                _ui_put "$((UI_PREVIEW_Y + n))" "$preview_x" "$preview_cols" "$line"
+                 n=$((n + 1))
+             done <<< "$output"
+         fi
+     fi
+     _ui_put "$((_ui_height - 1))" 1 "$((_ui_width - 1))" "Items $((start + 1))-$end/$logical_rows | Selected $((_ui_selected + 1))/$_ui_total" '\033[2m'
+-    local keys='Arrows: move  Enter: apply  Q/Esc: back'
+-    ((_ui_width < 50)) && keys='↑↓ Enter Q:back'
+-    ((_ui_height < 16 && _ui_width >= 36 && ${#_ui_preview} > 0)) && keys+=' | preview hidden'
++    local keys='↑↓ Select · Enter Apply · Q Back'
++    ((cols == 2)) && keys='↑↓←→ Select · Enter Apply · Q Back'
++    ((_ui_width < 36)) && keys='↑↓ Enter Q:Back'
++    ((_ui_height < 16 && _ui_width >= 50 && ${#_ui_preview} > 0)) && keys+=' | preview hidden'
+     _ui_put "$_ui_height" 1 "$((_ui_width - 1))" "$keys" '\033[2m'
+     printf '\033[?2026l'
+     _ui_cols=$cols; _ui_rows=$logical_rows
+@@ -1096,49 +1118,59 @@ _ui_menu() {
+         _ui_preview=${!#}; unset '_ui_options[-1]'; _ui_total=$((_ui_total - 1))
+     fi
+     ((_ui_total > 0)) && [ -t 0 ] && [ -t 1 ] || return 255
+-    local _ui_width=0 _ui_height=0 _ui_cols=1 _ui_rows=1 _ui_active=1 _ui_resize=1
++    local _ui_width=0 _ui_height=0 _ui_cols=1 _ui_rows=1 _ui_active=1 _ui_resize=1 _ui_signal=0
+     local _ui_stty _ui_old_exit _ui_old_int _ui_old_term _ui_old_hup _ui_old_winch
+     _ui_stty=$(stty -g 2>/dev/null) || _ui_stty=''
+     _ui_old_exit=$(trap -p EXIT); _ui_old_int=$(trap -p INT); _ui_old_term=$(trap -p TERM)
+     _ui_old_hup=$(trap -p HUP); _ui_old_winch=$(trap -p WINCH)
+     trap '_ui_teardown' EXIT
+-    trap '_ui_teardown; exit 130' INT
+-    trap '_ui_teardown; exit 143' TERM
+-    trap '_ui_teardown; exit 129' HUP
++    trap '_ui_signal=130' INT
++    trap '_ui_signal=143' TERM
++    trap '_ui_signal=129' HUP
+     trap '_ui_resize=1' WINCH
++    # Keep input mode stable across resize/poll cycles; per-read mode changes
++    # can discard a key arriving between redraw and the next read.
++    stty -echo -icanon min 1 time 0 2>/dev/null || { _ui_teardown; return 255; }
+     printf '\033[?1049h\033[?25l'
+-    local key rest status w h result=255
++    local key rest status w h result=255 pending='' chunk
+     while true; do
++        ((_ui_signal)) && break
+         read -r w h < <(ui_terminal_size)
+         if ((_ui_resize || w != _ui_width || h != _ui_height)); then
+             _ui_width=$w; _ui_height=$h; _ui_resize=0
+             _ui_draw_menu
+         fi
+-        key=''
+-        if read -rsn1 -t 0.2 key; then
+-            if [[ "$key" == $'\004' || "$key" == q || "$key" == Q ]]; then break
+-            elif ((_ui_height < 8 || _ui_width < 20)); then continue
+-            elif [[ -z "$key" ]]; then result=$_ui_selected; break
+-            elif [[ "$key" == $'\033' ]]; then
+-                rest=''; read -rsn2 -t 0.1 rest || true
+-                [[ -z "$rest" ]] && break
+-                local row=$((_ui_selected % _ui_rows)) base=$((_ui_selected / _ui_rows * _ui_rows)) count=$_ui_rows
+-                ((base + count > _ui_total)) && count=$((_ui_total - base))
+-                case "$rest" in
+-                    '[A') _ui_selected=$((base + (row + count - 1) % count)) ;;
+-                    '[B') _ui_selected=$((base + (row + 1) % count)) ;;
+-                    '[C') ((_ui_cols == 2 && _ui_selected < _ui_rows && _ui_selected + _ui_rows < _ui_total)) && _ui_selected=$((_ui_selected + _ui_rows)) ;;
+-                    '[D') ((_ui_cols == 2 && _ui_selected >= _ui_rows)) && _ui_selected=$((_ui_selected - _ui_rows)) ;;
+-                esac
+-                _ui_resize=1
++        if [[ -z "$pending" ]]; then
++            # Read raw input in a short batch without Bash's per-character
++            # terminal-mode changes. Timed reads retain their partial input.
++            IFS= read -r -t 0.1 -d '' pending; status=$?
++            ((_ui_signal)) && break
++            [[ -z "$pending" ]] && { ((status == 1)) && break; continue; }
++        fi
++        key=${pending:0:1}; pending=${pending:1}
++        if [[ "$key" == $'\004' || "$key" == q || "$key" == Q ]]; then break
++        elif ((_ui_height < 8 || _ui_width < 20)); then continue
++        elif [[ "$key" == $'\n' || "$key" == $'\r' ]]; then result=$_ui_selected; break
++        elif [[ "$key" == $'\033' ]]; then
++            if ((${#pending} < 2)); then
++                chunk=''; IFS= read -r -t 0.1 -d '' chunk || true
++                pending+=$chunk
+             fi
+-        else
+-            status=$?
+-            ((status > 128)) && continue
+-            break
++            [[ -z "$pending" ]] && break
++            rest=${pending:0:2}; pending=${pending:2}
++            local row=$((_ui_selected % _ui_rows)) base=$((_ui_selected / _ui_rows * _ui_rows)) count=$_ui_rows
++            ((base + count > _ui_total)) && count=$((_ui_total - base))
++            case "$rest" in
++                '[A') _ui_selected=$((base + (row + count - 1) % count)) ;;
++                '[B') _ui_selected=$((base + (row + 1) % count)) ;;
++                '[C') ((_ui_cols == 2 && _ui_selected < _ui_rows && _ui_selected + _ui_rows < _ui_total)) && _ui_selected=$((_ui_selected + _ui_rows)) ;;
++                '[D') ((_ui_cols == 2 && _ui_selected >= _ui_rows)) && _ui_selected=$((_ui_selected - _ui_rows)) ;;
++            esac
++            _ui_resize=1
+         fi
+     done
+     _ui_teardown
++    ((_ui_signal)) && exit "$_ui_signal"
+     return "$result"
+ }
+ 
+@@ -1206,7 +1238,7 @@ preview_theme() {
+     apply_terminal_colors "$theme" 2>/dev/null || true
+     ui_clip_text "Theme: $theme" "$budget"
+     if ((${UI_PREVIEW_ROWS:-3} >= 2)); then
+-        printf '\r\n'
++        printf '\033[%d;%dH' "$((${UI_PREVIEW_Y:-1} + 1))" "${UI_PREVIEW_X:-1}"
+         local color
+         for ((color=31; color<=37 && (color-30)*3<=budget; color++)); do printf '\033[%sm██ ' "$color"; done
+         printf '\033[0m'
+@@ -2449,7 +2481,7 @@ preview_image_logo() {
+     if command -v chafa >/dev/null 2>&1; then
+         [ "$(check_terminal_image_support)" = kitty ] && format=kitty
+         read -r cw ch < <(get_terminal_cell_dimensions)
+-        chafa -f "$format" --animate=off --font-ratio "$cw/$ch" -s "${width}x${height}" "$image_path" </dev/null 2>/dev/null || ui_clip_text 'Preview unavailable' "$width"
++        chafa -f "$format" --relative=on --animate=off --font-ratio "$cw/$ch" -s "${width}x${height}" "$image_path" </dev/null 2>/dev/null || ui_clip_text 'Preview unavailable' "$width"
+     else
+         ui_clip_text "Image: ${image_path##*/} (install chafa for preview)" "$width"
+     fi
+@@ -2707,11 +2739,24 @@ image_logo_submenu() {
+     done
+ }
+ 
++logo_size_menu() {
++    local current choice size
++    current=$(get_config_value fastfetch logo_size)
++    select_option "Image Logo Size (Current: ${current:-medium})" 'Small' 'Medium' 'Large' '← Back'
++    choice=$?
++    case "$choice" in
++        0) size=small ;; 1) size=medium ;; 2) size=large ;; *) return ;;
++    esac
++    set_config_value fastfetch logo_size "$size"
++    apply_logo_config
++}
++
+ logo_menu() {
+     while true; do
+         local current=$(get_config_value "fastfetch" "logo_type")
+         local custom_image=$(get_config_value "fastfetch" "custom_image")
+         local terminal_support=$(check_terminal_image_support)
++        local size=$(get_config_value fastfetch logo_size)
+         local fallback=$(get_config_value "fastfetch" "logo_fallback")
+         [ -z "$fallback" ] && fallback="auto"
+ 
+@@ -2721,13 +2766,14 @@ logo_menu() {
+             "🖼️ Image Logos"
+             "🔄 Image Fallback (Unsupported Terminals): $fallback"
+             "❌ No Logo"
++            "↔ Image Size: ${size:-medium}"
+             "← Back"
+         )
+ 
+         select_option "🖼️  Logo Settings (Current: $current | Terminal: $terminal_support)" "${options[@]}"
+         local choice=$?
+ 
+-        [ $choice -eq 5 ] || [ $choice -eq 255 ] && return
++        [ $choice -eq 6 ] || [ $choice -eq 255 ] && return
+ 
+         case $choice in
+             0)
+@@ -2758,6 +2804,7 @@ logo_menu() {
+                     2) set_config_value "fastfetch" "logo_fallback" "none" ;;
+                 esac
+                 ;;
++            5) logo_size_menu ;;
+             4)
+                 set_config_value "fastfetch" "logo_type" "none"
+                 set_config_value "fastfetch" "custom_image" ""
+@@ -2784,6 +2831,7 @@ apply_logo_config() {
+         "focused") create_focused_config "$logo_type" "$custom_image" "$theme" ;;
+         "developer") create_developer_config "$logo_type" "$custom_image" "$theme" ;;
+         "gaming") create_gaming_config "$logo_type" "$custom_image" "$theme" ;;
++        "custom") create_custom_config "$logo_type" "$custom_image" "$theme" ;;
+         *) create_full_config "$logo_type" "$custom_image" "$theme" ;;
+     esac
+     
+@@ -3559,6 +3607,7 @@ theme=dracula
+ preset=full
+ icons=true
+ logo_type=auto
++logo_size=medium
+ custom_image=
+ use_theme_colors=true
+ key_color=theme
+@@ -3983,7 +4032,7 @@ logo_dimensions_json_fields() {
+     case "$1" in
+         kitty-direct|kitty|iterm|sixel)
+             local w h
+-            read -r w h < <(compute_logo_dimensions "${2:-}" 20 "${3:-14}")
++            read -r w h < <(configured_logo_dimensions "${2:-}" "${3:-14}")
+             printf '        "width": %s,\n        "height": %s,\n' "$w" "$h"
+             ;;
+     esac
+diff --git a/tests/ui_regression.py b/tests/ui_regression.py
+index c4720f8..2fb145c 100644
+--- a/tests/ui_regression.py
++++ b/tests/ui_regression.py
+@@ -80,7 +80,10 @@ class Terminal:
+ 
+     def finish(self, keys=b'q'):
+         self.send(keys)
+-        result = self.process.wait(timeout=3)
++        deadline = time.monotonic() + 3
++        while self.process.poll() is None and time.monotonic() < deadline:
++            self.read(.05)
++        result = self.process.wait(timeout=.1)
+         self.read()
+         return result
+ 
+@@ -189,6 +192,18 @@ class UIRegression(unittest.TestCase):
+         self.assertEqual(failed.returncode, 7)
+         self.assertFalse(Path(json.loads(failed.stdout)['path']).exists())
+ 
++    def test_runtime_wrapper_obeys_saved_logo_sizes(self):
++        self.test_runtime_wrapper_and_all_generated_presets()
++        bindir = self.home / '.local/bin'
++        env = os.environ | {'HOME': str(self.home), 'PATH': str(bindir) + ':' + os.environ['PATH'], 'KITTY_WINDOW_ID': '1', 'TERM': 'xterm-kitty', 'COLUMNS': '120', 'LINES': '30'}
++        config = self.home / '.config/termfetch-studio/config.ini'
++        for size, expected in [('small', (14, 7)), ('medium', (20, 10)), ('large', (30, 15))]:
++            config.write_text(config.read_text().split('logo_size=')[0] + 'logo_size=' + size + '\n')
++            result = subprocess.run(['bash', str(bindir / 'tfs-fastfetch')], env=env, capture_output=True, text=True, timeout=5)
++            self.assertEqual(result.returncode, 0, result.stderr)
++            logo = json.loads(result.stdout)['logo']
++            self.assertEqual((logo['width'], logo['height']), expected)
++
+     def test_small_menu_frames_and_selection_stay_visible(self):
+         for columns, rows in [(80, 24), (60, 16), (40, 12)]:
+             session = self.terminal('preview_image_fixture() { printf "Preview %s\\n" {1..8}; }; options=(); for i in {0..17}; do options+=("Image $i"); done; select_option "Images" "${options[@]}" preview_image_fixture; exit $?', columns, rows)
+@@ -220,6 +235,48 @@ class UIRegression(unittest.TestCase):
+         self.assertIn('Selected 2/4', session.text)
+         self.assertEqual(session.finish(b'\r'), 1)
+ 
++    def test_compact_header_fixed_icon_columns_and_responsive_preview(self):
++        body = 'preview_fixture() { printf "RIGHT_MARKER\\nsecond line"; }; select_option "Choices [Old navigation hint]" "⚡ Short" "❄️ Longer" "Plain" preview_fixture; exit $?'
++        session = self.terminal(body, 120, 24)
++        self.assertNotIn('Old navigation', session.text)
++        self.assertNotIn('Professional', session.text)
++        self.assertIn('Enter Apply', session.text)
++        self.assertIn('Short', session.screen.display[4])
++        self.assertIn('Longer', session.screen.display[5])
++        for row, initial in [(4, 'S'), (5, 'L'), (6, 'P')]:
++            self.assertEqual(session.screen.buffer[row][7].data, initial)
++        self.assertGreater(session.screen.display[4].index('RIGHT_MARKER'), 60)
++        session.resize(80, 24); session.read(.5)
++        marker_row = next(i for i, v in enumerate(session.screen.display) if 'RIGHT_MARKER' in v)
++        self.assertGreater(marker_row, 7)
++        session.resize(40, 12); session.read(.5)
++        self.assertNotIn('RIGHT_MARKER', session.text)
++        self.assertEqual(session.finish(), 255)
++
++    def test_logo_size_choice_persists_and_scales_within_bounds(self):
++        config = self.home / 'config'; config.mkdir()
++        (config / 'config.ini').write_text('[fastfetch]\nlogo_size=medium\n')
++        png(self.home / 'square.png', 400, 400)
++        values = []
++        for size in ['small', 'medium', 'large']:
++            result = self.bash('set_config_value fastfetch logo_size ' + size + '; configured_logo_dimensions "$HOME/square.png" 14')
++            self.assertEqual(result.returncode, 0, result.stderr)
++            values.append(tuple(map(int, result.stdout.split())))
++            self.assertIn('logo_size=' + size, (config / 'config.ini').read_text())
++        self.assertLess(values[0][0], values[1][0]); self.assertLess(values[1][0], values[2][0])
++        self.assertTrue(all(w <= 26 and h <= 20 for w, h in values))
++        for w, h in values: self.assertLess(abs(w / (h * 2) - 1), .06)
++        # Exercise actual size submenu through a PTY and reopen its persisted config.
++        (self.home / 'fastfetch.sh').write_text(generated('FASTFETCHLIB'))
++        result = self.bash('source "$HOME/fastfetch.sh"; set_config_value fastfetch preset custom; set_config_value fastfetch logo_type auto; set_config_value colors theme nord; set_config_value custom modules os,kernel; apply_logo_config >/dev/null')
++        self.assertEqual(result.returncode, 0, result.stderr)
++        self.assertIn('Custom Preset', (config / 'fastfetch.jsonc').read_text())
++        self.assertIn('modules=os,kernel', (config / 'config.ini').read_text())
++        session = self.terminal('CONFIG_DIR="$HOME/config"; CONFIG_FILE="$CONFIG_DIR/config.ini"; source "$HOME/fastfetch.sh"; apply_logo_config() { :; }; logo_size_menu; get_config_value fastfetch logo_size > "$HOME/chosen"')
++        session.send(b'\x1b[B'); session.send(b'\x1b[B'); session.finish(b'\r')
++        self.assertEqual((self.home / 'chosen').read_text().strip(), 'large')
++        self.assertEqual(self.bash('get_config_value fastfetch logo_size').stdout.strip(), 'large')
++
+     def test_resize_redraws_without_keypress(self):
+         session = self.terminal('options=(); for i in {0..17}; do options+=("Item $i"); done; select_option "Resize" "${options[@]}"; exit $?')
+         session.resize(40, 12)

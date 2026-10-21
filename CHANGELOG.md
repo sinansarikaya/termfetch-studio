@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Simplify menu headers and navigation hints; draw icons and labels in separate cell columns.
+- Keep previews on the right in wide windows, below the list in narrower windows, and hidden in very small windows.
+- Add persistent small/medium/large image-logo sizing with bounded aspect-preserving dimensions.
+- Preserve custom preset modules when changing logo settings.
+- Stabilize menu input across resize and defer signal cleanup until the input read finishes.
+
 - Preserve image logo aspect using source and terminal cell measurements with bounded fallback sizes.
 - Use a shared viewport renderer for menus, paginate within small terminals, and redraw on resize.
 - Anchor theme columns to terminal cells and constrain native image previews to their allotted area.

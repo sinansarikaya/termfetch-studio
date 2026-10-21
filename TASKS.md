@@ -11,6 +11,15 @@
 - **Changed Files**: []
 - **Evidence Paths**: ["tests/ui-evidence/source-review/corrections-review.json", "tests/ui-evidence/source-review/install-lines-1-800.txt", "tests/ui-evidence/source-review/install-lines-4001-4800.txt", "tests/ui-evidence/source-review/install-lines-4801-5600.txt", "tests/ui_regression.py", "tests/docker_matrix.py", "tests/ui-evidence/final-regression.log", "tests/ui-evidence/final-docker-smoke.json", "tests/ui-evidence/final-startup.json", "tests/ui-evidence/final-shellcheck.log", "tests/ui-evidence/README.md"]
 - **Accepted At**: 2026-10-21T22:24:18Z
+
+### Task: ui-polish-review - Read-only independent review of five requested Bash UI improvements. Read tests/ui-polish-evidence/changes.patch, source-680-1225.txt (exact lines covering wrapper, geometry, shared renderer/input), source-2720-2865.txt (logo menu), tests/ui_regression.py and evidence README/logs. No need to read oversized full install.sh; inspect patch and exact source slices. Verify separate icon/text anchors, compact title/one footer, fixed right/bottom/hidden preview, persisted small/medium/large dimensions default medium, no selected-index or stty/signal regressions. Pay attention new batched raw input and deferred cleanup; meaningful unchanged tests pass. Final evidence source32b2875a. PNG verification leader scope; do not claim direct screenshot viewing. No writes, no agents. Report significant actionable issues with exactlines or clear acceptance. Run permitted compileall.
+- **Status**: Done (Accepted)
+- **Role**: code-reviewer
+- **Provider**: codex
+- **Leader Summary**: Five visual changes validated in source, 13 PTY tests, 5 resize repetitions, 112 Docker checks and real Kitty screenshots including terminal reopen.
+- **Changed Files**: []
+- **Evidence Paths**: ["tests/ui-polish-evidence", "tests/ui_regression.py"]
+- **Accepted At**: 2026-10-21T22:40:35Z
 <!-- AI-TEAM-TASKS-END -->
 
 ## Initial attempt (not accepted)
@@ -41,3 +50,9 @@
 - ui-source-access-review: two P2 findings, corrected and regression-tested (old code fails, new passes).
 - ui-corrections-review: all source checks Pass, no open issues; runner rejected ownership because leader concurrently ran startup test that rewrote its report. Report restored; final gate runs with workspace frozen.
 - Final source 356b78dc…: 10 PTY tests and 4 Docker scenarios /112 checks passed; final startup and ShellCheck passed. Native screenshots retain original 357cff… source provenance.
+
+## UI polish — 22 October 2026
+- All five requested visual improvements implemented in Bash; medium remains the default.
+- Isolated Docker tests and native Kitty VM evidence in tests/ui-polish-evidence/.
+- Host installation and settings remain untouched; source version stays 1.0.0.
+- ui-polish-review accepted: no open significant findings; 13 PTY tests, 5 resize repeats, 4 Docker scenarios/112 checks, native screenshots and reopen persistence verified.
