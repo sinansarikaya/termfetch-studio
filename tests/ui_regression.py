@@ -43,7 +43,7 @@ class Terminal:
         self.raw = b''
         self.resize(columns, rows)
         self.initial_attributes = termios.tcgetattr(slave)
-        env = os.environ | {'HOME': str(case.home), 'TERM': 'xterm-256color', 'LC_ALL': 'C.UTF-8'}
+        env = os.environ | {'HOME': str(case.home), 'TMPDIR': str(case.home), 'TERM': 'xterm-256color', 'LC_ALL': 'C.UTF-8'}
         env.pop('LINES', None); env.pop('COLUMNS', None)
         script = case.home / 'menu.sh'
         script.write_text('source "' + str(case.core) + '"\n' + body)
@@ -169,7 +169,7 @@ class UIRegression(unittest.TestCase):
             if preset == 'minimal':
                 self.assertTrue(dots, 'minimal color dots must be validated')
             value = document['logo']
-            self.assertEqual((value['type'], value['width'], value['height']), ('kitty-direct', 20, 10))
+            self.assertEqual((value['type'], value['width'], value['height']), ('kitty-direct', 26, 13))
             self.assertEqual(value['padding']['right'] > 0, True)
 
     def test_concurrent_wrappers_keep_private_configs_and_clean_up(self):
@@ -195,9 +195,9 @@ class UIRegression(unittest.TestCase):
     def test_runtime_wrapper_obeys_saved_logo_sizes(self):
         self.test_runtime_wrapper_and_all_generated_presets()
         bindir = self.home / '.local/bin'
-        env = os.environ | {'HOME': str(self.home), 'PATH': str(bindir) + ':' + os.environ['PATH'], 'KITTY_WINDOW_ID': '1', 'TERM': 'xterm-kitty', 'COLUMNS': '120', 'LINES': '30'}
+        env = os.environ | {'HOME': str(self.home), 'PATH': str(bindir) + ':' + os.environ['PATH'], 'KITTY_WINDOW_ID': '1', 'TERM': 'xterm-kitty', 'COLUMNS': '180', 'LINES': '50'}
         config = self.home / '.config/termfetch-studio/config.ini'
-        for size, expected in [('small', (14, 7)), ('medium', (20, 10)), ('large', (30, 15))]:
+        for size, expected in [('small', (20, 10)), ('medium', (36, 18)), ('large', (52, 26))]:
             config.write_text(config.read_text().split('logo_size=')[0] + 'logo_size=' + size + '\n')
             result = subprocess.run(['bash', str(bindir / 'tfs-fastfetch')], env=env, capture_output=True, text=True, timeout=5)
             self.assertEqual(result.returncode, 0, result.stderr)
@@ -259,12 +259,12 @@ class UIRegression(unittest.TestCase):
         png(self.home / 'square.png', 400, 400)
         values = []
         for size in ['small', 'medium', 'large']:
-            result = self.bash('set_config_value fastfetch logo_size ' + size + '; configured_logo_dimensions "$HOME/square.png" 14')
+            result = self.bash('COLUMNS=180; LINES=50; set_config_value fastfetch logo_size ' + size + '; configured_logo_dimensions "$HOME/square.png" 14')
             self.assertEqual(result.returncode, 0, result.stderr)
             values.append(tuple(map(int, result.stdout.split())))
             self.assertIn('logo_size=' + size, (config / 'config.ini').read_text())
         self.assertLess(values[0][0], values[1][0]); self.assertLess(values[1][0], values[2][0])
-        self.assertTrue(all(w <= 26 and h <= 20 for w, h in values))
+        self.assertTrue(all(w <= 60 and h <= 46 for w, h in values))
         for w, h in values: self.assertLess(abs(w / (h * 2) - 1), .06)
         # Exercise actual size submenu through a PTY and reopen its persisted config.
         (self.home / 'fastfetch.sh').write_text(generated('FASTFETCHLIB'))
@@ -276,6 +276,19 @@ class UIRegression(unittest.TestCase):
         session.send(b'\x1b[B'); session.send(b'\x1b[B'); session.finish(b'\r')
         self.assertEqual((self.home / 'chosen').read_text().strip(), 'large')
         self.assertEqual(self.bash('get_config_value fastfetch logo_size').stdout.strip(), 'large')
+
+    def test_slow_preview_keeps_previous_frame_visible_until_replacement_ready(self):
+        session = self.terminal('preview_slow() { if (($1 == 1)); then sleep .6; fi; printf "READY_%s" "$1"; }; select_option "Preview" A B preview_slow; exit $?')
+        self.assertIn('READY_0', session.text)
+        before = len(session.raw)
+        session.send(b'\x1b[B')
+        session.read(.15)
+        self.assertIn('READY_0', session.text)
+        self.assertNotIn(b'\x1b[2J', session.raw[before:], 'Visible screen cleared before slow preview finished')
+        session.read(.7)
+        self.assertIn('READY_1', session.text)
+        self.assertEqual(session.finish(), 255)
+        self.assertFalse(list(self.home.glob('tfs-frame.*')))
 
     def test_resize_redraws_without_keypress(self):
         session = self.terminal('options=(); for i in {0..17}; do options+=("Item $i"); done; select_option "Resize" "${options[@]}"; exit $?')

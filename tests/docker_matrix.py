@@ -193,8 +193,8 @@ tfs-fastfetch --format json >/dev/null
 grep -q '"source": ".*/logos/tux.txt"' "$capture"
 KITTY_WINDOW_ID=1 TERM=xterm-kitty tfs-fastfetch --format json >/dev/null
 grep -q '"type": "kitty-direct"' "$capture"
-grep -q '"width": 20' "$capture"
-grep -q '"height": 10' "$capture"
+grep -q '"width": 26' "$capture"
+grep -q '"height": 13' "$capture"
 test -z "$(find "$CONFIG_DIR" -maxdepth 1 -name '.fastfetch.*.jsonc' -print)"
 unset -f fastfetch
 set_config_value fastfetch logo_type auto
