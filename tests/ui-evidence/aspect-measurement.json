@@ -1,0 +1,25 @@
+{
+  "source": {
+    "yellow_bbox": [
+      3397,
+      3495
+    ],
+    "ratio": 0.9719599427753934
+  },
+  "before": {
+    "yellow_bbox": [
+      187,
+      364
+    ],
+    "ratio": 0.5137362637362637,
+    "relative_ratio_error": 0.471442966806523
+  },
+  "after": {
+    "yellow_bbox": [
+      178,
+      182
+    ],
+    "ratio": 0.978021978021978,
+    "relative_ratio_error": 0.006236918806833414
+  }
+}

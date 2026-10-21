@@ -1,0 +1,800 @@
+#!/bin/bash
+
+# TermFetch Studio - Professional Terminal Theme & Fastfetch Manager
+# Author: Sinan Sarıkaya
+# GitHub: https://github.com/sinansarikaya/termfetch-studio
+# License: MIT
+
+set -e
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+MAGENTA='\033[0;35m'
+CYAN='\033[0;36m'
+BOLD='\033[1m'
+NC='\033[0m'
+
+# Installation paths
+INSTALL_DIR="$HOME/.local/share/termfetch-studio"
+BIN_DIR="$HOME/.local/bin"
+CONFIG_DIR="$HOME/.config/termfetch-studio"
+BACKUP_DIR="$CONFIG_DIR/backups"
+IMAGES_DIR="$CONFIG_DIR/images"
+LOG_FILE="$CONFIG_DIR/debug.log"
+
+# Logging functions
+log_debug() {
+    local message="$1"
+    local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+    echo "[$timestamp] DEBUG: $message" >> "$LOG_FILE"
+}
+
+log_error() {
+    local message="$1"
+    local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+    echo "[$timestamp] ERROR: $message" >> "$LOG_FILE"
+}
+
+log_terminal_info() {
+    log_debug "Terminal: $TERM"
+    log_debug "Terminal Program: $TERM_PROGRAM"
+    log_debug "Shell: $SHELL"
+    # Terminal graphics support is determined by the installed runtime library.
+    log_debug "Kitty Window ID: $KITTY_WINDOW_ID"
+    log_debug "WezTerm Executable: $WEZTERM_EXECUTABLE"
+    log_debug "Konsole Version: $KONSOLE_VERSION"
+    log_debug "GNOME Terminal Screen: $GNOME_TERMINAL_SCREEN"
+    log_debug "Wayland Display: $WAYLAND_DISPLAY"
+    log_debug "Hyprland Instance: $HYPRLAND_INSTANCE_SIGNATURE"
+    log_debug "X11 Display: $DISPLAY"
+}
+
+print_banner() {
+    echo -e "${CYAN}${BOLD}"
+    cat << "EOF"
+╔═══════════════════════════════════════════════════╗
+║                                                   ║
+║         ████████╗███████╗██████╗ ███╗   ███╗      ║
+║         ╚══██╔══╝██╔════╝██╔══██╗████╗ ████║      ║
+║            ██║   █████╗  ██████╔╝██╔████╔██║      ║
+║            ██║   ██╔══╝  ██╔══██╗██║╚██╔╝██║      ║
+║            ██║   ███████╗██║  ██║██║ ╚═╝ ██║      ║
+║            ╚═╝   ╚══════╝╚═╝  ╚═╝╚═╝     ╚═╝      ║
+║                                                   ║
+║             TermFetch Studio v1.0.0               ║
+║     Professional Terminal Theme Manager           ║
+║                                                   ║
+╚═══════════════════════════════════════════════════╝
+EOF
+    echo -e "${NC}"
+}
+
+print_info() {
+    echo -e "${BLUE}${BOLD}[INFO]${NC} $1"
+}
+
+print_success() {
+    echo -e "${GREEN}${BOLD}[✓]${NC} $1"
+}
+
+print_warning() {
+    echo -e "${YELLOW}${BOLD}[!]${NC} $1"
+}
+
+print_error() {
+    echo -e "${RED}${BOLD}[✗]${NC} $1"
+}
+
+detect_distro() {
+    if [ -f /etc/os-release ]; then
+        . /etc/os-release
+        echo "$ID"
+    elif [ -f /etc/lsb-release ]; then
+        . /etc/lsb-release
+        echo "$DISTRIB_ID" | tr '[:upper:]' '[:lower:]'
+    else
+        echo "unknown"
+    fi
+}
+
+detect_distro_base() {
+    if [ -f /etc/os-release ]; then
+        . /etc/os-release
+        local candidate
+        for candidate in "${ID:-}" ${ID_LIKE:-}; do
+            case "$candidate" in
+                arch|manjaro|endeavouros|cachyos) echo arch; return ;;
+                debian|ubuntu|linuxmint|pop) echo debian; return ;;
+                fedora|rhel|centos) echo fedora; return ;;
+                opensuse|opensuse-*|suse|sles) echo suse; return ;;
+            esac
+        done
+        echo unknown
+    else
+        echo "unknown"
+    fi
+}
+
+# The previous "from source" helper downloaded a binary and was never called.
+
+require_command() {
+    command -v "$1" >/dev/null 2>&1 || { print_error "Required command not found: $1"; return 1; }
+}
+
+install_debian_fastfetch() {
+    local deb_arch expected_hash url tmp_dir
+    case "$(uname -m)" in
+        x86_64) deb_arch=amd64; expected_hash=fdee4233997e58cac927bb9d03278c5ff0d446f8993b9d80125b7035359ce908 ;;
+        aarch64|arm64) deb_arch=aarch64; expected_hash=3f9309dba5a5bcf194aa64d836d27222dfbdeb50004af0182de08519f512f419 ;;
+        *) print_error "Unsupported architecture: $(uname -m)"; return 1 ;;
+    esac
+    require_command dpkg || return 1
+    require_command mktemp || return 1
+    require_command sha256sum || return 1
+    if command -v curl >/dev/null 2>&1; then
+        :
+    elif command -v wget >/dev/null 2>&1; then
+        :
+    else
+        print_error "A download tool (curl or wget) is required for fastfetch"
+        return 1
+    fi
+    tmp_dir=$(mktemp -d) || return 1
+    url="https://github.com/fastfetch-cli/fastfetch/releases/download/2.53.0/fastfetch-linux-${deb_arch}.deb"
+    if { command -v curl >/dev/null 2>&1 && curl -fL --retry 3 -o "$tmp_dir/fastfetch.deb" "$url"; } ||
+       { command -v wget >/dev/null 2>&1 && wget -q -O "$tmp_dir/fastfetch.deb" "$url"; }; then
+        if printf '%s  %s\n' "$expected_hash" "$tmp_dir/fastfetch.deb" | sha256sum -c - >/dev/null; then
+            if ! sudo dpkg -i "$tmp_dir/fastfetch.deb"; then
+                sudo apt-get install -f -y || { rm -rf -- "$tmp_dir"; return 1; }
+            fi
+        else
+            print_error "Fastfetch download checksum mismatch"
+            rm -rf -- "$tmp_dir"
+            return 1
+        fi
+    else
+        print_error "Failed to download fastfetch"
+        rm -rf -- "$tmp_dir"
+        return 1
+    fi
+    rm -rf -- "$tmp_dir"
+    command -v fastfetch >/dev/null 2>&1
+}
+
+validate_fastfetch_version() {
+    local version major minor
+    version=$(fastfetch --version) || { print_error "Cannot read fastfetch version"; return 1; }
+    if [[ "$version" =~ fastfetch[[:space:]]+([0-9]+)\.([0-9]+)\.([0-9]+) ]]; then
+        major=$((10#${BASH_REMATCH[1]}))
+        minor=$((10#${BASH_REMATCH[2]}))
+        if (( major > 2 || (major == 2 && minor >= 42) )); then
+            return 0
+        fi
+    fi
+    print_error "fastfetch >= 2.42.0 is required for RGB configuration; found: $version"
+    return 1
+}
+
+install_dependencies() {
+    print_info "Checking and installing dependencies..."
+
+    local distro_base=$(detect_distro_base)
+    local missing_deps=()
+    local optional_missing=()
+
+    if ! command -v awk >/dev/null 2>&1; then
+        require_command sudo || return 1
+        case "$distro_base" in
+            arch) require_command pacman && sudo pacman -S --noconfirm gawk || return 1 ;;
+            debian) require_command apt-get && sudo apt-get install -y gawk || return 1 ;;
+            fedora) require_command dnf && sudo dnf install -y gawk || return 1 ;;
+            suse) require_command zypper && sudo zypper --non-interactive install gawk || return 1 ;;
+            *) print_error "Required command awk is missing; install it before continuing"; return 1 ;;
+        esac
+    fi
+    local tool
+    for tool in awk sed grep tar gzip mktemp cp mv mkdir chmod chown uname date cat tr cut head tail sort tee touch sleep; do
+        require_command "$tool" || return 1
+    done
+
+    # Check required dependencies
+    if ! command -v fastfetch &> /dev/null; then
+        missing_deps+=("fastfetch")
+    fi
+
+    # Check optional dependencies
+    if ! command -v chafa &> /dev/null; then
+        optional_missing+=("chafa")
+    fi
+
+    if ! command -v magick &> /dev/null && ! command -v convert &> /dev/null; then
+        optional_missing+=("imagemagick")
+    fi
+
+    # Auto-install missing required dependencies
+    if [ ${#missing_deps[@]} -ne 0 ]; then
+        require_command sudo || return 1
+        print_info "Installing required dependencies: ${missing_deps[*]}"
+        case $distro_base in
+            arch)
+                require_command pacman || return 1
+                sudo pacman -S --noconfirm fastfetch || {
+                    print_error "Failed to install fastfetch"
+                    print_info "Please install manually: sudo pacman -S fastfetch"
+                    return 1
+                }
+                ;;
+            debian)
+                install_debian_fastfetch || return 1
+                ;;
+            fedora)
+                require_command dnf || return 1
+                sudo dnf install -y fastfetch || {
+                    print_error "Failed to install fastfetch"
+                    print_info "Please install manually: sudo dnf install fastfetch"
+                    return 1
+                }
+                ;;
+            suse)
+                require_command zypper || return 1
+                sudo zypper --non-interactive install fastfetch || {
+                    print_error "Failed to install fastfetch"
+                    print_info "Please install manually: sudo zypper install fastfetch"
+                    return 1
+                }
+                ;;
+            *)
+                print_error "Unsupported distribution. Please install fastfetch manually"
+                print_info "Check: https://github.com/fastfetch-cli/fastfetch"
+                return 1
+                ;;
+        esac
+    fi
+    
+    validate_fastfetch_version || return 1
+
+    # Auto-install optional dependencies
+    if [ ${#optional_missing[@]} -ne 0 ] && [ "$distro_base" != unknown ]; then
+        require_command sudo || return 1
+        case "$distro_base" in
+            arch) require_command pacman || return 1 ;;
+            debian) require_command apt-get || return 1 ;;
+            fedora) require_command dnf || return 1 ;;
+            suse) require_command zypper || return 1 ;;
+        esac
+        print_info "Installing optional dependencies: ${optional_missing[*]}"
+        local optional_ok=true
+        case $distro_base in
+            arch)
+                sudo pacman -S --noconfirm "${optional_missing[@]}" || optional_ok=false
+                ;;
+            debian)
+                sudo apt-get install -y "${optional_missing[@]}" || optional_ok=false
+                ;;
+            fedora)
+                local packages=("${optional_missing[@]/imagemagick/ImageMagick}")
+                sudo dnf install -y "${packages[@]}" || optional_ok=false
+                ;;
+            suse)
+                local packages=("${optional_missing[@]/imagemagick/ImageMagick}")
+                sudo zypper --non-interactive install "${packages[@]}" || optional_ok=false
+                ;;
+        esac
+        if [ "$optional_ok" = true ] && { [[ "${optional_missing[*]}" != *chafa* ]] || command -v chafa >/dev/null 2>&1; } &&
+           { [[ "${optional_missing[*]}" != *imagemagick* ]] || command -v magick >/dev/null 2>&1 || command -v convert >/dev/null 2>&1; }; then
+            print_success "Optional dependencies installed"
+        else
+            print_warning "Some optional dependencies failed to install"
+        fi
+    fi
+    
+    # Verify installation
+    if command -v fastfetch &> /dev/null; then
+        print_success "All required dependencies are installed"
+    else
+        print_error "Failed to install fastfetch"
+        exit 1
+    fi
+}
+
+install_nerd_fonts() {
+    print_info "Checking for Nerd Fonts..."
+    
+    # Check if any Nerd Font is installed
+    local font_installed=false
+    if command -v fc-list >/dev/null 2>&1 && fc-list 2>/dev/null | grep -i "nerd" &> /dev/null; then
+        font_installed=true
+    fi
+    
+    if [ "$font_installed" = false ]; then
+        echo ""
+        print_warning "Nerd Fonts not detected. These are required for icons to display properly."
+        echo ""
+        read -p "Install Nerd Fonts? (Y/n) " -n 1 -r
+        echo
+
+        if [[ ! $REPLY =~ ^[Nn]$ ]]; then
+            local distro_base
+            distro_base=$(detect_distro_base)
+            require_command sudo || return 1
+            case $distro_base in
+                arch)
+                    require_command pacman || return 1
+                    print_info "Installing Nerd Fonts via pacman..."
+                    if ! sudo pacman -S --noconfirm ttf-jetbrains-mono-nerd; then
+                        print_warning "Nerd Font installation failed"
+                    fi
+                    ;;
+                debian|fedora|suse)
+                    print_info "Installing Fontconfig utilities..."
+                    case $distro_base in
+                        debian) require_command apt-get || return 1; sudo apt-get install -y fontconfig curl unzip || true ;;
+                        fedora) require_command dnf || return 1; sudo dnf install -y fontconfig curl unzip || true ;;
+                        suse) require_command zypper || return 1; sudo zypper --non-interactive install fontconfig curl unzip || true ;;
+                    esac
+                    local font_tmp
+                    for tool in curl unzip fc-cache mktemp; do
+                        if ! command -v "$tool" >/dev/null 2>&1; then
+                            print_warning "Nerd Font installation skipped: $tool is unavailable"
+                            return 0
+                        fi
+                    done
+                    print_info "Downloading and installing JetBrainsMono Nerd Font..."
+                    font_tmp=$(mktemp -d) || return 1
+                    if curl -fL -o "$font_tmp/JetBrainsMono.zip" "https://github.com/ryanoasis/nerd-fonts/releases/latest/download/JetBrainsMono.zip" &&
+                       mkdir -p "$HOME/.local/share/fonts/JetBrainsMono" &&
+                       unzip -o "$font_tmp/JetBrainsMono.zip" -d "$HOME/.local/share/fonts/JetBrainsMono" &&
+                       fc-cache -fv "$HOME/.local/share/fonts/JetBrainsMono"; then
+                        print_success "JetBrainsMono Nerd Font installed"
+                    else
+                        print_warning "Nerd Font installation failed"
+                    fi
+                    rm -rf -- "$font_tmp"
+                    ;;
+            esac
+            
+            echo ""
+            print_warning "Please configure your terminal to use the installed Nerd Font"
+        fi
+    else
+        print_success "Nerd Fonts already installed"
+    fi
+}
+
+create_directories() {
+    print_info "Creating directories..."
+
+    # Create user directories (no sudo needed)
+    mkdir -p "$CONFIG_DIR"/{themes,backups,images,logos}
+    mkdir -p "$BACKUP_DIR"
+    mkdir -p "$IMAGES_DIR"
+
+    # Create local installation directory in user's home
+    mkdir -p "$HOME/.local/share/termfetch-studio"/{lib,themes,presets,scripts,assets,logos}
+
+    # Create bin directory for executable
+    mkdir -p "$BIN_DIR"
+
+    print_success "Directories created"
+}
+
+install_ascii_logos() {
+    print_info "Installing ASCII logos..."
+    
+    # Pikachu ASCII
+    tee "$INSTALL_DIR/logos/pikachu.txt" > /dev/null << 'PIKACHU'
+        ╭─────────────────╮
+       ╱                 ╲
+      ╱    ╭─────────╮    ╲
+     ╱    ╱           ╲    ╲
+    ╱    ╱  ╭─────╮    ╲    ╲
+   ╱    ╱  ╱       ╲    ╲    ╲
+  ╱    ╱  ╱  ╭─╮   ╲    ╲    ╲
+ ╱    ╱  ╱  ╱   ╲   ╲    ╲    ╲
+╱    ╱  ╱  ╱  ╭─╮  ╲    ╲    ╲
+╲    ╲  ╲  ╲  ╰─╯  ╱    ╱    ╱
+ ╲    ╲  ╲  ╲     ╱    ╱    ╱
+  ╲    ╲  ╲  ╰───╯    ╱    ╱
+   ╲    ╲  ╲         ╱    ╱
+    ╲    ╲  ╰───────╯    ╱
+     ╲    ╲             ╱
+      ╲    ╰───────────╯
+       ╲                 ╱
+        ╰─────────────────╯
+PIKACHU
+
+    # Tux ASCII
+    tee "$INSTALL_DIR/logos/tux.txt" > /dev/null << 'TUX'
+       .---.
+      /     \
+      \.@-@./
+      /`\_/`\
+     //  _  \\
+    | \     )|_
+   /`\_`>  <_/ \
+   \__/'---'\__/
+TUX
+
+    # Arch Logo
+    tee "$INSTALL_DIR/logos/arch.txt" > /dev/null << 'ARCHLOGO'
+                   -`
+                  .o+`
+                 `ooo/
+                `+oooo:
+               `+oooooo:
+               -+oooooo+:
+             `/:-:++oooo+:
+            `/++++/+++++++:
+           `/++++++++++++++:
+          `/+++ooooooooooooo/`
+         ./ooosssso++osssssso+`
+        .oossssso-````/ossssss+`
+       -osssssso.      :ssssssso.
+      :osssssss/        osssso+++.
+     /ossssssss/        +ssssooo/-
+   `/ossssso+/:-        -:/+osssso+-
+  `+sso+:-`                 `.-/+oso:
+ `++:.                           `-/+/
+ .`                                 `/
+ARCHLOGO
+
+    # Cat ASCII
+    tee "$INSTALL_DIR/logos/cat.txt" > /dev/null << 'CAT'
+     /\_/\
+    ( o.o )
+     > ^ <
+CAT
+
+    # Neko ASCII
+    tee "$INSTALL_DIR/logos/neko.txt" > /dev/null << 'NEKO'
+  ∧＿∧
+ ( ･ω･)
+ ＿|  ⊃／(＿＿_
+／ └-(＿＿＿／
+￣￣￣￣￣￣￣
+NEKO
+
+    # Bunny ASCII
+    tee "$INSTALL_DIR/logos/bunny.txt" > /dev/null << 'BUNNY'
+ /\ /\
+( ^.^ )
+ (")_(")
+BUNNY
+
+    # Heart ASCII
+    tee "$INSTALL_DIR/logos/heart.txt" > /dev/null << 'HEART'
+  ♥♥♥♥  ♥♥♥♥
+♥♥♥♥♥♥♥♥♥♥♥♥♥
+♥♥♥♥♥♥♥♥♥♥♥♥♥
+ ♥♥♥♥♥♥♥♥♥♥♥
+  ♥♥♥♥♥♥♥♥♥
+   ♥♥♥♥♥♥♥
+    ♥♥♥♥♥
+     ♥♥♥
+      ♥
+HEART
+
+    # Sakura ASCII
+    tee "$INSTALL_DIR/logos/sakura.txt" > /dev/null << 'SAKURA'
+    *
+   ***
+  *****
+   ***
+    *
+SAKURA
+
+    # Naruto ASCII
+    tee "$INSTALL_DIR/logos/naruto.txt" > /dev/null << 'NARUTO'
+    ____
+   /    \
+  | () () |
+   \  ~  /
+    |||||
+NARUTO
+
+    # Pokeball ASCII
+    tee "$INSTALL_DIR/logos/pokeball.txt" > /dev/null << 'POKEBALL'
+     ___
+   /     \
+  |  ()   |
+  |_______|
+   \     /
+     ---
+POKEBALL
+
+    # Spider ASCII
+    tee "$INSTALL_DIR/logos/spider.txt" > /dev/null << 'SPIDER'
+  /\_/\
+ ( o o )
+  =\_/=
+   / \
+SPIDER
+
+    # Dragon ASCII
+    tee "$INSTALL_DIR/logos/dragon.txt" > /dev/null << 'DRAGON'
+    ______________
+   /              \
+  |  ()      ()   |
+   \    \/\/     /
+     \_________/
+        | |
+DRAGON
+
+    # Creeper ASCII (Minecraft)
+    tee "$INSTALL_DIR/logos/creeper.txt" > /dev/null << 'CREEPER'
+  ________
+ |  []  []|
+ |        |
+ |  ____  |
+ | |    | |
+  -------
+CREEPER
+
+    # Star ASCII
+    tee "$INSTALL_DIR/logos/star.txt" > /dev/null << 'STAR'
+    *
+   ***
+  *****
+ *******
+  *****
+   ***
+    *
+STAR
+
+    # Rocket ASCII
+    tee "$INSTALL_DIR/logos/rocket.txt" > /dev/null << 'ROCKET'
+    /\
+   /  \
+  |    |
+  |    |
+ /|    |\
+/ |    | \
+  |____|
+  |    |
+  |____|
+ROCKET
+
+    print_success "ASCII logos installed"
+}
+
+install_preset_images() {
+    print_info "Installing preset images..."
+
+    local script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    local preset_logos_source="$script_dir/preset-logos"
+
+    # Check if preset-logos directory exists in source
+    if [ -d "$preset_logos_source" ]; then
+        mkdir -p "$INSTALL_DIR/preset-logos"
+        cp -r "$preset_logos_source"/* "$INSTALL_DIR/preset-logos/" 2>/dev/null || true
+        print_success "Preset images installed ($(ls -1 "$preset_logos_source" 2>/dev/null | wc -l) files)"
+    else
+        print_warning "preset-logos directory not found, skipping preset images"
+    fi
+}
+
+install_main_script() {
+    print_info "Installing main executable..."
+    
+    tee "$BIN_DIR/termfetch-studio" > /dev/null << 'MAINSCRIPT'
+#!/bin/bash
+
+# TermFetch Studio Main Script
+VERSION="1.0.0"
+INSTALL_DIR="$HOME/.local/share/termfetch-studio"
+CONFIG_DIR="$HOME/.config/termfetch-studio"
+
+# Load libraries
+for lib in "$INSTALL_DIR/lib"/*.sh; do
+    [ -f "$lib" ] && source "$lib"
+done
+
+# Ensure core library is loaded
+if ! declare -f init_config >/dev/null 2>&1; then
+    echo "Error: Core library not loaded properly. Please reinstall TermFetch Studio."
+    exit 1
+fi
+
+# Parse arguments
+case "${1:-}" in
+    --version|-v)
+        echo "TermFetch Studio v$VERSION"
+        exit 0
+        ;;
+    --help|-h)
+        cat << 'EOF'
+ TermFetch Studio - Professional Terminal Theme Manager
+
+Usage: termfetch-studio [OPTIONS]
+
+Options:
+  -h, --help       Show this help message
+  -v, --version    Show version information
+  --preview        Preview current configuration
+  --backup         Create a backup
+  --restore        Restore from backup
+  uninstall        Uninstall TermFetch Studio
+
+Interactive mode (default):
+  Simply run 'termfetch-studio' to enter interactive menu
+
+Navigation:
+  ↑↓    - Move up/down
+  Enter - Select
+  Q     - Back/Quit
+
+Examples:
+  termfetch-studio              # Start interactive menu
+  termfetch-studio --preview    # Quick preview
+  termfetch-studio --backup     # Create backup
+  termfetch-studio uninstall    # Uninstall application
+
+GitHub: https://github.com/sinansarikaya/termfetch-studio
+EOF
+        exit 0
+        ;;
+    --preview)
+        init_config
+        clear
+        if [ -x "$HOME/.local/bin/tfs-fastfetch" ]; then
+            "$HOME/.local/bin/tfs-fastfetch"
+        else
+            fastfetch -c "$CONFIG_DIR/fastfetch.jsonc"
+        fi
+        exit 0
+        ;;
+    --backup)
+        init_config
+        create_backup
+        exit $?
+        ;;
+    --restore)
+        init_config
+        restore_backup
+        exit $?
+        ;;
+    uninstall)
+        shift  # Remove 'uninstall' from arguments
+        bash "$INSTALL_DIR/uninstall.sh" "$@"
+        exit 0
+        ;;
+    "")
+        # Interactive mode
+        init_config
+        first_run_wizard
+        main_menu
+        ;;
+    *)
+        echo "Unknown option: $1"
+        echo "Run 'termfetch-studio --help' for usage information"
+        exit 1
+        ;;
+esac
+MAINSCRIPT
+    
+    chmod +x "$BIN_DIR/termfetch-studio"
+    print_success "Main executable installed"
+}
+
+install_fastfetch_wrapper() {
+    print_info "Installing fastfetch runtime wrapper..."
+    
+    tee "$BIN_DIR/tfs-fastfetch" > /dev/null << 'WRAPPER'
+#!/bin/bash
+# TermFetch Studio runtime fastfetch wrapper
+# Generates terminal-aware logo settings before running fastfetch
+
+set -e
+
+INSTALL_DIR="$HOME/.local/share/termfetch-studio"
+CONFIG_DIR="$HOME/.config/termfetch-studio"
+JSON="$CONFIG_DIR/fastfetch.jsonc"
+
+
+# If base config missing, run fastfetch normally
+if [ ! -f "$JSON" ]; then
+  exec fastfetch "$@"
+fi
+
+# Load libs (core + fastfetch)
+for lib in "$INSTALL_DIR/lib"/*.sh; do
+  [ -f "$lib" ] && source "$lib"
+done
+
+# Guard: if helper functions not found, run normal
+if ! declare -f get_logo_type >/dev/null 2>&1 || ! declare -f get_logo_source >/dev/null 2>&1; then
+  exec fastfetch --config "$JSON" "$@"
+fi
+
+# Read user preferences
+logo_type=$(get_config_value "fastfetch" "logo_type")
+custom_image=$(get_config_value "fastfetch" "custom_image")
+[ -z "$logo_type" ] && logo_type="auto"
+
+# Compute runtime logo according to current terminal
+logo_source=$(get_logo_source "$logo_type" "$custom_image")
+logo_actual_type=$(get_logo_type "$logo_type" "$custom_image")
+logo_width=""
+logo_height=""
+case "$logo_actual_type" in
+  kitty-direct|kitty|iterm|sixel)
+    if [ -n "$logo_source" ] && [ -f "$logo_source" ] && declare -f compute_logo_dimensions >/dev/null 2>&1; then
+      dims=$(compute_logo_dimensions "$logo_source" 20 14)
+      read -r logo_width logo_height <<< "$dims"
+    else
+      logo_width=20
+      logo_height=10
+    fi
+    ;;
+esac
+
+# Prepare temp config with adjusted logo fields
+TMP=$(mktemp "$CONFIG_DIR/.fastfetch.XXXXXXXX.jsonc")
+trap 'rm -f -- "$TMP"' EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+trap 'exit 129' HUP
+
+# Update logo.type and logo.source inside the JSON safely with awk
+awk -v t="$logo_actual_type" -v s="$logo_source" -v w="$logo_width" -v h="$logo_height" '
+  BEGIN{ inlogo=0 }
+  {
+    # Detect logo block start
+    if ($0 ~ /"logo"[[:space:]]*:[[:space:]]*\{/){
+      inlogo=1
+      print
+      if (t != "") print "        \"type\": \"" t "\",";
+      if (s != "") print "        \"source\": \"" s "\",";
+      if (w != "") print "        \"width\": " w ",";
+      if (h != "") print "        \"height\": " h ",";
+      next
+    }
+    
+    # Detect logo block end
+    if (inlogo==1 && $0 ~ /^[[:space:]]*}[[:space:]]*,?[[:space:]]*$/){
+      inlogo=0
+      print
+      next
+    }
+    
+    # Inside logo block - skip overridden fields
+    if (inlogo==1 && ($0 ~ /"type"[[:space:]]*:/ || $0 ~ /"source"[[:space:]]*:/ || $0 ~ /"width"[[:space:]]*:/ || $0 ~ /"height"[[:space:]]*:/)){
+      next
+    }
+    
+    # Default: print the line as-is
+    print
+  }
+' "$JSON" > "$TMP"
+
+# Run fastfetch with the temp config
+fastfetch --config "$TMP" "$@"
+WRAPPER
+    
+    chmod +x "$BIN_DIR/tfs-fastfetch"
+    print_success "Fastfetch wrapper installed"
+}
+
+install_core_lib() {
+    print_info "Installing core library..."
+    
+    tee "$INSTALL_DIR/lib/core.sh" > /dev/null << 'CORELIB'
+#!/bin/bash
+
+CONFIG_FILE="$CONFIG_DIR/config.ini"
+IMAGES_DIR="$CONFIG_DIR/images"
+LOGOS_DIR="$CONFIG_DIR/logos"
+BACKUP_DIR="$CONFIG_DIR/backups"
+
+# ImageMagick 6 exposes convert/identify; version 7 prefers magick.
+has_image_magick() { command -v magick >/dev/null 2>&1 || command -v convert >/dev/null 2>&1; }
+image_convert() {
+    if command -v magick >/dev/null 2>&1; then magick "$@"; else convert "$@"; fi
+}
+image_identify() {
+    if command -v magick >/dev/null 2>&1; then magick identify "$@"; else identify "$@"; fi
+}
+

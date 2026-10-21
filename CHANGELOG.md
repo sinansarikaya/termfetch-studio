@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Preserve image logo aspect using source and terminal cell measurements with bounded fallback sizes.
+- Use a shared viewport renderer for menus, paginate within small terminals, and redraw on resize.
+- Anchor theme columns to terminal cells and constrain native image previews to their allotted area.
+- Restore terminal state and caller traps on menu exit; keep noninteractive library loading quiet.
+- Generate valid truecolor SGR for preset color dots and isolate/clean runtime configs per invocation.
+- Add isolated PTY regressions and real Kitty screenshot evidence for the UI fixes.
+
 - Recognize distribution families through `ID` and `ID_LIKE`, including openSUSE Tumbleweed, while keeping version support tied to tested images.
 - Pin and verify the upstream fastfetch Debian package for x86_64/aarch64, check download and package tools before use, and reject unsupported architectures.
 - Report optional dependency failures accurately and support both ImageMagick 6 and 7 command names.

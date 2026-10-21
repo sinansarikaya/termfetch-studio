@@ -181,11 +181,22 @@ source "$INSTALL_DIR/lib/core.sh"
 source "$INSTALL_DIR/lib/fastfetch.sh"
 set_config_value fastfetch logo_type image
 set_config_value fastfetch custom_image /tmp/tfs-logo.png
+capture=$(mktemp)
+export capture
+fastfetch() {
+    if [ "$1" = --config ]; then cp "$2" "$capture"; fi
+    command fastfetch "$@"
+}
+export -f fastfetch
+trap 'rm -f -- "$capture"' EXIT
 tfs-fastfetch --format json >/dev/null
-grep -q '"source": ".*/logos/tux.txt"' "$CONFIG_DIR/.fastfetch.current.jsonc"
+grep -q '"source": ".*/logos/tux.txt"' "$capture"
 KITTY_WINDOW_ID=1 TERM=xterm-kitty tfs-fastfetch --format json >/dev/null
-grep -q '"type": "kitty-direct"' "$CONFIG_DIR/.fastfetch.current.jsonc"
-grep -q '"width": 20' "$CONFIG_DIR/.fastfetch.current.jsonc"
+grep -q '"type": "kitty-direct"' "$capture"
+grep -q '"width": 20' "$capture"
+grep -q '"height": 10' "$capture"
+test -z "$(find "$CONFIG_DIR" -maxdepth 1 -name '.fastfetch.*.jsonc' -print)"
+unset -f fastfetch
 set_config_value fastfetch logo_type auto
 set_config_value fastfetch custom_image ""
 apply_logo_config >/dev/null""".replace("/logos/tux.txt", "/logos/arch.txt" if image.startswith("archlinux") else "/logos/tux.txt"), "runtime_logo_rewrite", info["checks"])
