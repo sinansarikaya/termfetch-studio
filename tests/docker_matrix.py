@@ -155,7 +155,7 @@ def scenario(image, state, keep=False, source_dir=ROOT):
             info["fastfetch_before"] == info["fastfetch_after"] else "failed: preinstalled fastfetch changed")
         check(name, "command -v chafa >/dev/null && (command -v magick >/dev/null || command -v convert >/dev/null)", "optional_dependencies", info["checks"])
         check(name, "test -f ~/.local/share/termfetch-studio/lib/core.sh && test -f ~/.local/share/termfetch-studio/lib/fastfetch.sh && test -x ~/.local/bin/termfetch-studio && test -f ~/.config/termfetch-studio/fastfetch.jsonc", "files", info["checks"])
-        check(name, "termfetch-studio --version | grep -q '1.0.0'", "version", info["checks"])
+        check(name, "termfetch-studio --version | grep -q '1.1.0'", "version", info["checks"])
         check(name, "termfetch-studio --help | grep -q -- '--preview'", "help", info["checks"])
         check(name, 'CONFIG_DIR="$HOME/.config/termfetch-studio"; source ~/.local/share/termfetch-studio/lib/core.sh; before=$(cat "$CONFIG_FILE"); awk() { return 1; }; if set_config_value fastfetch preset minimal; then exit 1; fi; test "$(cat "$CONFIG_FILE")" = "$before"', "failed_settings_write_preserves_file", info["checks"])
         check(name, 'bash -c "source ~/.bashrc" >/tmp/noninteractive.out 2>&1 && test ! -s /tmp/noninteractive.out', "noninteractive_shell_quiet", info["checks"])

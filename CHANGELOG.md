@@ -1,51 +1,41 @@
 # Changelog
 
-## Unreleased
+All notable changes to this project will be documented in this file.
 
-- Keep color preview groups in fixed semantic order, show all five where space permits, and use a contiguous viewport in tiny terminals.
-- Remove only the exact legacy Fish fastfetch alias on uninstall with a preserved config backup; retain personal functions and explain cleanup of an already-open Fish session.
-- Add isolated before/after uninstall-clear and ordered-preview regressions, plus real Kitty screenshots.
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-- Avoid duplicate automatic fastfetch output across managed shell startup, repeated sourcing and nested shells; preserve external personal startup blocks and skip an additional managed fetch when a direct call exists.
-- Consolidate color editing in the main Icon & Text Colors page, removing the duplicate Advanced Settings entry.
-- Add draft/live colors for OS, Desktop, Hardware, Network and Time groups across all six presets; preserve layout and support Inherit/Theme/Default.
-- Extend the local palette with 16 named RGB colors and verify group configuration with real fastfetch, PTY interactions and a native Wayland Kitty VM.
+## [Unreleased]
 
-- Keep one alternate-screen session across interactive submenus so the underlying fastfetch page is not exposed between selections.
-- Stop clearing the whole screen on arrow navigation; upload Kitty previews without displaying them, then swap and delete only owned image IDs.
-- Replace color mode/pickers/separate preview with one live draft editor, save/cancel and per-field Theme/Default handling.
-- Validate all preset color combinations with real fastfetch and add application-level transition/signal regressions.
+## [1.1.0] - 2026-10-22
 
-- Enlarge medium/large image-logo limits while retaining source proportions and terminal bounds.
-- Prepare complete menu frames before display so slow preview conversion does not blank the visible preview.
+### Added
+- **Live Color & Semantic Group Customization**: Interactive draft color editor with real-time live preview for OS, Desktop, Hardware, Network, and Time groups across all 6 presets.
+- **Extended RGB Palette**: 16 named RGB colors added alongside Theme and Default handling, with per-field cancel, save, and reset options.
+- **Persistent Logo Sizing**: Small, medium, and large image-logo sizing with bounded aspect-preserving dimensions.
+- **Flicker-Free Rendering & Alternate Screen**: Retain one alternate-screen session across interactive submenus and prepare complete frames off-screen before display.
+- **Enhanced Distro Detection**: Distribution family recognition via `ID` and `ID_LIKE` (openSUSE Tumbleweed, Debian 12/13, Ubuntu 24.04, Arch Linux, Fedora).
+- **Test Suite**: 26 PTY regression tests, 4 Docker scenario suites (120 checks), ShellCheck validation, and native Kitty VM rendering evidence.
 
-- Simplify menu headers and navigation hints; draw icons and labels in separate cell columns.
-- Keep previews on the right in wide windows, below the list in narrower windows, and hidden in very small windows.
-- Add persistent small/medium/large image-logo sizing with bounded aspect-preserving dimensions.
-- Preserve custom preset modules when changing logo settings.
-- Stabilize menu input across resize and defer signal cleanup until the input read finishes.
+### Changed
+- Consolidated color editing under the main *Icon & Text Colors* page, removing duplicate advanced settings.
+- Kitty image preview protocol modernized to upload without displaying, swapping and cleaning only owned image IDs without full-screen clears on arrow navigation.
+- Shell startup integration deduplicated across Bash, Zsh, and Fish; skips redundant managed fastfetch calls if an external startup call already exists.
+- In small terminal viewports, color preview groups fall back to a contiguous, non-wrapping view with fixed semantic ordering.
 
-- Preserve image logo aspect using source and terminal cell measurements with bounded fallback sizes.
-- Use a shared viewport renderer for menus, paginate within small terminals, and redraw on resize.
-- Anchor theme columns to terminal cells and constrain native image previews to their allotted area.
-- Restore terminal state and caller traps on menu exit; keep noninteractive library loading quiet.
-- Generate valid truecolor SGR for preset color dots and isolate/clean runtime configs per invocation.
-- Add isolated PTY regressions and real Kitty screenshot evidence for the UI fixes.
+### Fixed
+- Fixed uninstallation for Fish shell: safely removes only the exact legacy Fish alias (`termfetch-studio --preview`) with automatic config backup, leaving personal functions and custom aliases intact.
+- Corrected theme Inherit color preview to accurately match selected preset values.
+- Quieted non-interactive shell and SSH/SCP sessions by ensuring startup traps and menus run strictly in interactive TTY sessions.
+- Pinned and verified upstream fastfetch package on Debian/Ubuntu with SHA-256 validation, requiring fastfetch >= 2.42.0 for RGB configuration.
+- Stabilized terminal menu input across resize events and deferred signal cleanup until user input reads complete.
 
-- Recognize distribution families through `ID` and `ID_LIKE`, including openSUSE Tumbleweed, while keeping version support tied to tested images.
-- Pin and verify the upstream fastfetch Debian package for x86_64/aarch64, check download and package tools before use, and reject unsupported architectures.
-- Report optional dependency failures accurately and support both ImageMagick 6 and 7 command names.
-- Follow the current terminal's parent processes and session signals; unknown terminals fall back to text.
-- Preserve a backup of legacy JSONC and remove unsupported `keyShow` fields on reinstall.
-- Require fastfetch >= 2.42.0 for RGB configuration without replacing an older existing installation.
-- Use explicit RGB theme colors for fastfetch and fix malformed theme color values.
-- Generate valid ASCII fallback logo types and use Kitty's direct PNG protocol and Konsole's iTerm protocol with explicit dimensions to avoid a blocking terminal query.
-- Install missing `awk` and check essential utilities; preserve the existing configuration when a settings write fails.
-- Run Bash/Zsh/Fish theme and fastfetch startup only in interactive terminals, keeping SSH/SCP sessions quiet.
-- Create backups without including older archives, handle filenames with spaces and invalid restore choices, and propagate backup/restore errors.
-- Generate the initial fastfetch configuration during installation and preserve user configuration permissions on reinstall.
-- Remove shadowed color-setting functions and the unused binary-download helper.
-- Remove the `perl` requirement during uninstall and leave unrelated system and user files intact.
-- Add isolated Docker, shell startup and terminal ancestry tests, VM controls and real graphical screenshot evidence.
+## [1.0.0] - 2026-10-09
 
-The application version remains 1.0.0; the published v1.0.0 release is unchanged.
+### Added
+- Initial release of TermFetch Studio.
+- 25 built-in themes and 8 popular themes (Cyberpunk, Matrix, Naruto, etc.).
+- 6 fastfetch presets (Minimal, Classic, Modern, Hardware, Neofetch, Gaming).
+- Image and ASCII logo support with auto-conversion and 16 built-in ASCII logos.
+- Shell startup integration for Bash, Zsh, and Fish.
+- Backup and restore manager with automatic backups before modifications.

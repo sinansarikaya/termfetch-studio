@@ -16,10 +16,10 @@
 ```
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/sinansarikaya/termfetch-studio)
+[![Version](https://img.shields.io/badge/version-1.1.0-blue.svg)](https://github.com/sinansarikaya/termfetch-studio)
 [![Linux](https://img.shields.io/badge/platform-Linux-green.svg)](https://www.linux.org/)
 
-Published release: [v1.0.0](https://github.com/sinansarikaya/termfetch-studio/releases/tag/v1.0.0). Current application version: 1.0.0. Installer fixes are tracked under [Unreleased](CHANGELOG.md).
+Published release: [v1.1.0](https://github.com/sinansarikaya/termfetch-studio/releases/tag/v1.1.0). Current application version: 1.1.0. Release history is tracked under [CHANGELOG.md](CHANGELOG.md).
 
 **Transform your terminal into a beautiful, informative workspace**
 
@@ -57,8 +57,8 @@ Published release: [v1.0.0](https://github.com/sinansarikaya/termfetch-studio/re
 - **5 Preset Configurations**: Full, Minimal, Focused, Developer, Gaming
 - **🧩 Custom Preset Creator**: Build your own module combinations
 - **🔄 Module Reordering**: Drag and drop style reordering with arrow keys
-- **🎨 Advanced Color Customization**: Independent icon and text color control
-- **🎯 Smart Color System**: Theme-based colors with custom override options
+- **🎨 Live Color & Semantic Group Customization**: Interactive draft editor with live preview for OS, Desktop, Hardware, Network, and Time groups across all presets
+- **🎯 Smart Color System**: 16 named RGB colors alongside Theme and Default options, with cancel/reset support
 - **Clean Icon-Based Design**: Simple, elegant design with Nerd Font icons
 - **Color-Coded Modules**: Each category has its own color for better readability
 - **Tree-Style Layout**: Professional ├ └ tree characters for visual hierarchy
@@ -67,6 +67,8 @@ Published release: [v1.0.0](https://github.com/sinansarikaya/termfetch-studio/re
 ### 🖼️ **Advanced Logo System**
 - **Multiple Logo Types**: Auto-detect distribution, custom images, ASCII art
 - **Image Support**: PNG rendering verified in Kitty and Konsole VMs; WezTerm, iTerm2 and Foot still require real terminal validation
+- **Persistent Logo Sizing**: Small, medium, and large image sizing preserving aspect ratios within terminal bounds
+- **Flicker-Free Rendering**: Single alternate-screen session across submenus with off-screen frame preparation
 - **Format Conversion**: Auto-convert PNG, JPG, JPEG, GIF, BMP to optimal format with transparency preservation
 - **Smart Resizing**: Automatically resize large images for better performance
 - **ASCII Fallback**: Use a bundled text logo in unsupported terminals

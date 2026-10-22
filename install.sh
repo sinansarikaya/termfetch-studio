@@ -64,7 +64,7 @@ print_banner() {
 ║            ██║   ███████╗██║  ██║██║ ╚═╝ ██║      ║
 ║            ╚═╝   ╚══════╝╚═╝  ╚═╝╚═╝     ╚═╝      ║
 ║                                                   ║
-║             TermFetch Studio v1.0.0               ║
+║             TermFetch Studio v1.1.0               ║
 ║     Professional Terminal Theme Manager           ║
 ║                                                   ║
 ╚═══════════════════════════════════════════════════╝
@@ -583,7 +583,7 @@ install_main_script() {
 #!/bin/bash
 
 # TermFetch Studio Main Script
-VERSION="1.0.0"
+VERSION="1.1.0"
 INSTALL_DIR="$HOME/.local/share/termfetch-studio"
 CONFIG_DIR="$HOME/.config/termfetch-studio"
 
@@ -993,7 +993,7 @@ show_header() {
     local cols rows
     read -r cols rows < <(ui_terminal_size)
     printf '\033[H\033[2J\033[1;36m'
-    ui_clip_text 'TermFetch Studio 1.0.0' "$((cols - 1))"
+    ui_clip_text "TermFetch Studio $VERSION" "$((cols - 1))"
     printf '\033[0m\n\n'
 }
 
@@ -1104,7 +1104,7 @@ _ui_render_menu() {
         printf '\033[?2026l'
         return
     fi
-    _ui_put 1 1 "$((_ui_width - 1))" 'TermFetch Studio 1.0.0' '\033[1;36m'
+    _ui_put 1 1 "$((_ui_width - 1))" "TermFetch Studio $VERSION" '\033[1;36m'
     # Navigation belongs in the footer, not in every menu title.
     local title=${_ui_prompt%% \[*}
     _ui_put 3 1 "$((_ui_width - 1))" "$title" '\033[1;33m'
@@ -3551,7 +3551,7 @@ help_info_menu() {
 
     echo -e "\033[1;36m🔗 Resources:\033[0m"
     echo -e "  \033[1;34mGitHub:\033[0m https://github.com/sinansarikaya/termfetch-studio"
-    echo -e "  \033[1;34mVersion:\033[0m 1.0.0"
+    echo -e "  \033[1;34mVersion:\033[0m $VERSION"
     echo ""
 
     echo -e "\033[1;33mPress any key to return to menu...\033[0m"
@@ -5975,7 +5975,7 @@ print_banner() {
 ║            ██║   ███████╗██║  ██║██║ ╚═╝ ██║      ║
 ║            ╚═╝   ╚══════╝╚═╝  ╚═╝╚═╝     ╚═╝      ║
 ║                                                   ║
-║             TermFetch Studio v1.0.0               ║
+║             TermFetch Studio v1.1.0               ║
 ║                 Uninstall Script                  ║
 ║                                                   ║
 ╚═══════════════════════════════════════════════════╝
