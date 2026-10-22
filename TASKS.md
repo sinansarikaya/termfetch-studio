@@ -47,6 +47,15 @@
 - **Changed Files**: []
 - **Evidence Paths**: ["tests/group-colors-evidence/source-editor.txt", "tests/group-colors-evidence/source-startup.txt", "tests/group-colors-evidence/changes.patch", "tests/group-colors-evidence/README.md", "README.md"]
 - **Accepted At**: 2026-10-22T09:13:28Z
+
+### Task: ordered-colors-uninstall-review - Independent read-only bounded follow-up review. Read tests/ordered-colors-evidence/changes.patch, README, regression.log, fish-uninstall.json and tests/fish_uninstall.py. UI keeps fixed OS/Desktop/Hardware/Network/Time order with all five rows when possible; tiny windows use contiguous non-wrapping viewport. Generated uninstaller strips only exact legacy Fish alias termfetch-studio --preview, preserving config backup before alias cleanup, file modes and personal clear/functions/custom compound alias/no-final-newline when no match. Parent loaded Fish function cannot be erased by child: prints functions --erase fastfetch; actual Docker test covers fresh-session clear and parent recovery. Verify parser ownership/data preservation/error statuses and shell set-e behavior, viewport bounds/order, unchanged assertions. 26 PTY tests and native Arch/Hyprland/Kitty four screenshots leader-inspected. Old code fails both tests, logs included. Timing test awaits expected final Red frame, same assertion not weakened. New distro matrix not rerun; report accurate. No writes, no agents. Workspace frozen during review; run compileall. Report significant actionable issues or clear acceptance.
+- **Status**: Done (Accepted)
+- **Role**: code-reviewer
+- **Provider**: flash
+- **Leader Summary**: 26 PTY tests, exact legacy alias cleanup and parent Fish recovery tests, syntax/ShellCheck and native Kitty screenshots verified; independent review has no open issues.
+- **Changed Files**: []
+- **Evidence Paths**: ["tests/ordered-colors-evidence/changes.patch", "tests/ordered-colors-evidence/README.md", "tests/ordered-colors-evidence/regression.log", "tests/ordered-colors-evidence/fish-uninstall.json", "tests/ordered-colors-evidence/before-order.log", "tests/ordered-colors-evidence/before-uninstall.log", "tests/fish_uninstall.py", "tests/ui_regression.py", "install.sh"]
+- **Accepted At**: 2026-10-22T11:00:32Z
 <!-- AI-TEAM-TASKS-END -->
 
 ## Initial attempt (not accepted)
@@ -103,3 +112,12 @@
 - group-colors-startup-final-review accepted after a frozen-workspace review; no significant open findings.
 
 - First review found P2 Inherit sample/preset mismatch; reproduced with a failing test and corrected using a private generated config cache. Initial review not accepted; corrected source passed the bounded final review.
+
+## Ordered color preview and Fish uninstall follow-up
+- Reproduced rotating preview order and legacy alias → missing termfetch-studio → clear failure with old source in Docker.
+- Stable semantic preview order; five rows at adequate heights, contiguous viewport at tiny heights.
+- Exact known legacy alias removed only by new uninstaller, original backed up; custom/no-final-newline aliases and clear/functions preserved.
+- Existing parent Fish requires functions --erase fastfetch; host read-only alias inspection only, no host changes.
+- Role selection: code-reviewer chosen for Bash cleanup/data preservation; suggested frontend role does not match this shell task.
+- Required gates: isolated PTY/UI, generated Bash/ShellCheck, Fish uninstall behavior, native Kitty VM screenshots, independent review. Other graphical terminals manual; web/mobile/SEO N/A.
+- ordered-colors-uninstall-review accepted; 26 PTY tests, three Fish cleanup/recovery/preservation checks, generated Bash/ShellCheck and four real Kitty screenshots verified. No significant open findings.

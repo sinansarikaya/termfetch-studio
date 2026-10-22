@@ -429,6 +429,22 @@ class UIRegression(unittest.TestCase):
         self.assertEqual(config.read_bytes(), original)
         self.assertFalse((self.home / 'config/fastfetch.jsonc').exists())
 
+    def test_color_preview_keeps_all_groups_in_order_and_uses_contiguous_small_viewport(self):
+        labels=['● OS','● Desktop','● Hardware','● Network','● Time']
+        for cols,rows in [(120,24),(80,24),(40,16)]:
+            session=self.color_editor(cols,rows)
+            for field in range(7):
+                text=session.text
+                positions=[text.index(label) for label in labels]
+                self.assertEqual(positions,sorted(positions),(cols,rows,field,text))
+                if field<6:session.send(b'\x1b[B')
+            self.assertEqual(session.finish(),0)
+        session=self.color_editor(40,12)
+        session.send(b'\x1b[B'*6)
+        shown=[label for label in labels if label in session.text]
+        self.assertEqual(shown,labels[-3:])
+        self.assertEqual(session.finish(),0)
+
     def test_advanced_menu_has_no_duplicate_color_entry(self):
         session=self.terminal('settings_menu')
         self.assertNotIn('Color Settings',session.text)
@@ -483,6 +499,8 @@ class UIRegression(unittest.TestCase):
         session=self.color_editor()
         config=self.home/'config/config.ini';old=config.read_bytes()
         session.send(b'\x1b[B'*2+b'\x1b[C'*3)
+        deadline=time.monotonic()+3
+        while 'OS group: Red' not in session.text and time.monotonic()<deadline:session.read(.05)
         self.assertIn('OS group: Red',session.text)
         self.assertEqual(config.read_bytes(),old)
         session.send(b'\x1b[B'*6)

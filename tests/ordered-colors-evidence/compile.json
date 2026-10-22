@@ -1,0 +1,13 @@
+{
+  "argv": [
+    "python3",
+    "-m",
+    "compileall",
+    "-q",
+    "tests/ui_regression.py",
+    "tests/fish_uninstall.py"
+  ],
+  "exit_code": 0,
+  "stdout": "",
+  "stderr": ""
+}
