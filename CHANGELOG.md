@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Avoid duplicate automatic fastfetch output across managed shell startup, repeated sourcing and nested shells; preserve external personal startup blocks and skip an additional managed fetch when a direct call exists.
+- Consolidate color editing in the main Icon & Text Colors page, removing the duplicate Advanced Settings entry.
+- Add draft/live colors for OS, Desktop, Hardware, Network and Time groups across all six presets; preserve layout and support Inherit/Theme/Default.
+- Extend the local palette with 16 named RGB colors and verify group configuration with real fastfetch, PTY interactions and a native Wayland Kitty VM.
+
 - Keep one alternate-screen session across interactive submenus so the underlying fastfetch page is not exposed between selections.
 - Stop clearing the whole screen on arrow navigation; upload Kitty previews without displaying them, then swap and delete only owned image IDs.
 - Replace color mode/pickers/separate preview with one live draft editor, save/cancel and per-field Theme/Default handling.

@@ -383,7 +383,11 @@ class UIRegression(unittest.TestCase):
         if not (config / 'config.ini').exists():
             (config / 'config.ini').write_text('[fastfetch]\npreset=minimal\nlogo_type=none\nuse_theme_colors=true\nkey_color=theme\nvalue_color=theme\n[colors]\ntheme=nord\n')
         (self.home / 'fastfetch.sh').write_text(generated('FASTFETCHLIB'))
-        return self.terminal('CONFIG_DIR="$HOME/config"; CONFIG_FILE="$CONFIG_DIR/config.ini"; source "$HOME/fastfetch.sh"; color_settings_menu', columns, rows)
+        session=self.terminal('CONFIG_DIR="$HOME/config"; CONFIG_FILE="$CONFIG_DIR/config.ini"; source "$HOME/fastfetch.sh"; color_settings_menu', columns, rows)
+        deadline=time.monotonic()+3
+        while 'Icons:' not in session.text and time.monotonic()<deadline:session.read(.05)
+        self.assertIn('Icons:',session.text)
+        return session
 
     def test_live_color_editor_previews_without_writes_then_saves_and_resets(self):
         session = self.color_editor()
@@ -397,16 +401,17 @@ class UIRegression(unittest.TestCase):
         self.assertIn(b'\x1b[31m', session.raw[start:])
         self.assertEqual(config.read_bytes(), original)
         session.send(b'\x1b[B\x1b[C\x1b[C\x1b[C')
+        session.read(.4)
         self.assertIn('Text: Green', session.text)
         self.assertEqual(config.read_bytes(), original)
-        session.send(b'\x1b[B\x1b[B')
+        session.send(b'\x1b[B'*7)
         self.assertEqual(session.finish(b'\r'), 0)
         self.assertIn('key_color=31', config.read_text())
         self.assertIn('value_color=32', config.read_text())
         self.assertIn('use_theme_colors=false', config.read_text())
         self.assertIn('"32"', (self.home / 'config/fastfetch.jsonc').read_text())
         session = self.color_editor()
-        session.send(b'\x1b[B\x1b[B\r')
+        session.send(b'\x1b[B'*7+b'\r')
         self.assertIn('Icons: Theme', session.text)
         self.assertIn('Text: Theme', session.text)
         session.send(b'\x1b[B')
@@ -423,6 +428,67 @@ class UIRegression(unittest.TestCase):
         self.assertEqual(session.finish(), 0)
         self.assertEqual(config.read_bytes(), original)
         self.assertFalse((self.home / 'config/fastfetch.jsonc').exists())
+
+    def test_advanced_menu_has_no_duplicate_color_entry(self):
+        session=self.terminal('settings_menu')
+        self.assertNotIn('Color Settings',session.text)
+        self.assertIn('Items 1-4/4',session.text)
+        session.send(b'\x1b[B'*3)
+        self.assertEqual(session.finish(b'\r'),0)
+
+    def test_rgb_palette_selection_is_live_and_persisted(self):
+        session=self.color_editor()
+        session.send(b'\x1b[D');session.read(.3)
+        self.assertIn('Icons: Silver',session.text)
+        self.assertIn(b'\x1b[38;2;192;192;192m',session.raw)
+        session.send(b'\x1b[B'*8)
+        self.assertEqual(session.finish(b'\r'),0)
+        self.assertIn('key_color=#c0c0c0',(self.home/'config/config.ini').read_text())
+        self.assertIn('"keyColor": "#c0c0c0"',(self.home/'config/fastfetch.jsonc').read_text())
+
+    def test_inherit_sample_matches_selected_preset_modules(self):
+        for preset,label,module in [('minimal','Time','uptime'),('gaming','Hardware','cpu')]:
+            config=self.home/'config';config.mkdir(exist_ok=True)
+            (config/'config.ini').write_text('[fastfetch]\npreset='+preset+'\nlogo_type=none\nuse_theme_colors=true\n[colors]\ntheme=nord\n')
+            session=self.color_editor()
+            session.send(b'\x1b[B'*8)
+            self.assertEqual(session.finish(b'\r'),0)
+            raw=(config/'fastfetch.jsonc').read_text()
+            doc=json.loads(re.sub(r'^\s*//.*$', '',raw,flags=re.M))
+            color=next(m['keyColor'] for m in doc['modules'] if isinstance(m,dict) and m.get('type')==module)
+            line=next(y for y,text in enumerate(session.screen.display) if '● '+label in text)
+            col=session.screen.display[line].index('● '+label)
+            self.assertEqual(session.screen.buffer[line][col].fg,color.lstrip('#'),(preset,label,color))
+
+    def test_group_colors_preserve_layout_and_override_only_target_modules(self):
+        self.test_runtime_wrapper_and_all_generated_presets()
+        bindir=self.home / '.local/bin'
+        env=os.environ | {'HOME':str(self.home), 'PATH':str(bindir)+':'+os.environ['PATH']}
+        code='CONFIG_DIR="$HOME/.config/termfetch-studio"; INSTALL_DIR="$HOME/.local/share/termfetch-studio"; source "$INSTALL_DIR/lib/core.sh"; source "$INSTALL_DIR/lib/fastfetch.sh"; '
+        sets={'os':{'os','kernel','packages','shell'},'desktop':{'wm','de','theme','terminal','terminalfont','cursor','icons'},'hardware':{'host','cpu','gpu','memory','swap','disk','display','battery'},'network':{'localip','publicip','wifi'},'time':{'datetime','uptime'}}
+        colors=['#ff8c00','#40e0d0','#8a2be2','#ff69b4','#ffd700']
+        setup='; '.join('set_config_value group_colors '+g+" '"+c+"'" for g,c in zip(sets,colors))+'; '
+        for preset in ['full','minimal','focused','developer','gaming','custom']:
+            result=subprocess.run(['bash','-c',code+setup+'create_'+preset+'_config none "" nord; tfs-fastfetch'],env=env,capture_output=True,text=True,timeout=10)
+            self.assertEqual(result.returncode,0,result.stderr)
+            doc=json.loads(result.stdout);seen=0
+            for module in doc['modules']:
+                if not isinstance(module,dict):continue
+                for group,color in zip(sets,colors):
+                    if module.get('type') in sets[group]:
+                        self.assertEqual(module.get('keyColor'),color,(preset,module))
+                        self.assertEqual(module.get('outputColor'),color,(preset,module));seen+=1
+            self.assertGreater(seen,0)
+        # Group overrides and extended RGB can be edited without touching files.
+        session=self.color_editor()
+        config=self.home/'config/config.ini';old=config.read_bytes()
+        session.send(b'\x1b[B'*2+b'\x1b[C'*3)
+        self.assertIn('OS group: Red',session.text)
+        self.assertEqual(config.read_bytes(),old)
+        session.send(b'\x1b[B'*6)
+        self.assertEqual(session.finish(b'\r'),0)
+        self.assertIn('os=31',config.read_text())
+        self.assertIn('"keyColor": "31"',(self.home/'config/fastfetch.jsonc').read_text())
 
     def test_independent_theme_and_default_colors_generate_valid_presets(self):
         self.test_runtime_wrapper_and_all_generated_presets()

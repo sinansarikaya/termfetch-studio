@@ -3063,7 +3063,6 @@ settings_menu() {
         
         local options=(
             "🎭 Demo Mode: $demo_status"
-            "🎨 Color Settings"
             "🔧 Edit Config File"
             "🗑️ Reset All Settings"
             "← Back"
@@ -3072,13 +3071,12 @@ settings_menu() {
         select_option "⚙️  Advanced Settings (Demo Mode shows fake system info for screenshots)" "${options[@]}"
         local choice=$?
 
-        [ $choice -eq 4 ] || [ $choice -eq 255 ] && return
+        [ $choice -eq 3 ] || [ $choice -eq 255 ] && return
 
         case $choice in
             0) toggle_demo_mode ;;
-            1) color_settings_menu ;;
-            2) edit_config_file ;;
-            3) reset_all_settings ;;
+            1) edit_config_file ;;
+            2) reset_all_settings ;;
         esac
     done
 }
@@ -3136,29 +3134,72 @@ get_demo_format() {
     esac
 }
 
+# Resolve representative inherited colors from the selected generator, in a private
+# config copy. Cache once per editor session; navigation never writes user files.
+color_preview_base_colors() (
+    local original_config=$CONFIG_FILE temporary preset theme group module icon text
+    temporary=$(mktemp -d "${TMPDIR:-/tmp}/tfs-colors.XXXXXX") || return 1
+    trap 'rm -rf -- "$temporary"' EXIT
+    trap 'exit 130' INT
+    trap 'exit 143' TERM
+    local CONFIG_DIR=$temporary CONFIG_FILE="$temporary/config.ini"
+    cp -- "$original_config" "$CONFIG_FILE" || return 1
+    set_config_value fastfetch use_theme_colors true || return 1
+    for group in os desktop hardware network time; do set_config_value group_colors "$group" inherit || return 1; done
+    preset=$(get_config_value fastfetch preset); theme=$(get_config_value colors theme)
+    case "$preset" in full|minimal|focused|developer|gaming|custom) ;; *) preset=full ;; esac
+    "create_${preset}_config" none "" "${theme:-dracula}" >/dev/null || return 1
+    while IFS=$'\t' read -r module icon text; do
+        group=$(module_color_group "$module")
+        [[ -n "$group" ]] && printf '%s\t%s\t%s\n' "$group" "$icon" "$text"
+    done < <(awk -F '"' '
+        /"type"[[:space:]]*:/ { module=$4; icon="" }
+        /"keyColor"[[:space:]]*:/ { icon=$4 }
+        /"outputColor"[[:space:]]*:/ { if (icon != "") printf "%s\t%s\t%s\n", module, icon, $4 }
+    ' "$CONFIG_DIR/fastfetch.jsonc")
+)
+
 # Color settings menu for customizing fastfetch colors
 color_settings_menu() {
     local _color_icon_draft _color_text_draft mode
+    local -a _color_group_keys=(os desktop hardware network time)
+    local -a _color_group_names=(OS Desktop Hardware Network Time) _color_group_draft
+    local group i icon text
+    local -A _color_inherit_icons=() _color_inherit_texts=()
+    while IFS=$'\t' read -r group icon text; do
+        if [[ -z "${_color_inherit_icons[$group]:-}" ]]; then
+            _color_inherit_icons[$group]=$icon; _color_inherit_texts[$group]=$text
+        fi
+    done < <(color_preview_base_colors)
     mode=$(get_config_value fastfetch use_theme_colors)
     _color_icon_draft=$(get_config_value fastfetch key_color)
     _color_text_draft=$(get_config_value fastfetch value_color)
     if [[ "$mode" != false ]]; then _color_icon_draft=theme; _color_text_draft=theme; fi
     local -a _color_values=(theme default 31 32 33 34 35 36 37 90 91 92 93 94 95 96 97)
     local -a _color_names=(Theme Default Red Green Yellow Blue Magenta Cyan White 'Bright Black' 'Bright Red' 'Bright Green' 'Bright Yellow' 'Bright Blue' 'Bright Magenta' 'Bright Cyan' 'Bright White')
+    _color_values+=( '#ff8c00' '#ff7f50' '#ff6347' '#ffd700' '#adff2f' '#40e0d0' '#00bfa5' '#87ceeb' '#4169e1' '#6a5acd' '#8a2be2' '#da70d6' '#ff69b4' '#dc143c' '#e6e6fa' '#c0c0c0')
+    _color_names+=(Orange Coral Tomato Gold Lime Turquoise Teal Sky 'Royal Blue' Slate Violet Orchid Pink Crimson Lavender Silver)
+    for group in "${_color_group_keys[@]}"; do
+        _color_group_draft+=("$(get_config_value group_colors "$group")")
+    done
     local UI_MENU_ON_KEY=color_editor_key
     local UI_MENU_KEYS='↑↓ Field · ←→ Color · Enter Select · Q Cancel'
-    local options=("Icons: $(color_label "$_color_icon_draft")" "Text: $(color_label "$_color_text_draft")" 'Reset to Theme' 'Save & Back')
+    local options=("Icons: $(color_label "$_color_icon_draft")" "Text: $(color_label "$_color_text_draft")")
+    for i in "${!_color_group_keys[@]}"; do options+=("${_color_group_names[i]} group: $(color_label "${_color_group_draft[i]:-inherit}")"); done
+    options+=('Reset to Theme' 'Save & Back')
     select_option 'Icon & Text Colors' "${options[@]}" preview_color_sample
     local choice=$?
-    ((choice == 3)) || return 0
+    ((choice == 8)) || return 0
     if [[ "$_color_icon_draft" == theme && "$_color_text_draft" == theme ]]; then mode=true; else mode=false; fi
     set_config_value fastfetch key_color "$_color_icon_draft"
     set_config_value fastfetch value_color "$_color_text_draft"
     set_config_value fastfetch use_theme_colors "$mode"
+    for i in "${!_color_group_keys[@]}"; do set_config_value group_colors "${_color_group_keys[i]}" "${_color_group_draft[i]:-inherit}"; done
     apply_color_changes >/dev/null
 }
 
 color_label() {
+    [[ "$1" == inherit || -z "$1" ]] && { printf Inherit; return; }
     local i
     for i in "${!_color_values[@]}"; do
         [[ "$1" == "${_color_values[i]}" ]] && { printf '%s' "${_color_names[i]}"; return; }
@@ -3167,27 +3208,41 @@ color_label() {
 }
 
 color_editor_key() {
-    local direction=$1 value i=0 delta=1
-    if ((_ui_selected == 3)); then return 1; fi
-    if ((_ui_selected == 2)); then
+    local direction=$1 value i=0 delta=1 group_index=-1
+    local -a values=("${_color_values[@]}")
+    ((_ui_selected == 8)) && return 1
+    if ((_ui_selected == 7)); then
         [[ "$direction" == enter ]] || return 0
         _color_icon_draft=theme; _color_text_draft=theme
+        for i in "${!_color_group_keys[@]}"; do _color_group_draft[i]=inherit; done
     else
-        ((_ui_selected == 0)) && value=$_color_icon_draft || value=$_color_text_draft
-        for i in "${!_color_values[@]}"; do [[ "$value" == "${_color_values[i]}" ]] && break; done
+        if ((_ui_selected >= 2)); then
+            group_index=$((_ui_selected - 2)); value=${_color_group_draft[group_index]:-inherit}
+            values=(inherit "${values[@]}")
+        elif ((_ui_selected == 0)); then value=$_color_icon_draft
+        else value=$_color_text_draft; fi
+        for i in "${!values[@]}"; do [[ "$value" == "${values[i]}" ]] && break; done
         [[ "$direction" == left ]] && delta=-1
-        i=$(((i + delta + ${#_color_values[@]}) % ${#_color_values[@]}))
-        if ((_ui_selected == 0)); then _color_icon_draft=${_color_values[i]}; else _color_text_draft=${_color_values[i]}; fi
+        i=$(((i + delta + ${#values[@]}) % ${#values[@]}))
+        if ((group_index >= 0)); then _color_group_draft[group_index]=${values[i]}
+        elif ((_ui_selected == 0)); then _color_icon_draft=${values[i]}
+        else _color_text_draft=${values[i]}; fi
     fi
     _ui_options[0]="Icons: $(color_label "$_color_icon_draft")"
     _ui_options[1]="Text: $(color_label "$_color_text_draft")"
+    for i in "${!_color_group_keys[@]}"; do
+        _ui_options[i+2]="${_color_group_names[i]} group: $(color_label "${_color_group_draft[i]:-inherit}")"
+    done
     return 0
 }
 
 color_sample_sgr() {
     local value=$1 position=$2 theme
-    theme=$(get_config_value colors theme)
-    [[ "$value" == theme || -z "$value" ]] && value=$(get_theme_ansi_color "${theme:-dracula}" "$position")
+    theme=${_color_preview_theme:-}
+    if [[ "$value" == theme || -z "$value" ]]; then
+        [[ -n "$theme" ]] || theme=$(get_config_value colors theme)
+        value=$(get_theme_ansi_color "${theme:-dracula}" "$position")
+    fi
     if [[ "$value" =~ ^#[[:xdigit:]]{6}$ ]]; then
         printf '38;2;%d;%d;%d' "$((16#${value:1:2}))" "$((16#${value:3:2}))" "$((16#${value:5:2}))"
     elif [[ "$value" =~ ^(3[0-9]|9[0-7])$ ]]; then printf '%s' "$value"
@@ -3195,15 +3250,31 @@ color_sample_sgr() {
 }
 
 preview_color_sample() {
-    local icon text n row
-    icon=$(color_sample_sgr "$_color_icon_draft" primary)
-    text=$(color_sample_sgr "$_color_text_draft" primary)
-    local -a labels=('● OS' '● Terminal' '● Memory') values=('Linux' 'Terminal sample' '8 GiB / 16 GiB')
-    for ((n=0; n<3 && n<UI_PREVIEW_ROWS; n++)); do
-        row=$((UI_PREVIEW_Y + n))
-        _ui_put "$row" "$UI_PREVIEW_X" "$UI_PREVIEW_COLS" "${labels[n]}" "\033[${icon}m"
+    local icon text n row group_index start=0 override position base_icon base_text
+    local _color_preview_theme
+    _color_preview_theme=$(get_config_value colors theme)
+    base_icon=$(color_sample_sgr "$_color_icon_draft" primary)
+    base_text=$(color_sample_sgr "$_color_text_draft" primary)
+    local -a labels=('● OS' '● Desktop' '● Hardware' '● Network' '● Time')
+    local -a values=('Linux' 'Terminal sample' '8 GiB / 16 GiB' 'Network sample' '12:34')
+    local -a positions=(primary secondary accent highlight info)
+    if ((_ui_selected >= 2 && _ui_selected <= 6)); then start=$((_ui_selected - 2)); fi
+    for ((n=0; n<5 && n<UI_PREVIEW_ROWS; n++)); do
+        group_index=$(((start + n) % 5)); row=$((UI_PREVIEW_Y + n)); position=${positions[group_index]}
+        override=${_color_group_draft[group_index]:-inherit}
+        if [[ "$override" == inherit ]]; then
+            if [[ "$_color_icon_draft" == theme && "$_color_text_draft" == theme ]]; then
+                icon=$(color_sample_sgr "${_color_inherit_icons[${_color_group_keys[group_index]}]:-theme}" "$position")
+                text=$(color_sample_sgr "${_color_inherit_texts[${_color_group_keys[group_index]}]:-theme}" "$position")
+            else
+                icon=$base_icon; text=$base_text
+            fi
+        else
+            icon=$(color_sample_sgr "$override" "$position"); text=$icon
+        fi
+        _ui_put "$row" "$UI_PREVIEW_X" "$UI_PREVIEW_COLS" "${labels[group_index]}" "\033[${icon}m"
         if ((UI_PREVIEW_COLS >= 24)); then
-            _ui_put "$row" "$((UI_PREVIEW_X + 12))" "$((UI_PREVIEW_COLS - 12))" "${values[n]}" "\033[${text}m"
+            _ui_put "$row" "$((UI_PREVIEW_X + 13))" "$((UI_PREVIEW_COLS - 13))" "${values[group_index]}" "\033[${text}m"
         fi
     done
 }
@@ -4144,6 +4215,31 @@ get_theme_ansi_color() {
 }
 
 # Helper function to get icon color (either custom or theme-based)
+module_color_group() {
+    case "$1" in
+        os|kernel|packages|shell|title) echo os ;;
+        wm|de|theme|wmtheme|icons|cursor|terminal|terminalfont) echo desktop ;;
+        host|cpu|gpu|memory|swap|disk|display|battery) echo hardware ;;
+        localip|publicip|wifi|netio) echo network ;;
+        datetime|uptime) echo time ;;
+    esac
+}
+
+get_module_color() {
+    local module=$1 theme=$2 fallback=$3 group value position
+    group=$(module_color_group "$module")
+    [[ -n "$group" ]] || { printf '%s' "$fallback"; return; }
+    value=$(get_config_value group_colors "$group")
+    case "$value" in
+        ''|inherit) printf '%s' "$fallback" ;;
+        theme)
+            case "$group" in os) position=primary ;; desktop) position=secondary ;; hardware) position=accent ;; network) position=highlight ;; time) position=info ;; esac
+            get_theme_ansi_color "$theme" "$position" ;;
+        default) printf '39' ;;
+        *) if [[ "$value" =~ ^#[[:xdigit:]]{6}$ || "$value" =~ ^(3[0-9]|9[0-7])$ ]]; then printf '%s' "$value"; else printf '%s' "$fallback"; fi ;;
+    esac
+}
+
 get_custom_fastfetch_color() {
     local field=$1 theme=$2 value
     value=$(get_config_value fastfetch "$field")
@@ -4358,32 +4454,32 @@ $(logo_dimensions_json_fields "$logo_actual_type" "$logo_source" 14)
             "type": "os",
             $fmtline_os
             "key": " ├ 󰣇 ",
-            "keyColor": "$color1",
-            "outputColor": "$tcolor1",
+            "keyColor": "$(get_module_color "os" "$theme" "$color1")",
+            "outputColor": "$(get_module_color "os" "$theme" "$tcolor1")",
             "keyWidth": 10
         },
         {
             "type": "kernel",
             $fmtline_kernel
             "key": " ├ 󰌢 ",
-            "keyColor": "$color1",
-            "outputColor": "$tcolor1",
+            "keyColor": "$(get_module_color "kernel" "$theme" "$color1")",
+            "outputColor": "$(get_module_color "kernel" "$theme" "$tcolor1")",
             "keyWidth": 10
         },
         {
             "type": "packages",
             $fmtline_packages
             "key": " ├ 󰏖 ",
-            "keyColor": "$color1",
-            "outputColor": "$tcolor1",
+            "keyColor": "$(get_module_color "packages" "$theme" "$color1")",
+            "outputColor": "$(get_module_color "packages" "$theme" "$tcolor1")",
             "keyWidth": 10
         },
         {
             "type": "shell",
             $fmtline_shell
             "key": " ├ 󰆍 ",
-            "keyColor": "$color1",
-            "outputColor": "$tcolor1",
+            "keyColor": "$(get_module_color "shell" "$theme" "$color1")",
+            "outputColor": "$(get_module_color "shell" "$theme" "$tcolor1")",
             "keyWidth": 10
         },
         "break",
@@ -4391,56 +4487,56 @@ $(logo_dimensions_json_fields "$logo_actual_type" "$logo_source" 14)
             "type": "wm",
             $fmtline_wm
             "key": " ├ 󰖲 ",
-            "keyColor": "$color2",
-            "outputColor": "$tcolor2",
+            "keyColor": "$(get_module_color "wm" "$theme" "$color2")",
+            "outputColor": "$(get_module_color "wm" "$theme" "$tcolor2")",
             "keyWidth": 10
         },
         {
             "type": "de",
             $fmtline_de
             "key": " ├ 󱂬 ",
-            "keyColor": "$color2",
-            "outputColor": "$tcolor2",
+            "keyColor": "$(get_module_color "de" "$theme" "$color2")",
+            "outputColor": "$(get_module_color "de" "$theme" "$tcolor2")",
             "keyWidth": 10
         },
         {
             "type": "wmtheme",
             $fmtline_wmtheme
             "key": " ├ 󰉼 ",
-            "keyColor": "$color2",
-            "outputColor": "$tcolor2",
+            "keyColor": "$(get_module_color "wmtheme" "$theme" "$color2")",
+            "outputColor": "$(get_module_color "wmtheme" "$theme" "$tcolor2")",
             "keyWidth": 10
         },
         {
             "type": "icons",
             $fmtline_icons
             "key": " ├ 󰀻 ",
-            "keyColor": "$color2",
-            "outputColor": "$tcolor2",
+            "keyColor": "$(get_module_color "icons" "$theme" "$color2")",
+            "outputColor": "$(get_module_color "icons" "$theme" "$tcolor2")",
             "keyWidth": 10
         },
         {
             "type": "cursor",
             $fmtline_cursor
             "key": " ├ 󰘔 ",
-            "keyColor": "$color2",
-            "outputColor": "$tcolor2",
+            "keyColor": "$(get_module_color "cursor" "$theme" "$color2")",
+            "outputColor": "$(get_module_color "cursor" "$theme" "$tcolor2")",
             "keyWidth": 10
         },
         {
             "type": "terminal",
             $fmtline_terminal
             "key": " ├ 󰆍 ",
-            "keyColor": "$color2",
-            "outputColor": "$tcolor2",
+            "keyColor": "$(get_module_color "terminal" "$theme" "$color2")",
+            "outputColor": "$(get_module_color "terminal" "$theme" "$tcolor2")",
             "keyWidth": 10
         },
         {
             "type": "terminalfont",
             $fmtline_terminalfont
             "key": " ├ 󰛖 ",
-            "keyColor": "$color2",
-            "outputColor": "$tcolor2",
+            "keyColor": "$(get_module_color "terminalfont" "$theme" "$color2")",
+            "outputColor": "$(get_module_color "terminalfont" "$theme" "$tcolor2")",
             "keyWidth": 10
         },
         "break",
@@ -4448,64 +4544,64 @@ $(logo_dimensions_json_fields "$logo_actual_type" "$logo_source" 14)
             "type": "host",
             $fmtline_host
             "key": " ├ 󰌢 ",
-            "keyColor": "$color3",
-            "outputColor": "$tcolor3",
+            "keyColor": "$(get_module_color "host" "$theme" "$color3")",
+            "outputColor": "$(get_module_color "host" "$theme" "$tcolor3")",
             "keyWidth": 10
         },
         {
             "type": "cpu",
             $fmtline_cpu
             "key": " ├ 󰻠 ",
-            "keyColor": "$color3",
-            "outputColor": "$tcolor3",
+            "keyColor": "$(get_module_color "cpu" "$theme" "$color3")",
+            "outputColor": "$(get_module_color "cpu" "$theme" "$tcolor3")",
             "keyWidth": 10
         },
         {
             "type": "gpu",
             $fmtline_gpu
             "key": " ├ 󰢮 ",
-            "keyColor": "$color3",
-            "outputColor": "$tcolor3",
+            "keyColor": "$(get_module_color "gpu" "$theme" "$color3")",
+            "outputColor": "$(get_module_color "gpu" "$theme" "$tcolor3")",
             "keyWidth": 10
         },
         {
             "type": "memory",
             $fmtline_memory
             "key": " ├ 󰍛 ",
-            "keyColor": "$color3",
-            "outputColor": "$tcolor3",
+            "keyColor": "$(get_module_color "memory" "$theme" "$color3")",
+            "outputColor": "$(get_module_color "memory" "$theme" "$tcolor3")",
             "keyWidth": 10
         },
         {
             "type": "swap",
             $fmtline_swap
             "key": " ├ 󰓡 ",
-            "keyColor": "$color3",
-            "outputColor": "$tcolor3",
+            "keyColor": "$(get_module_color "swap" "$theme" "$color3")",
+            "outputColor": "$(get_module_color "swap" "$theme" "$tcolor3")",
             "keyWidth": 10
         },
         {
             "type": "disk",
             $fmtline_disk
             "key": " ├ 󰋊 ",
-            "keyColor": "$color3",
-            "outputColor": "$tcolor3",
+            "keyColor": "$(get_module_color "disk" "$theme" "$color3")",
+            "outputColor": "$(get_module_color "disk" "$theme" "$tcolor3")",
             "keyWidth": 10
         },
         {
             "type": "battery",
             $fmtline_battery
             "key": " ├ 󰁹 ",
-            "keyColor": "$color3",
-            "outputColor": "$tcolor3",
+            "keyColor": "$(get_module_color "battery" "$theme" "$color3")",
+            "outputColor": "$(get_module_color "battery" "$theme" "$tcolor3")",
             "keyWidth": 10
         },
         {
             "type": "display",
             $fmtline_display
             "key": " ├ 󰍹 ",
-            "keyColor": "$color3",
-            "outputColor": "$tcolor3",
+            "keyColor": "$(get_module_color "display" "$theme" "$color3")",
+            "outputColor": "$(get_module_color "display" "$theme" "$tcolor3")",
             "keyWidth": 10
         },
         "break",
@@ -4513,24 +4609,24 @@ $(logo_dimensions_json_fields "$logo_actual_type" "$logo_source" 14)
             "type": "localip",
             $fmtline_localip
             "key": " ├ 󰣺 ",
-            "keyColor": "$color4",
-            "outputColor": "$tcolor4",
+            "keyColor": "$(get_module_color "localip" "$theme" "$color4")",
+            "outputColor": "$(get_module_color "localip" "$theme" "$tcolor4")",
             "keyWidth": 10
         },
         {
             "type": "publicip",
             $fmtline_publicip
             "key": " ├ 󰞉 ",
-            "keyColor": "$color4",
-            "outputColor": "$tcolor4",
+            "keyColor": "$(get_module_color "publicip" "$theme" "$color4")",
+            "outputColor": "$(get_module_color "publicip" "$theme" "$tcolor4")",
             "keyWidth": 10
         },
         {
             "type": "wifi",
             $fmtline_wifi
             "key": " ├ 󰖩 ",
-            "keyColor": "$color4",
-            "outputColor": "$tcolor4",
+            "keyColor": "$(get_module_color "wifi" "$theme" "$color4")",
+            "outputColor": "$(get_module_color "wifi" "$theme" "$tcolor4")",
             "keyWidth": 10
         },
         "break",
@@ -4538,24 +4634,24 @@ $(logo_dimensions_json_fields "$logo_actual_type" "$logo_source" 14)
             "type": "datetime",
             $fmtline_datetime
             "key": " ├ 󰅐 ",
-            "keyColor": "$color5",
-            "outputColor": "$tcolor5",
+            "keyColor": "$(get_module_color "datetime" "$theme" "$color5")",
+            "outputColor": "$(get_module_color "datetime" "$theme" "$tcolor5")",
             "keyWidth": 10
         },
         {
             "type": "uptime",
             $fmtline_uptime
             "key": " ├ 󰔚 ",
-            "keyColor": "$color5",
-            "outputColor": "$tcolor5",
+            "keyColor": "$(get_module_color "uptime" "$theme" "$color5")",
+            "outputColor": "$(get_module_color "uptime" "$theme" "$tcolor5")",
             "keyWidth": 10
         },
         {
             "type": "media",
             $fmtline_media
             "key": " ├ 󰎈 ",
-            "keyColor": "$color5",
-            "outputColor": "$tcolor5",
+            "keyColor": "$(get_module_color "media" "$theme" "$color5")",
+            "outputColor": "$(get_module_color "media" "$theme" "$tcolor5")",
             "keyWidth": 10
         },
         "break",
@@ -4666,29 +4762,29 @@ $(logo_dimensions_json_fields "$logo_actual_type" "$logo_source" 10)
             "type": "os",
             $fmtline_os
             "key": " ├ 󰣇 ",
-            "keyColor": "$color1",
-            "outputColor": "$output_color"
+            "keyColor": "$(get_module_color "os" "$theme" "$color1")",
+            "outputColor": "$(get_module_color "os" "$theme" "$output_color")"
         },
         {
             "type": "kernel",
             $fmtline_kernel
             "key": " ├ 󰌢 ",
-            "keyColor": "$color1",
-            "outputColor": "$output_color"
+            "keyColor": "$(get_module_color "kernel" "$theme" "$color1")",
+            "outputColor": "$(get_module_color "kernel" "$theme" "$output_color")"
         },
         {
             "type": "shell",
             $fmtline_shell
             "key": " ├ 󰆍 ",
-            "keyColor": "$color1",
-            "outputColor": "$output_color"
+            "keyColor": "$(get_module_color "shell" "$theme" "$color1")",
+            "outputColor": "$(get_module_color "shell" "$theme" "$output_color")"
         },
         {
             "type": "uptime",
             $fmtline_uptime
             "key": " ├ 󰔚 ",
-            "keyColor": "$color1",
-            "outputColor": "$output_color"
+            "keyColor": "$(get_module_color "uptime" "$theme" "$color1")",
+            "outputColor": "$(get_module_color "uptime" "$theme" "$output_color")"
         },
         "break",
         {
@@ -4808,66 +4904,66 @@ $(logo_dimensions_json_fields "$logo_actual_type" "$logo_source" 12)
             "type": "os",
             $fmtline_os
             "key": " ├ 󰣇 ",
-            "keyColor": "$color1",
-            "outputColor": "$output_color"
+            "keyColor": "$(get_module_color "os" "$theme" "$color1")",
+            "outputColor": "$(get_module_color "os" "$theme" "$output_color")"
         },
         {
             "type": "kernel",
             $fmtline_kernel
             "key": " ├ 󰌢 ",
-            "keyColor": "$color1",
-            "outputColor": "$output_color"
+            "keyColor": "$(get_module_color "kernel" "$theme" "$color1")",
+            "outputColor": "$(get_module_color "kernel" "$theme" "$output_color")"
         },
         {
             "type": "packages",
             $fmtline_packages
             "key": " ├ 󰏖 ",
-            "keyColor": "$color1",
-            "outputColor": "$output_color"
+            "keyColor": "$(get_module_color "packages" "$theme" "$color1")",
+            "outputColor": "$(get_module_color "packages" "$theme" "$output_color")"
         },
         {
             "type": "uptime",
             $fmtline_uptime
             "key": " ├ 󰔟 ",
-            "keyColor": "$color1",
-            "outputColor": "$output_color"
+            "keyColor": "$(get_module_color "uptime" "$theme" "$color1")",
+            "outputColor": "$(get_module_color "uptime" "$theme" "$output_color")"
         },
         "break",
         {
             "type": "terminal",
             $fmtline_terminal
             "key": " ├ 󰆍 ",
-            "keyColor": "$color2",
-            "outputColor": "$output_color"
+            "keyColor": "$(get_module_color "terminal" "$theme" "$color2")",
+            "outputColor": "$(get_module_color "terminal" "$theme" "$output_color")"
         },
         {
             "type": "shell",
             $fmtline_shell
             "key": " ├ 󰆍 ",
-            "keyColor": "$color2",
-            "outputColor": "$output_color"
+            "keyColor": "$(get_module_color "shell" "$theme" "$color2")",
+            "outputColor": "$(get_module_color "shell" "$theme" "$output_color")"
         },
         "break",
         {
             "type": "cpu",
             $fmtline_cpu
             "key": " ├ 󰻠 ",
-            "keyColor": "$color3",
-            "outputColor": "$output_color"
+            "keyColor": "$(get_module_color "cpu" "$theme" "$color3")",
+            "outputColor": "$(get_module_color "cpu" "$theme" "$output_color")"
         },
         {
             "type": "memory",
             $fmtline_memory
             "key": " ├ 󰍛 ",
-            "keyColor": "$color3",
-            "outputColor": "$output_color"
+            "keyColor": "$(get_module_color "memory" "$theme" "$color3")",
+            "outputColor": "$(get_module_color "memory" "$theme" "$output_color")"
         },
         {
             "type": "disk",
             $fmtline_disk
             "key": " ├ 󰋊 ",
-            "keyColor": "$color3",
-            "outputColor": "$output_color"
+            "keyColor": "$(get_module_color "disk" "$theme" "$color3")",
+            "outputColor": "$(get_module_color "disk" "$theme" "$output_color")"
         },
         "break",
         {
@@ -4995,109 +5091,109 @@ $(logo_dimensions_json_fields "$logo_actual_type" "$logo_source" 14)
             "type": "os",
             $fmtline_os
             "key": " ├ 󰣇 ",
-            "keyColor": "$color1",
-            "outputColor": "$output_color"
+            "keyColor": "$(get_module_color "os" "$theme" "$color1")",
+            "outputColor": "$(get_module_color "os" "$theme" "$output_color")"
         },
         {
             "type": "kernel",
             $fmtline_kernel
             "key": " ├ 󰌢 ",
-            "keyColor": "$color1",
-            "outputColor": "$output_color"
+            "keyColor": "$(get_module_color "kernel" "$theme" "$color1")",
+            "outputColor": "$(get_module_color "kernel" "$theme" "$output_color")"
         },
         {
             "type": "packages",
             $fmtline_packages
             "key": " ├ 󰏖 ",
-            "keyColor": "$color1",
-            "outputColor": "$output_color"
+            "keyColor": "$(get_module_color "packages" "$theme" "$color1")",
+            "outputColor": "$(get_module_color "packages" "$theme" "$output_color")"
         },
         {
             "type": "shell",
             $fmtline_shell
             "key": " ├ 󰆍 ",
-            "keyColor": "$color1",
-            "outputColor": "$output_color"
+            "keyColor": "$(get_module_color "shell" "$theme" "$color1")",
+            "outputColor": "$(get_module_color "shell" "$theme" "$output_color")"
         },
         "break",
         {
             "type": "terminal",
             $fmtline_terminal
             "key": " ├ 󰆍 ",
-            "keyColor": "$color2",
-            "outputColor": "$output_color"
+            "keyColor": "$(get_module_color "terminal" "$theme" "$color2")",
+            "outputColor": "$(get_module_color "terminal" "$theme" "$output_color")"
         },
         {
             "type": "terminalfont",
             $fmtline_terminalfont
             "key": " ├ 󰛖 ",
-            "keyColor": "$color2",
-            "outputColor": "$output_color"
+            "keyColor": "$(get_module_color "terminalfont" "$theme" "$color2")",
+            "outputColor": "$(get_module_color "terminalfont" "$theme" "$output_color")"
         },
         {
             "type": "de",
             $fmtline_de
             "key": " ├ 󱂬 ",
-            "keyColor": "$color2",
-            "outputColor": "$output_color"
+            "keyColor": "$(get_module_color "de" "$theme" "$color2")",
+            "outputColor": "$(get_module_color "de" "$theme" "$output_color")"
         },
         {
             "type": "wm",
             $fmtline_wm
             "key": " ├ 󰖲 ",
-            "keyColor": "$color2",
-            "outputColor": "$output_color"
+            "keyColor": "$(get_module_color "wm" "$theme" "$color2")",
+            "outputColor": "$(get_module_color "wm" "$theme" "$output_color")"
         },
         "break",
         {
             "type": "cpu",
             $fmtline_cpu
             "key": " ├ 󰻠 ",
-            "keyColor": "$color3",
-            "outputColor": "$output_color"
+            "keyColor": "$(get_module_color "cpu" "$theme" "$color3")",
+            "outputColor": "$(get_module_color "cpu" "$theme" "$output_color")"
         },
         {
             "type": "gpu",
             $fmtline_gpu
             "key": " ├ 󰢮 ",
-            "keyColor": "$color3",
-            "outputColor": "$output_color"
+            "keyColor": "$(get_module_color "gpu" "$theme" "$color3")",
+            "outputColor": "$(get_module_color "gpu" "$theme" "$output_color")"
         },
         {
             "type": "memory",
             $fmtline_memory
             "key": " ├ 󰍛 ",
-            "keyColor": "$color3",
-            "outputColor": "$output_color"
+            "keyColor": "$(get_module_color "memory" "$theme" "$color3")",
+            "outputColor": "$(get_module_color "memory" "$theme" "$output_color")"
         },
         {
             "type": "swap",
             $fmtline_swap
             "key": " ├ 󰓡 ",
-            "keyColor": "$color3",
-            "outputColor": "$output_color"
+            "keyColor": "$(get_module_color "swap" "$theme" "$color3")",
+            "outputColor": "$(get_module_color "swap" "$theme" "$output_color")"
         },
         {
             "type": "disk",
             $fmtline_disk
             "key": " ├ 󰋊 ",
-            "keyColor": "$color3",
-            "outputColor": "$output_color"
+            "keyColor": "$(get_module_color "disk" "$theme" "$color3")",
+            "outputColor": "$(get_module_color "disk" "$theme" "$output_color")"
         },
         "break",
         {
             "type": "localip",
             $fmtline_localip
             "key": " ├ 󰩟 ",
-            "keyColor": "$color4",
-            "outputColor": "$output_color"
+            "keyColor": "$(get_module_color "localip" "$theme" "$color4")",
+            "outputColor": "$(get_module_color "localip" "$theme" "$output_color")"
         },
         {
             "type": "publicip",
             $fmtline_publicip
             "key": " ├ 󰞉 ",
-            "keyColor": "$color4",
-            "outputColor": "$output_color"
+            "keyColor": "$(get_module_color "publicip" "$theme" "$color4")",
+            "outputColor": "$(get_module_color "publicip" "$theme" "$output_color")"
         },
         "break",
         {
@@ -5221,87 +5317,87 @@ $(logo_dimensions_json_fields "$logo_actual_type" "$logo_source" 14)
             "type": "os",
             $fmtline_os
             "key": " ├ 󰣇 ",
-            "keyColor": "$color1",
-            "outputColor": "$output_color"
+            "keyColor": "$(get_module_color "os" "$theme" "$color1")",
+            "outputColor": "$(get_module_color "os" "$theme" "$output_color")"
         },
         {
             "type": "kernel",
             $fmtline_kernel
             "key": " ├ 󰌢 ",
-            "keyColor": "$color1",
-            "outputColor": "$output_color"
+            "keyColor": "$(get_module_color "kernel" "$theme" "$color1")",
+            "outputColor": "$(get_module_color "kernel" "$theme" "$output_color")"
         },
         {
             "type": "uptime",
             $fmtline_uptime
             "key": " ├ 󰔟 ",
-            "keyColor": "$color1",
-            "outputColor": "$output_color"
+            "keyColor": "$(get_module_color "uptime" "$theme" "$color1")",
+            "outputColor": "$(get_module_color "uptime" "$theme" "$output_color")"
         },
         "break",
         {
             "type": "cpu",
             $fmtline_cpu
             "key": " ├ 󰻠 ",
-            "keyColor": "$color2",
-            "outputColor": "$output_color"
+            "keyColor": "$(get_module_color "cpu" "$theme" "$color2")",
+            "outputColor": "$(get_module_color "cpu" "$theme" "$output_color")"
         },
         {
             "type": "gpu",
             $fmtline_gpu
             "key": " ├ 󰢮 ",
-            "keyColor": "$color2",
-            "outputColor": "$output_color"
+            "keyColor": "$(get_module_color "gpu" "$theme" "$color2")",
+            "outputColor": "$(get_module_color "gpu" "$theme" "$output_color")"
         },
         {
             "type": "memory",
             $fmtline_memory
             "key": " ├ 󰍛 ",
-            "keyColor": "$color2",
-            "outputColor": "$output_color"
+            "keyColor": "$(get_module_color "memory" "$theme" "$color2")",
+            "outputColor": "$(get_module_color "memory" "$theme" "$output_color")"
         },
         {
             "type": "swap",
             $fmtline_swap
             "key": " ├ 󰓡 ",
-            "keyColor": "$color2",
-            "outputColor": "$output_color"
+            "keyColor": "$(get_module_color "swap" "$theme" "$color2")",
+            "outputColor": "$(get_module_color "swap" "$theme" "$output_color")"
         },
         {
             "type": "disk",
             $fmtline_disk
             "key": " ├ 󰋊 ",
-            "keyColor": "$color2",
-            "outputColor": "$output_color"
+            "keyColor": "$(get_module_color "disk" "$theme" "$color2")",
+            "outputColor": "$(get_module_color "disk" "$theme" "$output_color")"
         },
         {
             "type": "display",
             $fmtline_display
             "key": " ├ 󰍹 ",
-            "keyColor": "$color2",
-            "outputColor": "$output_color"
+            "keyColor": "$(get_module_color "display" "$theme" "$color2")",
+            "outputColor": "$(get_module_color "display" "$theme" "$output_color")"
         },
         {
             "type": "battery",
             $fmtline_battery
             "key": " ├ 󰂎 ",
-            "keyColor": "$color2",
-            "outputColor": "$output_color"
+            "keyColor": "$(get_module_color "battery" "$theme" "$color2")",
+            "outputColor": "$(get_module_color "battery" "$theme" "$output_color")"
         },
         "break",
         {
             "type": "localip",
             $fmtline_localip
             "key": " ├ 󰩟 ",
-            "keyColor": "$color3",
-            "outputColor": "$output_color"
+            "keyColor": "$(get_module_color "localip" "$theme" "$color3")",
+            "outputColor": "$(get_module_color "localip" "$theme" "$output_color")"
         },
         {
             "type": "wifi",
             $fmtline_wifi
             "key": " ├ 󰖩 ",
-            "keyColor": "$color3",
-            "outputColor": "$output_color"
+            "keyColor": "$(get_module_color "wifi" "$theme" "$color3")",
+            "outputColor": "$(get_module_color "wifi" "$theme" "$output_color")"
         },
         "break",
         {
@@ -5451,8 +5547,8 @@ EOF
         ,{
             "type": "$m",
             "key": " ├ $icon  ",
-            "keyColor": "$color1",
-            "outputColor": "$output_color"
+            "keyColor": "$(get_module_color "$m" "$theme" "$color1")",
+            "outputColor": "$(get_module_color "$m" "$theme" "$output_color")"
         }
 EOF
     done
@@ -5726,6 +5822,10 @@ setup_permissions() {
     print_success "Permissions configured"
 }
 
+has_external_fetch_startup() {
+    [ -f "$1" ] && grep -Eq '^[[:space:]]*((command|exec)[[:space:]]+)?("?[^[:space:]]*/)?(fastfetch|tfs-fastfetch)("?([[:space:]]|$))|^[[:space:]]*termfetch-studio[[:space:]]+--preview' "$1"
+}
+
 setup_shell_integration() {
     print_info "Setting up shell integration..."
 
@@ -5737,11 +5837,18 @@ setup_shell_integration() {
         fi
 
         # Add new integration block with markers
+        local external_startup=false
+        has_external_fetch_startup "$HOME/.bashrc" && external_startup=true
+        printf '\n# TermFetch Studio - START\n' >> "$HOME/.bashrc"
+        printf '_tfs_external_startup=%s\n' "$external_startup" >> "$HOME/.bashrc"
         cat >> "$HOME/.bashrc" << 'BASHRC'
 
-# TermFetch Studio - START
 export PATH="$HOME/.local/bin:$PATH"
-if [[ $- == *i* ]] && [ -t 1 ]; then
+if [[ $- == *i* ]] && [ -t 1 ] && [ "${_tfs_external_startup:-false}" = true ]; then export TFS_STARTUP_TTY="$(tty 2>/dev/null)"; fi
+if [[ $- == *i* ]] && [ -t 1 ] && [ "${_tfs_external_startup:-false}" != true ]; then
+_tfs_tty=$(tty 2>/dev/null)
+if [ "${TFS_STARTUP_TTY:-}" != "$_tfs_tty" ]; then
+export TFS_STARTUP_TTY="$_tfs_tty"
 [ -f ~/.config/termfetch-studio/theme.sh ] && source ~/.config/termfetch-studio/theme.sh
 if [ -x "$HOME/.local/bin/tfs-fastfetch" ]; then
     "$HOME/.local/bin/tfs-fastfetch"
@@ -5749,6 +5856,8 @@ elif command -v fastfetch &> /dev/null && [ -f ~/.config/termfetch-studio/fastfe
     fastfetch --config ~/.config/termfetch-studio/fastfetch.jsonc
 fi
 fi
+fi
+unset _tfs_tty _tfs_external_startup
 # TermFetch Studio - END
 BASHRC
         print_success "Added to ~/.bashrc"
@@ -5761,11 +5870,18 @@ BASHRC
         fi
 
         # Add new integration block with markers
+        local external_startup=false
+        has_external_fetch_startup "$HOME/.zshrc" && external_startup=true
+        printf '\n# TermFetch Studio - START\n' >> "$HOME/.zshrc"
+        printf '_tfs_external_startup=%s\n' "$external_startup" >> "$HOME/.zshrc"
         cat >> "$HOME/.zshrc" << 'ZSHRC'
 
-# TermFetch Studio - START
 export PATH="$HOME/.local/bin:$PATH"
-if [[ -o interactive ]] && [[ -t 1 ]]; then
+if [[ -o interactive ]] && [ -t 1 ] && [ "${_tfs_external_startup:-false}" = true ]; then export TFS_STARTUP_TTY="$(tty 2>/dev/null)"; fi
+if [[ -o interactive ]] && [[ -t 1 ]] && [[ "${_tfs_external_startup:-false}" != true ]]; then
+_tfs_tty=$(tty 2>/dev/null)
+if [[ "${TFS_STARTUP_TTY:-}" != "$_tfs_tty" ]]; then
+export TFS_STARTUP_TTY="$_tfs_tty"
 [ -f ~/.config/termfetch-studio/theme.sh ] && source ~/.config/termfetch-studio/theme.sh
 if [ -x "$HOME/.local/bin/tfs-fastfetch" ]; then
     "$HOME/.local/bin/tfs-fastfetch"
@@ -5773,6 +5889,8 @@ elif command -v fastfetch &> /dev/null && [ -f ~/.config/termfetch-studio/fastfe
     fastfetch --config ~/.config/termfetch-studio/fastfetch.jsonc
 fi
 fi
+fi
+unset _tfs_tty _tfs_external_startup
 # TermFetch Studio - END
 ZSHRC
         print_success "Added to ~/.zshrc"
@@ -5783,11 +5901,20 @@ ZSHRC
         sed -i '/# TermFetch Studio - START/,/# TermFetch Studio - END/d' "$HOME/.config/fish/config.fish" 2>/dev/null || true
 
         # Add new integration block with markers
+        local external_startup=false
+        has_external_fetch_startup "$HOME/.config/fish/config.fish" && external_startup=true
+        printf '\n# TermFetch Studio - START\n' >> "$HOME/.config/fish/config.fish"
+        printf 'set -l _tfs_external_startup %s\n' "$external_startup" >> "$HOME/.config/fish/config.fish"
         cat >> "$HOME/.config/fish/config.fish" << 'FISHRC'
 
-# TermFetch Studio - START
 fish_add_path ~/.local/bin
-if status is-interactive; and test -t 1
+if status is-interactive; and test -t 1; and test "$_tfs_external_startup" = true
+set -gx TFS_STARTUP_TTY (tty 2>/dev/null)
+end
+if status is-interactive; and test -t 1; and test "$_tfs_external_startup" != true
+set -l _tfs_tty (tty 2>/dev/null)
+if test "$TFS_STARTUP_TTY" != "$_tfs_tty"
+set -gx TFS_STARTUP_TTY "$_tfs_tty"
 test -f ~/.config/termfetch-studio/theme.sh && bash ~/.config/termfetch-studio/theme.sh
 if test -x ~/.local/bin/tfs-fastfetch
     ~/.local/bin/tfs-fastfetch
@@ -5795,6 +5922,8 @@ else if command -v fastfetch &> /dev/null && test -f ~/.config/termfetch-studio/
     fastfetch --config ~/.config/termfetch-studio/fastfetch.jsonc
 end
 end
+end
+set -e _tfs_external_startup
 # TermFetch Studio - END
 FISHRC
         print_success "Added to ~/.config/fish/config.fish"

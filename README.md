@@ -137,11 +137,28 @@ and the [earlier bug reproduction](tests/ui-evidence/README.md).
 
 ### Live icon and text colors
 
-Open **Icon & Text Colors**. Use ↑↓ to select Icons/Text and ←→ to change the
-color while watching the inline sample. **Save & Back** commits both fields;
-**Q** cancels the draft. Theme/Default are available per field; Reset to Theme
-resets the draft. The menu stays in one screen session while opening submenus.
-See [current transition and live-color evidence](tests/live-colors-evidence/README.md).
+Open **Icon & Text Colors** for independent Icons/Text colors and five group
+colors: **OS, Desktop, Hardware, Network, Time**. Use ↑↓ to select a field and
+←→ to change its inline sample. **Save & Back** commits the draft; **Q** cancels.
+A group override colors both its icons and text; **Inherit** retains the current
+global/preset colors. **Theme** uses that group's theme accent; **Default** uses
+the terminal foreground. Reset to Theme resets the draft, including overrides.
+Choose from 15 ANSI foregrounds and 16 named RGB shades, in addition to these
+special choices. RGB shades need a truecolor terminal; no external service is used.
+The duplicate Advanced Settings color entry has been removed.
+See [group colors and startup evidence](tests/group-colors-evidence/README.md)
+and [earlier transition evidence](tests/live-colors-evidence/README.md).
+
+### A single fetch on terminal startup
+
+Reinstallation replaces only the marked integration block. If a direct fastfetch
+startup command already exists outside that block, the installer preserves it
+and suppresses its own automatic fetch. Managed Bash/Zsh/Fish startup also guards
+against repeated sourcing and nested managed shells on the same terminal.
+Personal startup commands are not deleted or rewritten. Detection covers direct
+command lines, not arbitrary functions/plugins; repeated calls in personal code
+may still need manual review. Reinstall the local checkout to activate this fix;
+existing installed files are not updated merely by changing the repository.
 
 ### Compatibility evidence (x86_64)
 
@@ -613,29 +630,27 @@ Create your own module combinations:
 ## 🎨 Advanced Color Customization
 
 ### Color Settings Menu
-Access through: `⚙️ Advanced Settings → 🎨 Color Settings`
 
-**Available Color Categories:**
-- **🔑 Icon Color (keyColor)**: Colors for module icons (OS, Kernel, etc.)
-- **📝 Text Color (outputColor)**: Colors for the actual information text
-- **🏷️ Title Color**: Colors for the main title/header
-- **📏 Underline Color**: Colors for the separator line
+Access through **Main Menu → Icon & Text Colors**. This is the single color editor.
 
-**Color Modes:**
-- **🎨 Theme Colors**: Automatic color selection based on current theme
-- **🎯 Custom Colors**: Manual color selection for complete control
-- **🔄 Smart Switching**: Easy toggle between theme and custom modes
+| Field | Effect |
+| --- | --- |
+| Icons / Text | Independent global module icon and value foregrounds |
+| OS group | OS, kernel, packages, shell |
+| Desktop group | Desktop/window manager, theme, icons, cursor, terminal/font |
+| Hardware group | Host, CPU, GPU, memory, swap, disks, displays, battery |
+| Network group | Local/public IP, Wi-Fi, network I/O where present |
+| Time group | Date/time, uptime |
 
-**Color Options:**
-- Blue, Red, Green, Yellow, Magenta, Cyan, White, Black
-- Bright variants: Bright Blue, Bright Red, etc.
-- Default option for value colors
+Group overrides apply to modules present in the selected preset; they do not add
+modules or change the spacing/order. Titles and fastfetch's internal percentage
+colors are outside these group overrides. The inline panel uses illustrative
+sample values; the complete preview uses actual fastfetch output.
 
-**Features:**
-- **🎨 Live Preview**: See changes before applying
-- **🔄 Reset to Default**: One-click restore to theme colors
-- **⚡ Auto-Apply**: Changes apply immediately
-- **🎯 Independent Control**: Icon and text colors can be set separately
+Use ↑↓ for fields, ←→ (or Enter on a color field) for colors, **Save & Back** to
+persist and **Q** to cancel. Reset only changes the draft until saved. Available:
+Theme, Default, 15 ANSI colors, and 16 named RGB colors (Orange through Silver).
+Groups additionally offer Inherit to keep the preset/global icon/text colors.
 
 ---
 

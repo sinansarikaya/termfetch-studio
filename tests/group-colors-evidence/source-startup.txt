@@ -1,0 +1,110 @@
+5825: has_external_fetch_startup() {
+5826:     [ -f "$1" ] && grep -Eq '^[[:space:]]*((command|exec)[[:space:]]+)?("?[^[:space:]]*/)?(fastfetch|tfs-fastfetch)("?([[:space:]]|$))|^[[:space:]]*termfetch-studio[[:space:]]+--preview' "$1"
+5827: }
+5828: 
+5829: setup_shell_integration() {
+5830:     print_info "Setting up shell integration..."
+5831: 
+5832:     # Detect shell and add integration
+5833:     if [ -n "$BASH_VERSION" ] || [ -f "$HOME/.bashrc" ]; then
+5834:         # Remove any existing TermFetch Studio block
+5835:         if [ -f "$HOME/.bashrc" ]; then
+5836:             sed -i '/# TermFetch Studio - START/,/# TermFetch Studio - END/d' "$HOME/.bashrc" 2>/dev/null || true
+5837:         fi
+5838: 
+5839:         # Add new integration block with markers
+5840:         local external_startup=false
+5841:         has_external_fetch_startup "$HOME/.bashrc" && external_startup=true
+5842:         printf '\n# TermFetch Studio - START\n' >> "$HOME/.bashrc"
+5843:         printf '_tfs_external_startup=%s\n' "$external_startup" >> "$HOME/.bashrc"
+5844:         cat >> "$HOME/.bashrc" << 'BASHRC'
+5845: 
+5846: export PATH="$HOME/.local/bin:$PATH"
+5847: if [[ $- == *i* ]] && [ -t 1 ] && [ "${_tfs_external_startup:-false}" = true ]; then export TFS_STARTUP_TTY="$(tty 2>/dev/null)"; fi
+5848: if [[ $- == *i* ]] && [ -t 1 ] && [ "${_tfs_external_startup:-false}" != true ]; then
+5849: _tfs_tty=$(tty 2>/dev/null)
+5850: if [ "${TFS_STARTUP_TTY:-}" != "$_tfs_tty" ]; then
+5851: export TFS_STARTUP_TTY="$_tfs_tty"
+5852: [ -f ~/.config/termfetch-studio/theme.sh ] && source ~/.config/termfetch-studio/theme.sh
+5853: if [ -x "$HOME/.local/bin/tfs-fastfetch" ]; then
+5854:     "$HOME/.local/bin/tfs-fastfetch"
+5855: elif command -v fastfetch &> /dev/null && [ -f ~/.config/termfetch-studio/fastfetch.jsonc ]; then
+5856:     fastfetch --config ~/.config/termfetch-studio/fastfetch.jsonc
+5857: fi
+5858: fi
+5859: fi
+5860: unset _tfs_tty _tfs_external_startup
+5861: # TermFetch Studio - END
+5862: BASHRC
+5863:         print_success "Added to ~/.bashrc"
+5864:     fi
+5865: 
+5866:     if [ -n "$ZSH_VERSION" ] || [ -f "$HOME/.zshrc" ]; then
+5867:         # Remove any existing TermFetch Studio block
+5868:         if [ -f "$HOME/.zshrc" ]; then
+5869:             sed -i '/# TermFetch Studio - START/,/# TermFetch Studio - END/d' "$HOME/.zshrc" 2>/dev/null || true
+5870:         fi
+5871: 
+5872:         # Add new integration block with markers
+5873:         local external_startup=false
+5874:         has_external_fetch_startup "$HOME/.zshrc" && external_startup=true
+5875:         printf '\n# TermFetch Studio - START\n' >> "$HOME/.zshrc"
+5876:         printf '_tfs_external_startup=%s\n' "$external_startup" >> "$HOME/.zshrc"
+5877:         cat >> "$HOME/.zshrc" << 'ZSHRC'
+5878: 
+5879: export PATH="$HOME/.local/bin:$PATH"
+5880: if [[ -o interactive ]] && [ -t 1 ] && [ "${_tfs_external_startup:-false}" = true ]; then export TFS_STARTUP_TTY="$(tty 2>/dev/null)"; fi
+5881: if [[ -o interactive ]] && [[ -t 1 ]] && [[ "${_tfs_external_startup:-false}" != true ]]; then
+5882: _tfs_tty=$(tty 2>/dev/null)
+5883: if [[ "${TFS_STARTUP_TTY:-}" != "$_tfs_tty" ]]; then
+5884: export TFS_STARTUP_TTY="$_tfs_tty"
+5885: [ -f ~/.config/termfetch-studio/theme.sh ] && source ~/.config/termfetch-studio/theme.sh
+5886: if [ -x "$HOME/.local/bin/tfs-fastfetch" ]; then
+5887:     "$HOME/.local/bin/tfs-fastfetch"
+5888: elif command -v fastfetch &> /dev/null && [ -f ~/.config/termfetch-studio/fastfetch.jsonc ]; then
+5889:     fastfetch --config ~/.config/termfetch-studio/fastfetch.jsonc
+5890: fi
+5891: fi
+5892: fi
+5893: unset _tfs_tty _tfs_external_startup
+5894: # TermFetch Studio - END
+5895: ZSHRC
+5896:         print_success "Added to ~/.zshrc"
+5897:     fi
+5898: 
+5899:     if [ -f "$HOME/.config/fish/config.fish" ]; then
+5900:         # Remove any existing TermFetch Studio block
+5901:         sed -i '/# TermFetch Studio - START/,/# TermFetch Studio - END/d' "$HOME/.config/fish/config.fish" 2>/dev/null || true
+5902: 
+5903:         # Add new integration block with markers
+5904:         local external_startup=false
+5905:         has_external_fetch_startup "$HOME/.config/fish/config.fish" && external_startup=true
+5906:         printf '\n# TermFetch Studio - START\n' >> "$HOME/.config/fish/config.fish"
+5907:         printf 'set -l _tfs_external_startup %s\n' "$external_startup" >> "$HOME/.config/fish/config.fish"
+5908:         cat >> "$HOME/.config/fish/config.fish" << 'FISHRC'
+5909: 
+5910: fish_add_path ~/.local/bin
+5911: if status is-interactive; and test -t 1; and test "$_tfs_external_startup" = true
+5912: set -gx TFS_STARTUP_TTY (tty 2>/dev/null)
+5913: end
+5914: if status is-interactive; and test -t 1; and test "$_tfs_external_startup" != true
+5915: set -l _tfs_tty (tty 2>/dev/null)
+5916: if test "$TFS_STARTUP_TTY" != "$_tfs_tty"
+5917: set -gx TFS_STARTUP_TTY "$_tfs_tty"
+5918: test -f ~/.config/termfetch-studio/theme.sh && bash ~/.config/termfetch-studio/theme.sh
+5919: if test -x ~/.local/bin/tfs-fastfetch
+5920:     ~/.local/bin/tfs-fastfetch
+5921: else if command -v fastfetch &> /dev/null && test -f ~/.config/termfetch-studio/fastfetch.jsonc
+5922:     fastfetch --config ~/.config/termfetch-studio/fastfetch.jsonc
+5923: end
+5924: end
+5925: end
+5926: set -e _tfs_external_startup
+5927: # TermFetch Studio - END
+5928: FISHRC
+5929:         print_success "Added to ~/.config/fish/config.fish"
+5930:     fi
+5931: 
+5932:     print_success "Shell integration configured"
+5933: }
+5934: 
