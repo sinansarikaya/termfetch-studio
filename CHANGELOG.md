@@ -33,9 +33,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.0.0] - 2026-10-09
 
 ### Added
-- Initial release of TermFetch Studio.
+- Initial release of TermFetch Studio baseline.
 - 25 built-in themes and 8 popular themes (Cyberpunk, Matrix, Naruto, etc.).
 - 6 fastfetch presets (Minimal, Classic, Modern, Hardware, Neofetch, Gaming).
 - Image and ASCII logo support with auto-conversion and 16 built-in ASCII logos.
 - Shell startup integration for Bash, Zsh, and Fish.
 - Backup and restore manager with automatic backups before modifications.
+
+### Documentation
+- Reorganized the README around product previews, installation and command usage.
+- Moved detailed usage documentation to `docs/USER_GUIDE.md`.
+- Added prepared release notes in `docs/RELEASE_NOTES.md`.
+
+## [Historical Commits]
+
+### 2025-12-06 — Untagged update, application version 1.0.0
+- Major UX improvements and bug fixes ([Commit 8f26432](https://github.com/sinansarikaya/termfetch-studio/commit/8f26432b3563a0eed11b6316385c2aa880ef8489)).
+
+### 2025-10-12 — Untagged update, application version 1.0.0
+- Live theme color previews and active theme/preset indicators.
+- Back navigation and theme restoration improvements.
+- Removal of application delays and updated menu transitions.
+- Logo preview and terminal-detection improvements ([Commit 576bdb4](https://github.com/sinansarikaya/termfetch-studio/commit/576bdb4508aa668f866c6fcb4afb8fe4e80f1a23)).
+
+### 2025-10-11 — Initial 1.0 code baseline
+- Interactive terminal theme selection and previews.
+- fastfetch configuration and presets ([Commit d33cdd7](https://github.com/sinansarikaya/termfetch-studio/commit/d33cdd7357fb58fabbf472f91b667db8ad656a6d)).
+
+### 2025-10-04 — Repository created
+- Initial project creation ([Commit 7db8dbd](https://github.com/sinansarikaya/termfetch-studio/commit/7db8dbd6ee38c56d3529a4c549384a31bc19dcb8)).
