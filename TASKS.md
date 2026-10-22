@@ -38,6 +38,15 @@
 - **Changed Files**: []
 - **Evidence Paths**: ["tests/live-colors-evidence", "tests/ui_regression.py", "tests/vm_preview_capture.py", "tests/docker_matrix.py"]
 - **Accepted At**: 2026-10-22T08:37:46Z
+
+### Task: group-colors-startup-final-review - Independent read-only review. Read tests/group-colors-evidence/changes.patch and README.md/report, tests/shell_integration.py and tests/ui_regression.py. Five semantic group colors override both key/output in all six preset generators; Inherit/Theme/Default and 16 named RGB palette. Advanced duplicate removed with reindexed dispatch. Shell integration preserves personal code, detects direct external startup call and suppresses own call, guards repeated sourcing/nested managed shells using TTY marker; noninteractive quiet. Assess real bugs/data preservation, invalid values, correct live sample and save/cancel/reset, preset mapping and reports. 25 PTY tests, four Docker scenarios/120 checks with actual fastfetch, old-source dedup failure, native Arch/Hyprland/Kitty screenshots inspected by leader. Do not claim direct PNG review. Full install.sh may exceed read cap; patch and source snippets available. No writes, no agents. Run allowed compileall. Return significant actionable findings or clear acceptance. Prior initial-review.json found a real P2: Inherit sample did not match selected preset. Now color_preview_base_colors generates the selected preset once in a private mktemp config copy, forces only that copy to theme and inherit, reads actual module key/output colors and caches first representative per semantic group for the session. The global BOTH theme + group Inherit case uses these cache values. No navigation regeneration or writes to actual config. Review cleanup/copy/dynamic CONFIG_FILE scope and performance/error behavior. New test compares Minimal/Time and Gaming/Hardware preview SGR to generated JSON; before-inherit.log fails, final regression25passes. Read source-editor.txt includes helper. Original startup and group override source unchanged since initial review. Source/JSON reports and native screenshot hashes match final installer. Full workspace is frozen; no writes.
+- **Status**: Done (Accepted)
+- **Role**: code-reviewer
+- **Provider**: codex
+- **Leader Summary**: P2 Inherit mismatch reproduced and corrected; independent review clear; 25 PTY tests, 120 Docker checks, shell deduplication and real native Kitty screenshots verified.
+- **Changed Files**: []
+- **Evidence Paths**: ["tests/group-colors-evidence/source-editor.txt", "tests/group-colors-evidence/source-startup.txt", "tests/group-colors-evidence/changes.patch", "tests/group-colors-evidence/README.md", "README.md"]
+- **Accepted At**: 2026-10-22T09:13:28Z
 <!-- AI-TEAM-TASKS-END -->
 
 ## Initial attempt (not accepted)
@@ -84,3 +93,13 @@
 - Kitty upload/place/owned-ID retirement, scoped symbols fallback, simple live color draft editor with Save/Cancel.
 - 21 tests and 4 Docker scenarios/116 checks passed; native samples include menu text and graphics.
 - persistent-ui-colors-review accepted; source/native/Docker hashes match. No significant open findings. No host application/settings changes.
+
+## Group colors and startup — 22 October 2026
+- Reproduced repeated startup output with the prior installer; host read-only evidence showed legacy external Fish startup plus a managed block. Personal blocks are preserved.
+- Consolidated color editor, five semantic group overrides, local RGB palette; no external color service or new runtime dependency.
+- 25 PTY tests, 4 Docker scenarios/120 checks, Bash/Zsh/Fish startup/deduplication and native Arch/Hyprland/Kitty screenshots passed.
+- Scope: host application/settings untouched; version remains 1.0.0. Other graphical terminals need manual validation.
+- Reviewer selection: code-reviewer used for independent Bash/data-preservation review; automatic surgeon-reviewer metadata suggestion was narrower than the required full regression/evidence gate.
+- group-colors-startup-final-review accepted after a frozen-workspace review; no significant open findings.
+
+- First review found P2 Inherit sample/preset mismatch; reproduced with a failing test and corrected using a private generated config cache. Initial review not accepted; corrected source passed the bounded final review.
