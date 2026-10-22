@@ -28,7 +28,7 @@ def probe(state, source):
                             [("Install Nerd Fonts? (Y/n)", "n"),
                              ("Would you like to start TermFetch Studio now? (Y/n):", "n")])
                 present = user_run(name, "test -x ~/.local/bin/termfetch-studio && termfetch-studio --version").stdout.strip()
-                result["install"] = "passed" if "1.0.0" in present else "unexpected"
+                result["install"] = "passed" if "1.1.0" in present else "unexpected"
             except Exception as exc:
                 result["install"] = f"failed: {exc}"
     finally:
