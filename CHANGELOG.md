@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Keep one alternate-screen session across interactive submenus so the underlying fastfetch page is not exposed between selections.
+- Stop clearing the whole screen on arrow navigation; upload Kitty previews without displaying them, then swap and delete only owned image IDs.
+- Replace color mode/pickers/separate preview with one live draft editor, save/cancel and per-field Theme/Default handling.
+- Validate all preset color combinations with real fastfetch and add application-level transition/signal regressions.
+
 - Enlarge medium/large image-logo limits while retaining source proportions and terminal bounds.
 - Prepare complete menu frames before display so slow preview conversion does not blank the visible preview.
 

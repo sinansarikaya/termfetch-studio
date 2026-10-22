@@ -662,7 +662,9 @@ EOF
         exit 0
         ;;
     "")
-        # Interactive mode
+        # One alternate-screen session for the whole interactive application.
+        trap 'ui_session_end' EXIT
+        ui_session_begin
         init_config
         first_run_wizard
         main_menu
@@ -1015,11 +1017,31 @@ _ui_put() {
     printf '\033[0m'
 }
 
+ui_session_begin() {
+    [[ "${_UI_SESSION_ACTIVE:-0}" == 1 ]] && return 0
+    [ -t 0 ] && [ -t 1 ] || return 0
+    _UI_SESSION_STTY=$(stty -g 2>/dev/null) || _UI_SESSION_STTY=''
+    _UI_SESSION_ACTIVE=1
+    printf '\033[?1049h'
+}
+
+ui_session_end() {
+    [[ "${_UI_SESSION_ACTIVE:-0}" == 1 ]] || return 0
+    _UI_SESSION_ACTIVE=0
+    printf '\033[?2026l\033[0m\033[?25h\033[?1049l'
+    [ -n "${_UI_SESSION_STTY:-}" ] && stty "$_UI_SESSION_STTY" 2>/dev/null || true
+}
+
 _ui_teardown() {
     [ "${_ui_active:-0}" = 1 ] || return 0
     _ui_active=0
-    [ -n "${_ui_frame_file:-}" ] && rm -f -- "$_ui_frame_file"
-    printf '\033[?2026l\033[0m\033[?25h\033[?1049l'
+    local image_id
+    for image_id in "${_ui_image_current:-0}" "${_ui_image_pending:-0}"; do
+        ((image_id > 0)) && printf '\033_Ga=d,d=I,i=%s,q=2\033\\' "$image_id"
+    done
+    [ -n "${_ui_workdir:-}" ] && rm -rf -- "$_ui_workdir"
+    printf '\033[?2026l\033[0m\033[?25h'
+    [[ "${_UI_SESSION_ACTIVE:-0}" == 1 ]] || printf '\033[?1049l'
     [ -n "$_ui_stty" ] && stty "$_ui_stty" 2>/dev/null || true
     trap - EXIT INT TERM HUP WINCH
     local saved
@@ -1032,15 +1054,25 @@ _ui_teardown() {
 _ui_draw_menu() {
     # Prepare the complete frame off screen, including slow image conversion.
     # Never clear the visible preview while waiting for its replacement.
+    if [[ "$_ui_frame_geometry" != "$_ui_width:$_ui_height" ]]; then
+        # Clear before uploading: Kitty can discard uploaded data on ED2.
+        printf '\033[H\033[2J'
+        _ui_frame_geometry="$_ui_width:$_ui_height"
+    fi
+    : > "$_ui_upload_file"
+    _ui_image_pending=0
     _ui_render_menu > "$_ui_frame_file"
+    # Upload a new Kitty image WITHOUT placing it while the old one stays visible.
+    [ -s "$_ui_upload_file" ] && cat -- "$_ui_upload_file"
     cat -- "$_ui_frame_file"
+    _ui_image_current=$_ui_image_pending
 }
 
 _ui_render_menu() {
     local list_start=5 cols=1 logical_rows sel_row visible start end row index col cell_w
     local list_width=$_ui_width preview_x=1 preview_y=0 preview_cols=$((_ui_width - 2)) side=0
     _ui_preview_rows=0
-    if [ -n "$_ui_preview" ] && ((_ui_height >= 16)); then
+    if [ -n "$_ui_preview" ] && { ((_ui_height >= 16)) || { [[ "$_ui_preview" == preview_color_sample ]] && ((_ui_height >= 12)); }; }; then
         if ((_ui_width >= 110)); then
             side=1; list_width=$((_ui_width * 55 / 100))
             preview_x=$((list_width + 3)); preview_y=4
@@ -1065,7 +1097,7 @@ _ui_render_menu() {
     ((_ui_start > logical_rows - visible)) && _ui_start=$((logical_rows - visible))
     ((_ui_start < 0)) && _ui_start=0
     start=$_ui_start; end=$((start + visible)); cell_w=$((list_width / cols))
-    printf '\033[?2026h\033[H\033[2J'
+    printf '\033[?2026h'
     if ((_ui_height < 8 || _ui_width < 20)); then
         _ui_put 1 1 "$((_ui_width - 1))" 'Resize terminal; Q to back'
         printf '\033[?2026l'
@@ -1076,6 +1108,9 @@ _ui_render_menu() {
     local title=${_ui_prompt%% \[*}
     _ui_put 3 1 "$((_ui_width - 1))" "$title" '\033[1;33m'
     local UI_OPTION_ICON UI_OPTION_LABEL style x y
+    for ((row=list_start; row<list_start + visible; row++)); do
+        printf '\033[%d;1H%*s' "$row" "$((list_width - 1))" ''
+    done
     for ((row=start; row<end; row++)); do
         for ((col=0; col<cols; col++)); do
             index=$((row + col * logical_rows))
@@ -1094,9 +1129,14 @@ _ui_render_menu() {
         ((!side)) && preview_y=$((list_start + visible + 1))
         local UI_PREVIEW_COLS=$preview_cols UI_PREVIEW_ROWS=$_ui_preview_rows
         local UI_PREVIEW_X=$preview_x UI_PREVIEW_Y=$((preview_y + 1))
+        if [[ "$_ui_preview" != preview_image_logo ]]; then
+            for ((row=UI_PREVIEW_Y; row<UI_PREVIEW_Y + UI_PREVIEW_ROWS; row++)); do
+                printf '\033[%d;%dH%*s' "$row" "$preview_x" "$preview_cols" ''
+            done
+        fi
         _ui_put "$preview_y" "$preview_x" "$preview_cols" 'Preview' '\033[1;33m'
         printf '\033[%d;%dH' "$UI_PREVIEW_Y" "$preview_x"
-        if [[ "$_ui_preview" == preview_image_logo || "$_ui_preview" == preview_theme ]]; then
+        if [[ "$_ui_preview" == preview_image_logo || "$_ui_preview" == preview_theme || "$_ui_preview" == preview_color_sample ]]; then
             "$_ui_preview" "$_ui_selected" 2>/dev/null || true
         else
             local output line n=0
@@ -1108,12 +1148,20 @@ _ui_render_menu() {
             done <<< "$output"
         fi
     fi
+    printf '\033[%d;1H\033[2K\033[%d;1H\033[2K' "$((_ui_height - 1))" "$_ui_height"
     _ui_put "$((_ui_height - 1))" 1 "$((_ui_width - 1))" "Items $((start + 1))-$end/$logical_rows | Selected $((_ui_selected + 1))/$_ui_total" '\033[2m'
     local keys='↑↓ Select · Enter Apply · Q Back'
     ((cols == 2)) && keys='↑↓←→ Select · Enter Apply · Q Back'
     ((_ui_width < 36)) && keys='↑↓ Enter Q:Back'
     ((_ui_height < 16 && _ui_width >= 50 && ${#_ui_preview} > 0)) && keys+=' | preview hidden'
+    [ -n "${UI_MENU_KEYS:-}" ] && keys=$UI_MENU_KEYS
+    if [[ "${UI_MENU_ON_KEY:-}" == color_editor_key ]] && ((_ui_width < 60)); then
+        keys='↑↓ Field ←→ Color Enter Q:Cancel'
+    fi
     _ui_put "$_ui_height" 1 "$((_ui_width - 1))" "$keys" '\033[2m'
+    if ((_ui_image_current > 0 && _ui_image_current != _ui_image_pending)); then
+        printf '\033_Ga=d,d=I,i=%s,q=2\033\\' "$_ui_image_current"
+    fi
     printf '\033[?2026l'
     _ui_cols=$cols; _ui_rows=$logical_rows
 }
@@ -1127,8 +1175,10 @@ _ui_menu() {
     fi
     ((_ui_total > 0)) && [ -t 0 ] && [ -t 1 ] || return 255
     local _ui_width=0 _ui_height=0 _ui_cols=1 _ui_rows=1 _ui_active=1 _ui_resize=1 _ui_signal=0
-    local _ui_frame_file
-    _ui_frame_file=$(mktemp "${TMPDIR:-/tmp}/tfs-frame.XXXXXXXX") || return 255
+    local _ui_workdir _ui_frame_file _ui_upload_file _ui_frame_geometry=''
+    local _ui_image_current=0 _ui_image_pending=0
+    _ui_workdir=$(mktemp -d "${TMPDIR:-/tmp}/tfs-menu.XXXXXXXX") || return 255
+    _ui_frame_file="$_ui_workdir/frame"; _ui_upload_file="$_ui_workdir/upload"
     local _ui_stty _ui_old_exit _ui_old_int _ui_old_term _ui_old_hup _ui_old_winch
     _ui_stty=$(stty -g 2>/dev/null) || _ui_stty=''
     _ui_old_exit=$(trap -p EXIT); _ui_old_int=$(trap -p INT); _ui_old_term=$(trap -p TERM)
@@ -1141,7 +1191,8 @@ _ui_menu() {
     # Keep input mode stable across resize/poll cycles; per-read mode changes
     # can discard a key arriving between redraw and the next read.
     stty -echo -icanon min 1 time 0 2>/dev/null || { _ui_teardown; return 255; }
-    printf '\033[?1049h\033[?25l'
+    [[ "${_UI_SESSION_ACTIVE:-0}" == 1 ]] || printf '\033[?1049h'
+    printf '\033[?25l'
     local key rest status w h result=255 pending='' chunk
     while true; do
         ((_ui_signal)) && break
@@ -1160,7 +1211,9 @@ _ui_menu() {
         key=${pending:0:1}; pending=${pending:1}
         if [[ "$key" == $'\004' || "$key" == q || "$key" == Q ]]; then break
         elif ((_ui_height < 8 || _ui_width < 20)); then continue
-        elif [[ "$key" == $'\n' || "$key" == $'\r' ]]; then result=$_ui_selected; break
+        elif [[ "$key" == $'\n' || "$key" == $'\r' ]]; then
+            if [ -n "${UI_MENU_ON_KEY:-}" ] && "$UI_MENU_ON_KEY" enter; then _ui_resize=1; continue; fi
+            result=$_ui_selected; break
         elif [[ "$key" == $'\033' ]]; then
             if ((${#pending} < 2)); then
                 chunk=''; IFS= read -r -t 0.1 -d '' chunk || true
@@ -1170,13 +1223,18 @@ _ui_menu() {
             rest=${pending:0:2}; pending=${pending:2}
             local row=$((_ui_selected % _ui_rows)) base=$((_ui_selected / _ui_rows * _ui_rows)) count=$_ui_rows
             ((base + count > _ui_total)) && count=$((_ui_total - base))
+            local old_selected=$_ui_selected direction=''
+            case "$rest" in '[C') direction=right ;; '[D') direction=left ;; esac
+            if [ -n "$direction" ] && [ -n "${UI_MENU_ON_KEY:-}" ] && "$UI_MENU_ON_KEY" "$direction"; then
+                _ui_resize=1; continue
+            fi
             case "$rest" in
                 '[A') _ui_selected=$((base + (row + count - 1) % count)) ;;
                 '[B') _ui_selected=$((base + (row + 1) % count)) ;;
                 '[C') ((_ui_cols == 2 && _ui_selected < _ui_rows && _ui_selected + _ui_rows < _ui_total)) && _ui_selected=$((_ui_selected + _ui_rows)) ;;
                 '[D') ((_ui_cols == 2 && _ui_selected >= _ui_rows)) && _ui_selected=$((_ui_selected - _ui_rows)) ;;
             esac
-            _ui_resize=1
+            ((_ui_selected != old_selected)) && _ui_resize=1
         fi
     done
     _ui_teardown
@@ -2311,10 +2369,15 @@ main_menu() {
             8) help_info_menu ;;
             9) setup_wizard ;;
             10)
+                ui_session_end
                 clear
                 # Run fastfetch directly with current config
                 if [ -f "$CONFIG_DIR/fastfetch.jsonc" ]; then
-                    fastfetch --config "$CONFIG_DIR/fastfetch.jsonc"
+                    if [ -x "$HOME/.local/bin/tfs-fastfetch" ]; then
+                        "$HOME/.local/bin/tfs-fastfetch"
+                    else
+                        fastfetch --config "$CONFIG_DIR/fastfetch.jsonc"
+                    fi
                 fi
                 echo -e "\n\033[1;32m✨ Thank you for using TermFetch Studio! ✨\033[0m\n"
                 exit 0
@@ -2483,16 +2546,41 @@ ascii_logo_submenu() {
 }
 
 # Preview callback for image logos
+ui_clear_preview_text() {
+    local n
+    for ((n=0; n<${UI_PREVIEW_ROWS:-0}; n++)); do
+        printf '\033[%d;%dH%*s' "$((${UI_PREVIEW_Y:-1} + n))" "${UI_PREVIEW_X:-1}" "${UI_PREVIEW_COLS:-1}" ''
+    done
+    printf '\033[%d;%dH' "${UI_PREVIEW_Y:-1}" "${UI_PREVIEW_X:-1}"
+}
+
 preview_image_logo() {
     local selected=$1 width=${UI_PREVIEW_COLS:-28} height=${UI_PREVIEW_ROWS:-5}
-    ((selected >= 0 && selected < ${#PREVIEW_PRESET_IMAGES[@]})) || return 0
-    local image_path=${PREVIEW_PRESET_IMAGES[selected]} format=symbols cw ch
-    [ -f "$image_path" ] || { ui_clip_text 'Image unavailable' "$width"; return 0; }
+    ((selected >= 0 && selected < ${#PREVIEW_PRESET_IMAGES[@]})) || { ui_clear_preview_text; return 0; }
+    local image_path=${PREVIEW_PRESET_IMAGES[selected]} format=symbols cw ch header image_w image_h
+    [ -f "$image_path" ] || { ui_clear_preview_text; ui_clip_text 'Image unavailable' "$width"; return 0; }
     if command -v chafa >/dev/null 2>&1; then
-        [ "$(check_terminal_image_support)" = kitty ] && format=kitty
         read -r cw ch < <(get_terminal_cell_dimensions)
+        if [ "$(check_terminal_image_support)" = kitty ] && [ -z "${TMUX:-}${STY:-}" ]; then
+            _ui_image_pending=$((2147483648 + RANDOM * 65536 + RANDOM * 2))
+            # Chafa emits base64 Kitty chunks. Keep the payload byte-for-byte;
+            # change only the first control header to upload without display.
+            if (set -o pipefail; chafa -f kitty --passthrough=none --relative=on --animate=off --font-ratio "$cw/$ch" -s "${width}x${height}" "$image_path" </dev/null 2>/dev/null |
+                sed -E $'s/\033\\[[0-9;?]*[A-Za-z]//g; s/\033D//g' |
+                sed "s/_Ga=T,/_Ga=t,i=${_ui_image_pending},/") > "$_ui_upload_file"; then
+                header=$(head -c 200 "$_ui_upload_file")
+                if [[ "$header" =~ c=([0-9]+),r=([0-9]+) ]]; then
+                    image_w=${BASH_REMATCH[1]}; image_h=${BASH_REMATCH[2]}
+                    printf '\033_Ga=p,i=%s,p=1,c=%s,r=%s,C=1,q=2\033\\' "$_ui_image_pending" "$image_w" "$image_h"
+                    return
+                fi
+            fi
+            _ui_image_pending=0; : > "$_ui_upload_file"
+        fi
+        ui_clear_preview_text
         chafa -f "$format" --relative=on --animate=off --font-ratio "$cw/$ch" -s "${width}x${height}" "$image_path" </dev/null 2>/dev/null || ui_clip_text 'Preview unavailable' "$width"
     else
+        ui_clear_preview_text
         ui_clip_text "Image: ${image_path##*/} (install chafa for preview)" "$width"
     fi
 }
@@ -3050,152 +3138,74 @@ get_demo_format() {
 
 # Color settings menu for customizing fastfetch colors
 color_settings_menu() {
-    while true; do
-        local current_key_color=$(get_config_value "fastfetch" "key_color")
-        local current_value_color=$(get_config_value "fastfetch" "value_color")
-        local use_theme_colors=$(get_config_value "fastfetch" "use_theme_colors")
-
-        [ -z "$use_theme_colors" ] && use_theme_colors="true"
-        [ -z "$current_key_color" ] && current_key_color="theme"
-        [ -z "$current_value_color" ] && current_value_color="theme"
-
-        local mode_text="Theme Colors (Auto)"
-        if [ "$use_theme_colors" = "false" ]; then
-            mode_text="Custom Colors"
-        fi
-
-        local options=(
-            "🌈 Color Mode: $mode_text"
-            "🔑 Icon Color (keyColor): $current_key_color"
-            "📝 Text Color (outputColor): $current_value_color"
-            "🎨 Preview Colors"
-            "🔄 Reset to Theme Colors"
-            "← Back"
-        )
-
-        select_option "🎨 Icon & Text Color Settings" "${options[@]}"
-        local choice=$?
-
-        [ $choice -eq 5 ] || [ $choice -eq 255 ] && return
-
-        case $choice in
-            0) toggle_color_mode ;;
-            1) set_icon_color ;;
-            2) set_text_color ;;
-            3) preview_colors ;;
-            4) reset_to_theme_colors ;;
-        esac
-    done
+    local _color_icon_draft _color_text_draft mode
+    mode=$(get_config_value fastfetch use_theme_colors)
+    _color_icon_draft=$(get_config_value fastfetch key_color)
+    _color_text_draft=$(get_config_value fastfetch value_color)
+    if [[ "$mode" != false ]]; then _color_icon_draft=theme; _color_text_draft=theme; fi
+    local -a _color_values=(theme default 31 32 33 34 35 36 37 90 91 92 93 94 95 96 97)
+    local -a _color_names=(Theme Default Red Green Yellow Blue Magenta Cyan White 'Bright Black' 'Bright Red' 'Bright Green' 'Bright Yellow' 'Bright Blue' 'Bright Magenta' 'Bright Cyan' 'Bright White')
+    local UI_MENU_ON_KEY=color_editor_key
+    local UI_MENU_KEYS='↑↓ Field · ←→ Color · Enter Select · Q Cancel'
+    local options=("Icons: $(color_label "$_color_icon_draft")" "Text: $(color_label "$_color_text_draft")" 'Reset to Theme' 'Save & Back')
+    select_option 'Icon & Text Colors' "${options[@]}" preview_color_sample
+    local choice=$?
+    ((choice == 3)) || return 0
+    if [[ "$_color_icon_draft" == theme && "$_color_text_draft" == theme ]]; then mode=true; else mode=false; fi
+    set_config_value fastfetch key_color "$_color_icon_draft"
+    set_config_value fastfetch value_color "$_color_text_draft"
+    set_config_value fastfetch use_theme_colors "$mode"
+    apply_color_changes >/dev/null
 }
 
-# Toggle between theme colors and custom colors
-toggle_color_mode() {
-    local current=$(get_config_value "fastfetch" "use_theme_colors")
-    [ -z "$current" ] && current="true"
+color_label() {
+    local i
+    for i in "${!_color_values[@]}"; do
+        [[ "$1" == "${_color_values[i]}" ]] && { printf '%s' "${_color_names[i]}"; return; }
+    done
+    printf '%s' "$1"
+}
 
-    if [ "$current" = "true" ]; then
-        set_config_value "fastfetch" "use_theme_colors" "false"
-        echo -e "\033[1;33m🎨 Switched to Custom Colors mode\033[0m"
-        echo -e "\033[1;36mYou can now set custom icon and text colors\033[0m"
+color_editor_key() {
+    local direction=$1 value i=0 delta=1
+    if ((_ui_selected == 3)); then return 1; fi
+    if ((_ui_selected == 2)); then
+        [[ "$direction" == enter ]] || return 0
+        _color_icon_draft=theme; _color_text_draft=theme
     else
-        set_config_value "fastfetch" "use_theme_colors" "true"
-        set_config_value "fastfetch" "key_color" "theme"
-        set_config_value "fastfetch" "value_color" "theme"
-        apply_color_changes
-        echo -e "\033[1;33m🌈 Switched to Theme Colors mode\033[0m"
-        echo -e "\033[1;36mColors will adapt to your selected theme\033[0m"
+        ((_ui_selected == 0)) && value=$_color_icon_draft || value=$_color_text_draft
+        for i in "${!_color_values[@]}"; do [[ "$value" == "${_color_values[i]}" ]] && break; done
+        [[ "$direction" == left ]] && delta=-1
+        i=$(((i + delta + ${#_color_values[@]}) % ${#_color_values[@]}))
+        if ((_ui_selected == 0)); then _color_icon_draft=${_color_values[i]}; else _color_text_draft=${_color_values[i]}; fi
     fi
-    sleep 2
+    _ui_options[0]="Icons: $(color_label "$_color_icon_draft")"
+    _ui_options[1]="Text: $(color_label "$_color_text_draft")"
+    return 0
 }
 
-# Set icon color (keyColor in fastfetch)
-set_icon_color() {
-    local use_theme=$(get_config_value "fastfetch" "use_theme_colors")
-    [ -z "$use_theme" ] && use_theme="true"
-
-    if [ "$use_theme" = "true" ]; then
-        echo -e "\033[1;33m⚠️  Theme Colors mode is active\033[0m"
-        echo -e "\033[1;36mSwitch to Custom Colors mode first to set custom icon colors\033[0m"
-        sleep 2
-        return
-    fi
-
-    local colors=("31" "32" "33" "34" "35" "36" "37" "90" "91" "92" "93" "94" "95" "96" "97")
-    local color_names=("Red" "Green" "Yellow" "Blue" "Magenta" "Cyan" "White" "Bright Black" "Bright Red" "Bright Green" "Bright Yellow" "Bright Blue" "Bright Magenta" "Bright Cyan" "Bright White")
-
-    local options=()
-    for i in "${!colors[@]}"; do
-        options+=("\033[1;${colors[$i]}m● ${color_names[$i]}\033[0m")
-    done
-    options+=("← Back")
-
-    select_option "🔑 Select Icon Color" "${options[@]}"
-    local choice=$?
-
-    [ $choice -eq ${#colors[@]} ] || [ $choice -eq 255 ] && return
-
-    set_config_value "fastfetch" "key_color" "${colors[$choice]}"
-    apply_color_changes
-    echo -e "\033[1;32m✓ Icon color set to ${color_names[$choice]}\033[0m"
+color_sample_sgr() {
+    local value=$1 position=$2 theme
+    theme=$(get_config_value colors theme)
+    [[ "$value" == theme || -z "$value" ]] && value=$(get_theme_ansi_color "${theme:-dracula}" "$position")
+    if [[ "$value" =~ ^#[[:xdigit:]]{6}$ ]]; then
+        printf '38;2;%d;%d;%d' "$((16#${value:1:2}))" "$((16#${value:3:2}))" "$((16#${value:5:2}))"
+    elif [[ "$value" =~ ^(3[0-9]|9[0-7])$ ]]; then printf '%s' "$value"
+    else printf '39'; fi
 }
 
-# Set text color (outputColor in fastfetch)
-set_text_color() {
-    local use_theme=$(get_config_value "fastfetch" "use_theme_colors")
-    [ -z "$use_theme" ] && use_theme="true"
-
-    if [ "$use_theme" = "true" ]; then
-        echo -e "\033[1;33m⚠️  Theme Colors mode is active\033[0m"
-        echo -e "\033[1;36mSwitch to Custom Colors mode first to set custom text colors\033[0m"
-        sleep 2
-        return
-    fi
-
-    local colors=("default" "31" "32" "33" "34" "35" "36" "37" "90" "91" "92" "93" "94" "95" "96" "97")
-    local color_names=("Default" "Red" "Green" "Yellow" "Blue" "Magenta" "Cyan" "White" "Bright Black" "Bright Red" "Bright Green" "Bright Yellow" "Bright Blue" "Bright Magenta" "Bright Cyan" "Bright White")
-
-    local options=()
-    for i in "${!colors[@]}"; do
-        if [ "${colors[$i]}" = "default" ]; then
-            options+=("● ${color_names[$i]}")
-        else
-            options+=("\033[1;${colors[$i]}m● ${color_names[$i]}\033[0m")
+preview_color_sample() {
+    local icon text n row
+    icon=$(color_sample_sgr "$_color_icon_draft" primary)
+    text=$(color_sample_sgr "$_color_text_draft" primary)
+    local -a labels=('● OS' '● Terminal' '● Memory') values=('Linux' 'Terminal sample' '8 GiB / 16 GiB')
+    for ((n=0; n<3 && n<UI_PREVIEW_ROWS; n++)); do
+        row=$((UI_PREVIEW_Y + n))
+        _ui_put "$row" "$UI_PREVIEW_X" "$UI_PREVIEW_COLS" "${labels[n]}" "\033[${icon}m"
+        if ((UI_PREVIEW_COLS >= 24)); then
+            _ui_put "$row" "$((UI_PREVIEW_X + 12))" "$((UI_PREVIEW_COLS - 12))" "${values[n]}" "\033[${text}m"
         fi
     done
-    options+=("← Back")
-
-    select_option "📝 Select Text Color" "${options[@]}"
-    local choice=$?
-
-    [ $choice -eq ${#colors[@]} ] || [ $choice -eq 255 ] && return
-
-    set_config_value "fastfetch" "value_color" "${colors[$choice]}"
-    apply_color_changes
-    echo -e "\033[1;32m✓ Text color set to ${color_names[$choice]}\033[0m"
-}
-
-# Reset to theme colors
-reset_to_theme_colors() {
-    set_config_value "fastfetch" "use_theme_colors" "true"
-    set_config_value "fastfetch" "key_color" "theme"
-    set_config_value "fastfetch" "value_color" "theme"
-    apply_color_changes
-    echo -e "\033[1;32m✓ Reset to theme-adaptive colors!\033[0m"
-}
-
-# Preview colors
-preview_colors() {
-    clear
-    echo ""
-    echo -e "\033[1;36m🎨 Previewing current fastfetch configuration...\033[0m"
-    echo ""
-
-    # Show actual fastfetch preview
-    fastfetch -c "$CONFIG_DIR/fastfetch.jsonc" 2>/dev/null
-
-    echo ""
-    echo -e "\033[1;33mPress any key to continue...\033[0m"
-    read -n 1 -s
 }
 
 # Apply color changes to current configuration
@@ -4134,42 +4144,30 @@ get_theme_ansi_color() {
 }
 
 # Helper function to get icon color (either custom or theme-based)
-get_fastfetch_color() {
-    local position=$1  # primary, secondary, etc.
-    local theme=$2
-
-    local use_theme_colors=$(get_config_value "fastfetch" "use_theme_colors")
-    [ -z "$use_theme_colors" ] && use_theme_colors="true"
-
-    if [ "$use_theme_colors" = "false" ]; then
-        # Use custom colors if set
-        local custom_color=$(get_config_value "fastfetch" "key_color")
-        [ -n "$custom_color" ] && [ "$custom_color" != "theme" ] && echo "$custom_color" && return
-    fi
-
-    # Fall back to theme colors
-    get_theme_ansi_color "$theme" "$position"
+get_custom_fastfetch_color() {
+    local field=$1 theme=$2 value
+    value=$(get_config_value fastfetch "$field")
+    case "$value" in
+        theme|'') get_theme_ansi_color "$theme" primary ;;
+        default) printf '39\n' ;;
+        *) printf '%s\n' "$value" ;;
+    esac
 }
 
-# Helper function to get text color (either custom or theme-based)
-get_fastfetch_text_color() {
-    local position=$1  # primary, secondary, etc.
-    local theme=$2
-
-    local use_theme_colors=$(get_config_value "fastfetch" "use_theme_colors")
-    [ -z "$use_theme_colors" ] && use_theme_colors="true"
-
-    if [ "$use_theme_colors" = "false" ]; then
-        # Use custom text color if set
-        local custom_text_color=$(get_config_value "fastfetch" "value_color")
-        if [ -n "$custom_text_color" ] && [ "$custom_text_color" != "default" ]; then
-            echo "$custom_text_color"
-            return
-        fi
+get_fastfetch_color() {
+    if [[ "$(get_config_value fastfetch use_theme_colors)" == false ]]; then
+        get_custom_fastfetch_color key_color "$2"
+    else
+        get_theme_ansi_color "$2" "$1"
     fi
+}
 
-    # Fall back to theme colors
-    get_theme_ansi_color "$theme" "$position"
+get_fastfetch_text_color() {
+    if [[ "$(get_config_value fastfetch use_theme_colors)" == false ]]; then
+        get_custom_fastfetch_color value_color "$2"
+    else
+        get_theme_ansi_color "$2" "$1"
+    fi
 }
 
 # Helper function to get color dots string based on theme
@@ -4244,8 +4242,8 @@ create_full_config() {
     
     
     if [ "$use_theme_colors" = "false" ]; then
-        local custom_key=$(get_config_value "fastfetch" "key_color")
-        local custom_value=$(get_config_value "fastfetch" "value_color")
+        local custom_key=$(get_custom_fastfetch_color key_color "$theme")
+        local custom_value=$(get_custom_fastfetch_color value_color "$theme")
         [ -z "$custom_key" ] && custom_key="34"
         [ -z "$custom_value" ] && custom_value="37"
         color1="$custom_key"
@@ -4591,8 +4589,8 @@ create_minimal_config() {
     
     
     if [ "$use_theme_colors" = "false" ]; then
-        local custom_key=$(get_config_value "fastfetch" "key_color")
-        local custom_value=$(get_config_value "fastfetch" "value_color")
+        local custom_key=$(get_custom_fastfetch_color key_color "$theme")
+        local custom_value=$(get_custom_fastfetch_color value_color "$theme")
         [ -z "$custom_key" ] && custom_key="34"
         [ -z "$custom_value" ] && custom_value="37"
         color1="$custom_key"
@@ -4727,8 +4725,8 @@ create_focused_config() {
     [ -z "$use_theme_colors" ] && use_theme_colors="true"
 
     if [ "$use_theme_colors" = "false" ]; then
-        local custom_key=$(get_config_value "fastfetch" "key_color")
-        local custom_value=$(get_config_value "fastfetch" "value_color")
+        local custom_key=$(get_custom_fastfetch_color key_color "$theme")
+        local custom_value=$(get_custom_fastfetch_color value_color "$theme")
         [ -z "$custom_key" ] && custom_key="34"
         [ -z "$custom_value" ] && custom_value="default"
         # Override existing color1, color2, color3 with custom_key
@@ -4907,8 +4905,8 @@ create_developer_config() {
     [ -z "$use_theme_colors" ] && use_theme_colors="true"
 
     if [ "$use_theme_colors" = "false" ]; then
-        local custom_key=$(get_config_value "fastfetch" "key_color")
-        local custom_value=$(get_config_value "fastfetch" "value_color")
+        local custom_key=$(get_custom_fastfetch_color key_color "$theme")
+        local custom_value=$(get_custom_fastfetch_color value_color "$theme")
         [ -z "$custom_key" ] && custom_key="34"
         [ -z "$custom_value" ] && custom_value="default"
         # Override existing color1, color2, color3 with custom_key
@@ -5136,8 +5134,8 @@ create_gaming_config() {
     [ -z "$use_theme_colors" ] && use_theme_colors="true"
 
     if [ "$use_theme_colors" = "false" ]; then
-        local custom_key=$(get_config_value "fastfetch" "key_color")
-        local custom_value=$(get_config_value "fastfetch" "value_color")
+        local custom_key=$(get_custom_fastfetch_color key_color "$theme")
+        local custom_value=$(get_custom_fastfetch_color value_color "$theme")
         [ -z "$custom_key" ] && custom_key="34"
         [ -z "$custom_value" ] && custom_value="default"
         # Override existing color1, color2, color3 with custom_key
@@ -5338,8 +5336,8 @@ create_custom_config() {
     [ -z "$use_theme_colors" ] && use_theme_colors="true"
 
     if [ "$use_theme_colors" = "false" ]; then
-        local custom_key=$(get_config_value "fastfetch" "key_color")
-        local custom_value=$(get_config_value "fastfetch" "value_color")
+        local custom_key=$(get_custom_fastfetch_color key_color "$theme")
+        local custom_value=$(get_custom_fastfetch_color value_color "$theme")
         [ -z "$custom_key" ] && custom_key="34"
         [ -z "$custom_value" ] && custom_value="default"
         # Override existing color1, color2, color3 with custom_key

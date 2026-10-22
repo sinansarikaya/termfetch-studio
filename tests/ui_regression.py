@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Black-box generated Bash UI tests. Run in Docker, with python3-pyte/ImageMagick."""
 import binascii
+import codecs
 import fcntl
 import json
 import os
@@ -40,6 +41,7 @@ class Terminal:
         self.columns, self.rows = columns, rows
         self.screen = pyte.HistoryScreen(columns, rows, history=1000)
         self.stream = pyte.Stream(self.screen)
+        self.decoder = codecs.getincrementaldecoder("utf-8")(errors="replace")
         self.raw = b''
         self.resize(columns, rows)
         self.initial_attributes = termios.tcgetattr(slave)
@@ -67,7 +69,10 @@ class Terminal:
                 except OSError:
                     break
                 self.raw += data
-                self.stream.feed(data.decode(errors='replace'))
+                # pyte 0.8 aborts a whole text run on a non-combining VS16.
+                # Feed codepoints separately so the following label is retained.
+                for character in self.decoder.decode(data):
+                    self.stream.feed(character)
         return self.raw[start:]
 
     def send(self, keys):
@@ -288,7 +293,152 @@ class UIRegression(unittest.TestCase):
         session.read(.7)
         self.assertIn('READY_1', session.text)
         self.assertEqual(session.finish(), 255)
-        self.assertFalse(list(self.home.glob('tfs-frame.*')))
+        self.assertFalse(list(self.home.glob('tfs-frame.*')) + list(self.home.glob('tfs-menu.*')))
+
+    def test_real_application_keeps_one_screen_session_across_submenus(self):
+        lib = self.home / '.local/share/termfetch-studio/lib'; lib.mkdir(parents=True)
+        for marker, name in [('CORELIB', 'core.sh'), ('FASTFETCHLIB', 'fastfetch.sh')]: (lib / name).write_text(generated(marker))
+        app = self.home / 'app'; app.write_text(generated('MAINSCRIPT'))
+        bindir = self.home / '.local/bin'; bindir.mkdir(parents=True)
+        fake = bindir / 'fastfetch'; fake.write_text('#!/bin/bash\necho called >> "$HOME/fetch-calls"\necho EXIT_PREVIEW\n'); fake.chmod(0o755)
+        config = self.home / '.config/termfetch-studio'; config.mkdir(parents=True)
+        (config / 'config.ini').write_text('[fastfetch]\npreset=minimal\nlogo_type=none\nuse_theme_colors=true\n[colors]\ntheme=nord\n[general]\nfirst_run=false\n')
+        (config / 'fastfetch.jsonc').write_text('{}')
+        session = self.terminal('export PATH="$HOME/.local/bin:$PATH"; printf "UNDERLYING_PREVIEW\\n"; exec bash "$HOME/app"', 120, 24)
+        self.assertIn('Main Menu', session.text)
+        self.assertEqual(session.raw.count(b'\x1b[?1049h'), 1)
+        before=len(session.raw)
+        session.send(b'\x1b[B'*3+b'\r');session.read(.4)
+        self.assertIn('Icon & Text', session.text)
+        session.send(b'q');session.read(.3)
+        self.assertIn('Main Menu', session.text)
+        session.send(b'\x1b[B'*2+b'\r');session.read(.3)
+        self.assertIn('Logo Settings', session.text)
+        self.assertNotIn(b'\x1b[?1049', session.raw[before:])
+        self.assertFalse((self.home / 'fetch-calls').exists())
+        session.send(b'q');session.read(.3)
+        self.assertEqual(session.finish(), 0)
+        self.assertEqual(session.raw.count(b'\x1b[?1049l'), 1)
+        self.assertEqual(session.raw.count(b'\x1b[?1049h'), 1)
+        self.assertIn('EXIT_PREVIEW', session.text)
+        self.assertEqual((self.home / 'fetch-calls').read_text().splitlines(), ['called'])
+        self.assertEqual(termios.tcgetattr(session.slave), session.initial_attributes)
+        session = self.terminal('export PATH="$HOME/.local/bin:$PATH"; exec bash "$HOME/app"', 120, 24)
+        session.read(.3)
+        self.assertIn('Main Menu', session.text)
+        os.kill(session.process.pid, signal.SIGTERM)
+        self.assertEqual(session.process.wait(timeout=3), 143)
+        session.read()
+        self.assertEqual(session.raw.count(b'\x1b[?1049l'), 1)
+        self.assertEqual(termios.tcgetattr(session.slave), session.initial_attributes)
+
+    def test_navigation_never_clears_screen_or_reenters_alternate_buffer(self):
+        for columns, rows in [(120, 24), (80, 24), (40, 12)]:
+            session = self.terminal('preview_fixture() { printf "Preview %s" "$1"; }; select_option "Stable" A B C preview_fixture; exit $?', columns, rows)
+            before = len(session.raw)
+            session.send(b'\x1b[B'); session.send(b'\x1b[B')
+            delta = session.raw[before:]
+            self.assertNotIn(b'\x1b[2J', delta)
+            self.assertNotIn(b'\x1b[?1049', delta)
+            self.assertIn('Selected 3/3', session.text)
+            self.assertEqual(session.finish(), 255)
+
+    def test_kitty_upload_is_hidden_until_placement_and_deletion_is_scoped(self):
+        for name in ['one', 'two']: png(self.home / (name + '.png'), 10, 10)
+        body = 'check_terminal_image_support() { echo kitty; }; PREVIEW_PRESET_IMAGES=("$HOME/one.png" "$HOME/two.png"); select_option Images One Two preview_image_logo; exit $?'
+        session = self.terminal(body, 120, 24)
+        session.read(.5)
+        self.assertIn(b'\x1b_Ga=t,i=', session.raw)
+        self.assertNotIn(b'\x1b_Ga=T,', session.raw)
+        self.assertLess(session.raw.index(b'\x1b[2J'), session.raw.index(b'\x1b_Ga=t,i='))
+        first_id = re.search(rb'\x1b_Ga=t,i=(\d+)', session.raw).group(1)
+        before = len(session.raw)
+        session.send(b'\x1b[B'); session.read(.5)
+        delta = session.raw[before:]
+        second_id = re.search(rb'\x1b_Ga=t,i=(\d+)', delta).group(1)
+        self.assertNotEqual(first_id, second_id)
+        put = delta.index(b'\x1b_Ga=p,i=' + second_id)
+        delete = delta.index(b'\x1b_Ga=d,d=I,i=' + first_id)
+        self.assertLess(put, delete)
+        self.assertLess(delta.index(b'\x1b_Ga=t,i='), delta.index(b'\x1b[?2026h'))
+        self.assertNotIn(b'\x1b[2J', delta)
+        self.assertNotIn(b'a=d,d=A', delta)
+        self.assertEqual(session.finish(), 255)
+        self.assertIn(b'\x1b_Ga=d,d=I,i=' + second_id, session.raw)
+        self.assertFalse(list(self.home.glob('tfs-menu.*')))
+
+    def test_symbol_preview_clears_only_its_rectangle_when_shrinking(self):
+        for name in ['one', 'two']: png(self.home / (name + '.png'), 10, 10)
+        body = 'check_terminal_image_support() { echo none; }; chafa() { if [[ "${!#}" == *one.png ]]; then printf "LONG_SYMBOL_PREVIEW"; else printf "X"; fi; }; PREVIEW_PRESET_IMAGES=("$HOME/one.png" "$HOME/two.png"); select_option Images One Two preview_image_logo; exit $?'
+        session = self.terminal(body, 120, 24)
+        self.assertIn('LONG_SYMBOL_PREVIEW', session.text)
+        before=len(session.raw); session.send(b'\x1b[B')
+        self.assertNotIn('LONG_SYMBOL_PREVIEW', session.text)
+        self.assertIn('Selected 2/2', session.text)
+        self.assertNotIn(b'\x1b[2J', session.raw[before:])
+        self.assertEqual(session.finish(), 255)
+
+    def color_editor(self, columns=120, rows=24):
+        config = self.home / 'config'; config.mkdir(exist_ok=True)
+        if not (config / 'config.ini').exists():
+            (config / 'config.ini').write_text('[fastfetch]\npreset=minimal\nlogo_type=none\nuse_theme_colors=true\nkey_color=theme\nvalue_color=theme\n[colors]\ntheme=nord\n')
+        (self.home / 'fastfetch.sh').write_text(generated('FASTFETCHLIB'))
+        return self.terminal('CONFIG_DIR="$HOME/config"; CONFIG_FILE="$CONFIG_DIR/config.ini"; source "$HOME/fastfetch.sh"; color_settings_menu', columns, rows)
+
+    def test_live_color_editor_previews_without_writes_then_saves_and_resets(self):
+        session = self.color_editor()
+        config = self.home / 'config/config.ini'
+        original = config.read_bytes()
+        self.assertIn('Linux', session.text)
+        self.assertNotIn('keyColor', session.text)
+        start = len(session.raw)
+        session.send(b'\x1b[C\x1b[C')
+        self.assertIn('Icons: Red', session.text)
+        self.assertIn(b'\x1b[31m', session.raw[start:])
+        self.assertEqual(config.read_bytes(), original)
+        session.send(b'\x1b[B\x1b[C\x1b[C\x1b[C')
+        self.assertIn('Text: Green', session.text)
+        self.assertEqual(config.read_bytes(), original)
+        session.send(b'\x1b[B\x1b[B')
+        self.assertEqual(session.finish(b'\r'), 0)
+        self.assertIn('key_color=31', config.read_text())
+        self.assertIn('value_color=32', config.read_text())
+        self.assertIn('use_theme_colors=false', config.read_text())
+        self.assertIn('"32"', (self.home / 'config/fastfetch.jsonc').read_text())
+        session = self.color_editor()
+        session.send(b'\x1b[B\x1b[B\r')
+        self.assertIn('Icons: Theme', session.text)
+        self.assertIn('Text: Theme', session.text)
+        session.send(b'\x1b[B')
+        self.assertEqual(session.finish(b'\r'), 0)
+        self.assertIn('use_theme_colors=true', config.read_text())
+        self.assertIn('key_color=theme', config.read_text())
+
+    def test_color_editor_cancel_and_small_window_preview(self):
+        session = self.color_editor(40, 12)
+        config = self.home / 'config/config.ini'; original = config.read_bytes()
+        self.assertIn('Linux', session.text)
+        self.assertIn('Q:Cancel', session.text)
+        session.send(b'\x1b[C\x1b[C')
+        self.assertEqual(session.finish(), 0)
+        self.assertEqual(config.read_bytes(), original)
+        self.assertFalse((self.home / 'config/fastfetch.jsonc').exists())
+
+    def test_independent_theme_and_default_colors_generate_valid_presets(self):
+        self.test_runtime_wrapper_and_all_generated_presets()
+        bindir = self.home / '.local/bin'
+        env = os.environ | {'HOME': str(self.home), 'PATH': str(bindir) + ':' + os.environ['PATH']}
+        code = 'CONFIG_DIR="$HOME/.config/termfetch-studio"; INSTALL_DIR="$HOME/.local/share/termfetch-studio"; source "$INSTALL_DIR/lib/core.sh"; source "$INSTALL_DIR/lib/fastfetch.sh"; '
+        for preset in ['full', 'minimal', 'focused', 'developer', 'gaming', 'custom']:
+            for icon, text in [('theme', '31'), ('32', 'theme'), ('default', 'default')]:
+                result = subprocess.run(['bash', '-c', code + 'set_config_value fastfetch use_theme_colors false; set_config_value fastfetch key_color ' + icon + '; set_config_value fastfetch value_color ' + text + '; create_' + preset + '_config none "" nord; tfs-fastfetch'], env=env, capture_output=True, text=True, timeout=5)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                doc = json.loads(result.stdout)
+                for mod in doc['modules']:
+                    if isinstance(mod, dict):
+                        self.assertNotEqual(mod.get('keyColor'), 'theme')
+                        self.assertNotEqual(mod.get('outputColor'), 'theme')
+                        if 'outputColor' in mod and text == 'default': self.assertEqual(mod['outputColor'], '39')
 
     def test_resize_redraws_without_keypress(self):
         session = self.terminal('options=(); for i in {0..17}; do options+=("Item $i"); done; select_option "Resize" "${options[@]}"; exit $?')

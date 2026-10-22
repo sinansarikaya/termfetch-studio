@@ -29,6 +29,15 @@
 - **Changed Files**: []
 - **Evidence Paths**: ["tests/preview-fix-evidence", "tests/ui_regression.py", "tests/vm_preview_capture.py", "tests/docker_matrix.py"]
 - **Accepted At**: 2026-10-21T22:48:14Z
+
+### Task: persistent-ui-colors-review - Independent read-only review. Read tests/live-colors-evidence/changes.patch and README, tests/ui_regression.py and tests/vm_preview_capture.py. Key fixes: application MAINSCRIPT owns one alternate-screen session with EXIT cleanup, selectors do not restore underlying buffer between submenus; per-key ED2 removed except initial/resize (before graphics upload). Kitty chafa base64 protocol action T becomes upload-only t with owned random32bit ID; upload outside sync frame, then place new and delete old ID inside short frame. Assess payload/control/header safety, tempdir lifecycle, scoped deletes, fallback, signals and root exit. Color editor is one page draft: arrows change only in-memory fields, inline sample, Save commits, Q cancels, reset draft, Theme/Default normalized per field in six preset generators. Check actual-app transition test, 21 tests, real-fastfetch all-color configs4cases116checks, sampled graphics AND menu-text ROIs. PNGs leader scope; native data is sampled not universal guarantee. No writes. Report significant actionable issues or clear acceptance; run permitted compileall.
+- **Status**: Done (Accepted)
+- **Role**: code-reviewer
+- **Provider**: codex
+- **Leader Summary**: Source, 21 PTY tests including real app session/signal behavior, 116 Docker checks, native samples and live-color PNGs inspected; no significant open findings.
+- **Changed Files**: []
+- **Evidence Paths**: ["tests/live-colors-evidence", "tests/ui_regression.py", "tests/vm_preview_capture.py", "tests/docker_matrix.py"]
+- **Accepted At**: 2026-10-22T08:37:46Z
 <!-- AI-TEAM-TASKS-END -->
 
 ## Initial attempt (not accepted)
@@ -69,3 +78,9 @@
 ## Preview follow-up
 - Reproduced slow-preview blanking; enlarged image sizes and moved full-frame preparation off screen.
 - 14 regression tests, 112 Docker checks and native Kitty sampled frames passed. preview-size-review accepted; no significant open findings.
+
+## Persistent UI and live colors
+- Corrected the earlier incomplete flicker fix: remove per-key ED2 and preserve one screen across actual application submenu transitions.
+- Kitty upload/place/owned-ID retirement, scoped symbols fallback, simple live color draft editor with Save/Cancel.
+- 21 tests and 4 Docker scenarios/116 checks passed; native samples include menu text and graphics.
+- persistent-ui-colors-review accepted; source/native/Docker hashes match. No significant open findings. No host application/settings changes.
