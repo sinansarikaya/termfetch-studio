@@ -135,6 +135,14 @@ Previews are prepared off screen before replacing the visible frame. See the
 [current UI evidence and real Kitty screenshots](tests/ui-polish-evidence/README.md)
 and the [earlier bug reproduction](tests/ui-evidence/README.md).
 
+### Live icon and text colors
+
+Open **Icon & Text Colors**. Use ↑↓ to select Icons/Text and ←→ to change the
+color while watching the inline sample. **Save & Back** commits both fields;
+**Q** cancels the draft. Theme/Default are available per field; Reset to Theme
+resets the draft. The menu stays in one screen session while opening submenus.
+See [current transition and live-color evidence](tests/live-colors-evidence/README.md).
+
 ### Compatibility evidence (x86_64)
 
 The distribution table records the October 9 compatibility run. The October 22 UI

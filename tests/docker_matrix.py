@@ -174,6 +174,24 @@ for preset in full minimal focused developer gaming custom; do
     fi
 done
 create_full_config auto "" dracula''', "all_preset_config_keys", info["checks"])
+        check(name, r"""INSTALL_DIR="$HOME/.local/share/termfetch-studio"
+CONFIG_DIR="$HOME/.config/termfetch-studio"
+source "$INSTALL_DIR/lib/core.sh"
+source "$INSTALL_DIR/lib/fastfetch.sh"
+set_config_value fastfetch use_theme_colors false
+for preset in full minimal focused developer gaming custom; do
+    for pair in 'theme 31' '32 theme' 'default default'; do
+        read -r icon text <<< "$pair"
+        set_config_value fastfetch key_color "$icon"
+        set_config_value fastfetch value_color "$text"
+        "create_${preset}_config" auto "" nord
+        fastfetch --config "$CONFIG_DIR/fastfetch.jsonc" --format json >/dev/null
+    done
+done
+set_config_value fastfetch use_theme_colors true
+set_config_value fastfetch key_color theme
+set_config_value fastfetch value_color theme
+create_full_config auto "" dracula""", "live_color_configs", info["checks"])
         check(name, 'INSTALL_DIR="$HOME/.local/share/termfetch-studio"; CONFIG_DIR="$HOME/.config/termfetch-studio"; CONFIG_FILE="$CONFIG_DIR/config.ini"; IMAGES_DIR="$CONFIG_DIR/images"; source "$INSTALL_DIR/lib/core.sh"; source "$INSTALL_DIR/lib/fastfetch.sh"; image_convert -size 2x2 xc:red /tmp/tfs-logo.png; set_config_value fastfetch logo_type image; set_config_value fastfetch custom_image /tmp/tfs-logo.png; apply_logo_config >/dev/null; fastfetch --config "$CONFIG_DIR/fastfetch.jsonc" --format json >/dev/null; tfs-fastfetch --format json >/dev/null; set_config_value fastfetch logo_type auto; set_config_value fastfetch custom_image ""; apply_logo_config >/dev/null', "image_ascii_fallback_config", info["checks"])
         check(name, r"""INSTALL_DIR="$HOME/.local/share/termfetch-studio"
 CONFIG_DIR="$HOME/.config/termfetch-studio"

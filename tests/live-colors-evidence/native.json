@@ -1,0 +1,11 @@
+{
+  "session": "Hyprland / Wayland",
+  "terminal": "kitty 0.49.2 created by Kovid Goyal",
+  "xwayland": false,
+  "window_size": [
+    1200,
+    704
+  ],
+  "fastfetch": "fastfetch 2.69.0 (x86_64)",
+  "installer_sha256": "a9619a2b62c9c12818e5ab1a03e52d7e97fe27a44ca5d2a6be03849413f32268"
+}
