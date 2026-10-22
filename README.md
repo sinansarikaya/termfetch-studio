@@ -160,6 +160,21 @@ command lines, not arbitrary functions/plugins; repeated calls in personal code
 may still need manual review. Reinstall the local checkout to activate this fix;
 existing installed files are not updated merely by changing the repository.
 
+### Fish after uninstall
+
+The uninstaller removes only the exact legacy alias
+`alias fastfetch="termfetch-studio --preview"` (including equivalent quote/spacing
+forms) and saves the original beside `config.fish` as `config.fish.termfetch-backup.*`.
+Custom compound aliases, functions and your `clear` function are preserved.
+An already-open Fish retains loaded functions: run `functions --erase fastfetch`
+in that session, or start a new terminal after the alias is removed. A child
+uninstaller cannot erase its parent shell's functions.
+
+Color previews now keep **OS → Desktop → Hardware → Network → Time** in fixed
+order. Five rows are shown where space permits; very short windows use an ordered
+contiguous slice rather than rotating the group to the top.
+See [follow-up evidence and real screenshots](tests/ordered-colors-evidence/README.md).
+
 ### Compatibility evidence (x86_64)
 
 The distribution table records the October 9 compatibility run. The October 22 UI

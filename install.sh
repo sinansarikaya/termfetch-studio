@@ -1081,8 +1081,9 @@ _ui_render_menu() {
             ((_ui_preview_rows > 14)) && _ui_preview_rows=14
         else
             _ui_preview_rows=3
+            if [[ "$_ui_preview" == preview_color_sample ]] && ((_ui_height >= 14)); then _ui_preview_rows=5; fi
             [[ "$_ui_preview" == preview_image_logo ]] && _ui_preview_rows=6
-            ((_ui_height < 24 && _ui_preview_rows > 3)) && _ui_preview_rows=3
+            [[ "$_ui_preview" != preview_color_sample ]] && ((_ui_height < 24 && _ui_preview_rows > 3)) && _ui_preview_rows=3
         fi
     fi
     ((_ui_two && list_width >= 68)) && cols=2
@@ -3258,9 +3259,14 @@ preview_color_sample() {
     local -a labels=('● OS' '● Desktop' '● Hardware' '● Network' '● Time')
     local -a values=('Linux' 'Terminal sample' '8 GiB / 16 GiB' 'Network sample' '12:34')
     local -a positions=(primary secondary accent highlight info)
-    if ((_ui_selected >= 2 && _ui_selected <= 6)); then start=$((_ui_selected - 2)); fi
+    # Fixed semantic order. Tiny windows scroll a contiguous slice, never wrap.
+    if ((UI_PREVIEW_ROWS < 5 && _ui_selected >= 2 && _ui_selected <= 6)); then
+        start=$((_ui_selected - 2 - UI_PREVIEW_ROWS + 1))
+        ((start < 0)) && start=0
+        ((start > 5 - UI_PREVIEW_ROWS)) && start=$((5 - UI_PREVIEW_ROWS))
+    fi
     for ((n=0; n<5 && n<UI_PREVIEW_ROWS; n++)); do
-        group_index=$(((start + n) % 5)); row=$((UI_PREVIEW_Y + n)); position=${positions[group_index]}
+        group_index=$((start + n)); row=$((UI_PREVIEW_Y + n)); position=${positions[group_index]}
         override=${_color_group_draft[group_index]:-inherit}
         if [[ "$override" == inherit ]]; then
             if [[ "$_color_icon_draft" == theme && "$_color_text_draft" == theme ]]; then
@@ -5992,6 +5998,36 @@ confirm_uninstall() {
     fi
 }
 
+remove_legacy_fish_alias() {
+    local file=$1 edited backup result
+    [ -f "$file" ] || return 0
+    edited=$(mktemp "$file.tfs.XXXXXX") || return 1
+    cp -p -- "$file" "$edited" || { rm -f -- "$edited"; return 1; }
+    if awk '
+        {
+            line=$0
+            if (sub(/^[[:space:]]*alias[[:space:]]+fastfetch[[:space:]]*(=[[:space:]]*)?/, "", line)) {
+                sub(/[[:space:]]+$/, "", line)
+                quote=substr(line,1,1)
+                if ((quote == "\"" || quote == sprintf("%c",39)) && substr(line,length(line),1) == quote)
+                    line=substr(line,2,length(line)-2)
+                if (line == "termfetch-studio --preview") { removed=1; next }
+            }
+            print
+        }
+        END { if (!removed) exit 3 }
+    ' "$file" > "$edited"; then result=0; else result=$?; fi
+    if ((result != 0)); then
+        rm -f -- "$edited"
+        ((result == 3)) && return 0
+        return 1
+    fi
+    backup=$(mktemp "$file.termfetch-backup.XXXXXX") || { rm -f -- "$edited"; return 1; }
+    cp -p -- "$file" "$backup" || { rm -f -- "$edited" "$backup"; return 1; }
+    mv -- "$edited" "$file" || { rm -f -- "$edited"; return 1; }
+    print_info "Removed exact legacy Fish alias (original saved beside config.fish)"
+}
+
 remove_shell_integration() {
     print_info "Removing shell integration..."
 
@@ -6023,6 +6059,11 @@ remove_shell_integration() {
             print_info "Removed from config.fish"
         fi
     fi
+    remove_legacy_fish_alias "$TARGET_HOME/.config/fish/config.fish"
+    echo "An already-open Fish keeps loaded functions. In that Fish session run:"
+    echo "  functions --erase fastfetch"
+    echo "Custom Fish functions/plugins are preserved; review them if they still call TermFetch Studio."
+
 }
 
 remove_installation() {

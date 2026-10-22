@@ -1,0 +1,20 @@
+{
+  "installer_sha256": "a3c33c8e5122ab6f72ea748ad94c1b131dd11496d70e7bb87d4be77ddf071704",
+  "environment": "isolated reused Arch/Hyprland 0.56.2 Wayland test overlay",
+  "terminal": "Kitty 0.49.2, native Wayland",
+  "fastfetch": "2.69.0",
+  "demo_mode": false,
+  "home": "/home/tfs/ui/home",
+  "installation": "normal test user; controlled final prompt n; exit0",
+  "checks": {
+    "initial_and_time_selected": "all five groups keep OS/Desktop/Hardware/Network/Time order",
+    "narrow": "all five groups below list",
+    "tiny": "ordered Hardware/Network/Time slice at Time selection"
+  },
+  "limits": [
+    "Prepared VM overlay, not clean install",
+    "Fixed sample values in the color panel, not host hardware",
+    "No test of host GUI or other graphical terminals"
+  ],
+  "screenshots": "real QEMU framebuffers; no retouching or user screenshots"
+}

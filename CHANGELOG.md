@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Keep color preview groups in fixed semantic order, show all five where space permits, and use a contiguous viewport in tiny terminals.
+- Remove only the exact legacy Fish fastfetch alias on uninstall with a preserved config backup; retain personal functions and explain cleanup of an already-open Fish session.
+- Add isolated before/after uninstall-clear and ordered-preview regressions, plus real Kitty screenshots.
+
 - Avoid duplicate automatic fastfetch output across managed shell startup, repeated sourcing and nested shells; preserve external personal startup blocks and skip an additional managed fetch when a direct call exists.
 - Consolidate color editing in the main Icon & Text Colors page, removing the duplicate Advanced Settings entry.
 - Add draft/live colors for OS, Desktop, Hardware, Network and Time groups across all six presets; preserve layout and support Inherit/Theme/Default.
