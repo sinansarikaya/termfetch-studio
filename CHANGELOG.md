@@ -7,13 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Documentation
+- Restore dated Docker and graphical VM compatibility tables and distinguish baseline tests from later UI follow-ups.
+- Correct live color editor navigation, Fish uninstall/recovery and keep-configuration instructions.
+- Qualify rendering/support claims and link release notes to actual test evidence.
+
 ## [1.1.0] - 2026-10-22
 
 ### Added
 - **Live Color & Semantic Group Customization**: Interactive draft color editor with real-time live preview for OS, Desktop, Hardware, Network, and Time groups across all 6 presets.
 - **Extended RGB Palette**: 16 named RGB colors added alongside Theme and Default handling, with per-field cancel, save, and reset options.
 - **Persistent Logo Sizing**: Small, medium, and large image-logo sizing with bounded aspect-preserving dimensions.
-- **Flicker-Free Rendering & Alternate Screen**: Retain one alternate-screen session across interactive submenus and prepare complete frames off-screen before display.
+- **Menu Rendering & Alternate Screen**: Retain one alternate-screen session across interactive submenus and prepare complete frames off-screen before display.
 - **Enhanced Distro Detection**: Distribution family recognition via `ID` and `ID_LIKE` (openSUSE Tumbleweed, Debian 12/13, Ubuntu 24.04, Arch Linux, Fedora).
 - **Test Suite**: 26 PTY regression tests, 4 Docker scenario suites (120 checks), ShellCheck validation, and native Kitty VM rendering evidence.
 
@@ -35,7 +40,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Initial release of TermFetch Studio baseline.
 - 25 built-in themes and 8 popular themes (Cyberpunk, Matrix, Naruto, etc.).
-- 6 fastfetch presets (Minimal, Classic, Modern, Hardware, Neofetch, Gaming).
+- 6 fastfetch presets (Full, Minimal, Focused, Developer, Gaming, Custom).
 - Image and ASCII logo support with auto-conversion and 16 built-in ASCII logos.
 - Shell startup integration for Bash, Zsh, and Fish.
 - Backup and restore manager with automatic backups before modifications.

@@ -56,6 +56,15 @@
 - **Changed Files**: []
 - **Evidence Paths**: ["tests/ordered-colors-evidence/changes.patch", "tests/ordered-colors-evidence/README.md", "tests/ordered-colors-evidence/regression.log", "tests/ordered-colors-evidence/fish-uninstall.json", "tests/ordered-colors-evidence/before-order.log", "tests/ordered-colors-evidence/before-uninstall.log", "tests/fish_uninstall.py", "tests/ui_regression.py", "install.sh"]
 - **Accepted At**: 2026-10-22T11:00:32Z
+
+### Task: release-documentation-final-review - Independent read-only documentation/evidence review. User authorized push, merge and release. Remote already has all app fixes and stable v1.1.0 published Oct22. No runtime or version changes and no tag moves. Read the supplied tests/release-doc-evidence/changes.patch for the complete five-document diff, plus current documents as needed. Verify dated compatibility table vs tests/REPORT.md, tests/group-colors-evidence/README.md, tests/ordered-colors-evidence/README.md; baseline graphical tests really exist but do not cover every later UI change. Correct removed duplicate color menu, live Save/Cancel/Reset semantics, Fish stale alias/current parent cleanup, and N answer to REMOVE config question. Qualify universal flicker-free/platform claims, restore evidence after README rewrite. Relative links checked in accessible tests/release-doc-evidence/links.json. Prior initial-review.json found two remaining unconditional image support lists; both are now limited to recorded Kitty/Konsole checks and manual verification for other protocols. Confirm those fixes and remaining criteria; do not read protected .ai-team paths. New tests N/A docs only; do not rerun host/app or imply fresh full matrix. After review leader will push PR and merge docs, edit only existing v1.1.0 release description from maintained notes; no new release or tag move. Do not edit, delegate or use external APIs. Run git diff --check. Report significant actionable issues or clear acceptance.
+- **Status**: Done (Accepted)
+- **Role**: code-reviewer
+- **Provider**: codex
+- **Leader Summary**: Reviewed scoped historical evidence, corrected both remaining support lists and current guide semantics; links and whitespace pass; existing tags and release preserved.
+- **Changed Files**: []
+- **Evidence Paths**: ["tests/release-doc-evidence/changes.patch", "tests/release-doc-evidence/links.json", "tests/release-doc-evidence/initial-review.json", "tests/REPORT.md", "tests/screenshots/README.md", "tests/group-colors-evidence/README.md", "tests/ordered-colors-evidence/README.md"]
+- **Accepted At**: 2026-10-23T17:23:59Z
 <!-- AI-TEAM-TASKS-END -->
 
 ## Initial attempt (not accepted)
@@ -121,3 +130,11 @@
 - Role selection: code-reviewer chosen for Bash cleanup/data preservation; suggested frontend role does not match this shell task.
 - Required gates: isolated PTY/UI, generated Bash/ShellCheck, Fish uninstall behavior, native Kitty VM screenshots, independent review. Other graphical terminals manual; web/mobile/SEO N/A.
 - ordered-colors-uninstall-review accepted; 26 PTY tests, three Fish cleanup/recovery/preservation checks, generated Bash/ShellCheck and four real Kitty screenshots verified. No significant open findings.
+
+## Release publication reconciliation — 23 October 2026
+- User explicitly authorized push, merge and GitHub release publication, superseding the earlier local-only rule.
+- Verified existing remote main already contains all fixes and v1.1.0 was published on 22 October. Do not create a redundant release, downgrade to 1.0.1 or move existing tags.
+- Restore accurate dated compatibility evidence and current color/Fish docs after the previous README rewrite dropped them.
+- Documentation-only follow-up on docs/release-compatibility-evidence, PR merge, then edit only the existing v1.1.0 release description.
+- Use independent code-reviewer for evidence/claims/link review. No runtime/host changes; previous test logs remain historical evidence.
+- release-documentation-final-review accepted: corrected remaining legacy support lists; link/whitespace and evidence scope verified.
