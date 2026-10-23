@@ -2,7 +2,7 @@
 
 [Back to README](../README.md)
 
-Detailed guidance retained from the existing documentation. Compatibility claims below are historical guidance and are pending validation during the maintenance pass. No application behavior was changed.
+Guidance for **TermFetch Studio 1.1.0**. See the [dated compatibility table](../README.md#compatibility-and-test-evidence-x86_64) for tested environments and [remaining manual checks](../tests/MANUAL_CHECKLIST.md) for limits. Docker results are not desktop validation.
 
 ## 🌟 Features
 
@@ -27,7 +27,7 @@ Detailed guidance retained from the existing documentation. Compatibility claims
 
 ### 🖼️ **Advanced Logo System**
 - **Multiple Logo Types**: Auto-detect distribution, custom images, ASCII art
-- **Image Support**: Display custom images (Kitty, WezTerm, iTerm2, Foot)
+- **Image Support**: Recorded native PNG checks in Kitty and Konsole; other terminal protocols require manual validation.
 - **Format Conversion**: Auto-convert PNG, JPG, JPEG, GIF, BMP to optimal format with transparency preservation
 - **Smart Resizing**: Automatically resize large images for better performance
 - **ASCII Fallback**: Automatic conversion for unsupported terminals
@@ -75,32 +75,23 @@ The installer will:
 ### Requirements
 
 **Required:**
-- Linux (any distribution)
-- Bash/Zsh/Fish shell
-- Fastfetch (auto-installed if missing)
+- Linux; see the tested distribution/version matrix in the README.
+- Bash runtime; optional Bash/Zsh/Fish startup integration.
+- fastfetch >= 2.42.0; the installer checks existing versions and offers installation where a supported source exists.
 
 **Optional (for enhanced features):**
 - `chafa` - Image to ASCII conversion
 - `jp2a` - JPEG to ASCII conversion
 - `imagemagick` - Image processing
 
-### Supported Terminals
+### Terminal validation
 
-| Terminal | Color Support | Image Support | Theme Application | Status |
-|----------|--------------|---------------|-------------------|--------|
-| Kitty | ✅ Truecolor | ✅ Full | ✅ Auto | Full Support |
-| Alacritty | ✅ Truecolor | ❌ No | ✅ Auto | Full Support |
-| WezTerm | ✅ Truecolor | ✅ Full | ✅ Auto | Full Support |
-| GNOME Terminal | ✅ Truecolor | ❌ No | ✅ Auto | Full Support |
-| Konsole | ✅ Truecolor | ❌ No | ⚠️ Manual | Partial |
-| Foot | ✅ Truecolor | ✅ Full | ⚠️ Manual | Partial |
-| iTerm2 | ✅ Truecolor | ✅ Full | ⚠️ Manual | Partial |
-| xterm/st | ⚠️ Basic | ❌ No | ❌ No | Basic |
+- **Kitty:** recorded PNG, menu and theme checks in real VMs; latest UI/color follow-up was on Arch/Hyprland/Wayland, Kitty 0.49.2.
+- **Konsole:** baseline KDE/Wayland VM checks include PNG via iTerm protocol, theme selection and persistence. Latest UI changes need a new regression here.
+- **GNOME Terminal:** baseline GNOME/Wayland and separate X11 VM checks include ASCII fallback, theme selection and persistence. Latest UI changes need a new regression here.
+- **WezTerm, Foot, iTerm2, Ghostty and other terminals:** no full graphical validation in this maintenance run. Do not infer application support from a terminal's protocol capabilities. This installer targets Linux; macOS installation was not tested.
 
-**Theme Application:**
-- ✅ Auto - Themes are automatically applied to terminal colors
-- ⚠️ Manual - Requires manual configuration
-- ❌ No - Not supported
+Exact terminal versions, screenshots and test scope are in the [README matrix](../README.md#compatibility-and-test-evidence-x86_64).
 
 ---
 
@@ -517,30 +508,20 @@ Create your own module combinations:
 
 ## 🎨 Advanced Color Customization
 
-### Color Settings Menu
-Access through: `⚙️ Advanced Settings → 🎨 Color Settings`
+### One live color editor
 
-**Available Color Categories:**
-- **🔑 Icon Color (keyColor)**: Colors for module icons (OS, Kernel, etc.)
-- **📝 Text Color (outputColor)**: Colors for the actual information text
-- **🏷️ Title Color**: Colors for the main title/header
-- **📏 Underline Color**: Colors for the separator line
+Open **Main Menu → Icon & Text Colors**. The duplicate Advanced Settings entry has been removed.
 
-**Color Modes:**
-- **🎨 Theme Colors**: Automatic color selection based on current theme
-- **🎯 Custom Colors**: Manual color selection for complete control
-- **🔄 Smart Switching**: Easy toggle between theme and custom modes
+- **Icons / Text:** independent global module foregrounds.
+- **OS, Desktop, Hardware, Network, Time:** group overrides color both the icons and values of that group's modules, wherever present in the chosen preset.
+- **Inherit** retains preset/global colors, **Theme** uses the group's theme accent, **Default** uses the terminal foreground.
+- Palette: 15 ANSI foregrounds and 16 named RGB shades; RGB needs a truecolor terminal. No external palette service is used.
+- **↑↓** chooses a field; **←→** or Enter on a color field cycles its color. The inline sample updates without saving.
+- **Save & Back** commits; **Q** cancels. **Reset to Theme** changes the draft until saved.
 
-**Color Options:**
-- Blue, Red, Green, Yellow, Magenta, Cyan, White, Black
-- Bright variants: Bright Blue, Bright Red, etc.
-- Default option for value colors
+Preview order stays OS → Desktop → Hardware → Network → Time. All five appear where height permits; tiny windows show a contiguous ordered slice. Inline values are samples, not hardware probes. The full preview calls actual fastfetch. Titles and fastfetch's internal percentage colors are outside group overrides.
 
-**Features:**
-- **🎨 Live Preview**: See changes before applying
-- **🔄 Reset to Default**: One-click restore to theme colors
-- **⚡ Auto-Apply**: Changes apply immediately
-- **🎯 Independent Control**: Icon and text colors can be set separately
+See [group-color evidence](../tests/group-colors-evidence/README.md) and [ordered-preview screenshots](../tests/ordered-colors-evidence/README.md).
 
 ---
 
@@ -677,7 +658,7 @@ Share your custom configurations! Open a PR with your setup.
 
 For the best experience with custom images, you need:
 
-1. **Terminal with image support**: Kitty, WezTerm, iTerm2, or Foot
+1. **A terminal with recorded application image checks:** Kitty or Konsole in the linked baseline VM environments. WezTerm, Foot and iTerm2 require manual verification; macOS installation is untested.
 2. **ImageMagick** (optional, for format conversion and resizing):
    ```bash
    # Arch/Manjaro
@@ -729,30 +710,11 @@ TermFetch Studio automatically:
 
 ### Terminal-Specific Notes
 
-#### Kitty
-- Best overall support
-- Use `type: "kitty"` protocol
-- Supports all image formats
-
-#### WezTerm
-- Good support with recent versions
-- Use PNG for best compatibility
-
-#### iTerm2 (macOS)
-- Full support on macOS
-- Inline image protocol
-
-#### Foot
-- Sixel protocol support
-- May have limited color depth
-
-#### Unsupported Terminals
-- Falls back to ASCII art automatically
-- Install `chafa` for better ASCII art conversion:
-  ```bash
-  sudo pacman -S chafa  # Arch
-  sudo apt install chafa  # Ubuntu
-  ```
+Use the generated logo configuration rather than copying a protocol name manually.
+Kitty and Konsole PNG, and GNOME Terminal/xterm ASCII fallback were recorded in
+real baseline VMs. New UI rendering was subsequently checked in native Kitty on
+Arch/Wayland; see the dated evidence matrix. WezTerm, Foot and macOS/iTerm2 require
+manual verification. Install `chafa` for supported image-to-text conversion.
 
 ---
 
@@ -883,7 +845,7 @@ termfetch-studio
 # Go to: System Info → Check terminal capabilities
 ```
 
-Supported terminals: Kitty, WezTerm, iTerm2, Foot
+Recorded PNG checks: Kitty and Konsole in the baseline VM matrix. Other terminal/protocol combinations require manual verification; consult the dated README matrix.
 
 For others, use ASCII art fallback:
 ```bash
@@ -919,7 +881,7 @@ The installer will ask for sudo when needed.
 
 ## 🗑️ Uninstallation
 
-### Full Uninstall (removes everything)
+### Uninstall application files
 
 ```bash
 termfetch-studio uninstall
@@ -930,8 +892,23 @@ The uninstaller will ask if you want to keep your configuration files.
 ### Keep Configuration
 
 If you want to reinstall later with your current settings:
-- Answer "yes" when asked to keep configuration files
+- Answer **N** to `Remove config directory? (y/N):` (the question asks whether to remove it).
 - Your themes and settings will be preserved
+
+### Fish after uninstall
+
+The uninstaller removes the exact legacy `alias fastfetch="termfetch-studio --preview"`
+line and keeps a backup beside `config.fish`. Custom functions/compound aliases remain.
+An already-open Fish keeps loaded functions; run:
+
+```fish
+functions --erase fastfetch
+```
+
+If you removed an older installation, also remove that exact stale alias line from
+`~/.config/fish/config.fish` yourself before opening another terminal. There is no
+need to delete your personal `clear` function. Review any custom autoload/plugin
+wrapper separately. See [before/after evidence](../tests/ordered-colors-evidence/README.md).
 
 ### Installation paths
 
