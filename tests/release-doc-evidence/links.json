@@ -1,0 +1,23 @@
+{
+  "checks": [
+    {
+      "file": "README.md",
+      "relative_links": "passed"
+    },
+    {
+      "file": "CHANGELOG.md",
+      "relative_links": "passed"
+    },
+    {
+      "file": "docs/USER_GUIDE.md",
+      "relative_links": "passed"
+    },
+    {
+      "file": "docs/RELEASE_NOTES.md",
+      "relative_links": "passed"
+    }
+  ],
+  "diff_check_exit": 0,
+  "runtime_changes": false,
+  "runtime_tests": "N/A: documentation only; historical results linked and scoped"
+}
