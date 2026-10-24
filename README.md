@@ -1,0 +1,99 @@
+# TermFetch Studio v2 (Rust + Ratatui)
+
+Cross-platform terminal customization and Fastfetch theme studio — a native
+rewrite of the original `install.sh` (themes, presets, logos, colour editor,
+demo mode, backup/restore) with a live, fastfetch-accurate preview.
+
+## Build & install
+
+```bash
+cargo build --release
+install -Dm755 target/release/termfetch-studio ~/.local/bin/termfetch-studio
+mkdir -p ~/.local/share/termfetch-studio/assets
+cp -r assets/preset-logos ~/.local/share/termfetch-studio/assets/
+```
+
+Assets are discovered at runtime (first match wins): `$TERMFETCH_STUDIO_ASSETS`,
+`<exe dir>/assets`, `<exe dir>/../share/termfetch-studio/assets`,
+`~/.local/share/termfetch-studio/assets`, `./assets`, then the source checkout.
+
+## TUI
+
+```bash
+termfetch-studio            # uses the saved demo setting
+termfetch-studio --no-demo  # start with real specs
+```
+
+Layout: icon menu on the left (Dashboard, Themes, Presets, Logos, Module
+Builder, Colors, Backup & Restore, Doctor), the active screen in the middle and
+a wide **Live Preview** on the right, painted in the theme background. The
+preview reproduces fastfetch's layout exactly (logo padding, `keyWidth`,
+separator, resolved colours). Image logos are decoded once by a background
+worker pool and drawn with half-blocks, so scrolling stays well above 60 FPS.
+
+| Key | Action |
+|---|---|
+| `Tab`, `←`/`→` | switch between menu and content |
+| `↑`/`↓`, `j`/`k`, `PgUp`/`PgDn`, `g`/`G` | browse (preview updates instantly) |
+| `Enter` / `a` | apply: save settings and write both fastfetch configs |
+| `p` | run the real fastfetch with the current, unsaved selection |
+| `d` | toggle privacy demo mode (persisted, config regenerated) |
+| `s` | cycle image logo size (small / medium / large) |
+| `Space`, `J`/`K` | Module Builder: toggle / reorder modules |
+| `←`/`→` | Colors: cycle icon, text and per-group colours |
+| `x` | Backup: delete selected backup · `r` Doctor: re-run checks |
+| `1`–`8` | jump to a screen · mouse click and wheel supported |
+| `q` / `Esc` | quit |
+
+## CLI
+
+```bash
+termfetch-studio apply --theme nord --preset developer --logo pikachu --logo-size large
+termfetch-studio preview --theme dracula --preset minimal      # ANSI preview to stdout
+termfetch-studio demo on|off|toggle|status
+termfetch-studio list themes|presets|logos|modules|colors
+termfetch-studio backup create|list|restore <name>|delete <name>
+termfetch-studio run          # fastfetch with the studio config
+termfetch-studio doctor       # also: --doctor
+```
+
+## Files
+
+| Path | Purpose |
+|---|---|
+| `~/.config/termfetch-studio/settings.json` | saved choices |
+| `~/.config/termfetch-studio/fastfetch.jsonc` | generated config (original installer path) |
+| `~/.config/fastfetch/config.jsonc` | generated config (fastfetch default) |
+| `~/.config/termfetch-studio/backups/` | backups; a hand-written fastfetch config is preserved here before the first overwrite |
+| `~/.config/termfetch-studio/custom.png` | custom image logo |
+
+Both configs are produced from typed `serde_json` structures and written
+atomically (temp file + fsync + rename). `$XDG_CONFIG_HOME` is respected.
+
+## Image sizing
+
+The logo box is computed from the image header's pixel size and the terminal's
+real cell size (`TIOCGWINSZ` via `crossterm::terminal::window_size`, falling
+back to 1:2 cells), bounded by the size preset (20×14 / 36×22 / 52×32), a third
+of the terminal width and its height − 4 — the same algorithm as the original
+installer, including its "largest rectangle within 5% of the true ratio" search.
+The preview uses the identical box, shrinking it with the same aspect ratio only
+if the pane is smaller.
+
+## Architecture
+
+```
+src/
+├── main.rs              # CLI dispatch, terminal lifecycle, event loop, live fastfetch
+├── paths.rs             # XDG/exe-relative path + asset discovery
+├── cli/                 # clap definitions
+├── app/                 # AppState, Action, reducer (+ effects)
+├── domain/              # themes, presets/modules, logos, colours, settings, style resolution
+├── imaging/             # fit_image_cells, half-block raster, background decode pool
+├── adapters/            # fastfetch config/runner, backup, doctor, atomic fs
+└── tui/                 # layout, sidebar, preview, screens
+```
+
+## License
+
+MIT — Sinan Sarıkaya
