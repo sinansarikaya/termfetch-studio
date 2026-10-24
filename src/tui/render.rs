@@ -5,6 +5,7 @@ use crate::tui::screens::{
 };
 use crate::imaging::kitty::ImageKey;
 use crate::tui::widgets::preview::{draw_preview, inner_area, ImageState, LogoRaster, PreviewModel};
+use crate::tui::palette::Palette;
 use crate::tui::widgets::sidebar::render_sidebar;
 use ratatui::{
     layout::{Constraint, Layout, Rect},
@@ -17,6 +18,11 @@ use ratatui::{
 const SIDEBAR_W: u16 = 26;
 
 pub fn render_ui(f: &mut Frame, state: &mut AppState) {
+    // Paint the theme background ourselves: legibility must not depend on
+    // whatever background the host terminal happens to have.
+    let pal = Palette::from_theme(state.current_theme());
+    let full = f.area();
+    f.buffer_mut().set_style(full, Style::new().bg(pal.bg).fg(pal.fg));
     let [top, body, bottom] = Layout::vertical([Constraint::Length(1), Constraint::Min(8), Constraint::Length(1)]).areas(f.area());
     render_top_bar(f, top, state);
 
@@ -141,27 +147,26 @@ fn render_preview_pane(f: &mut Frame, area: Rect, state: &mut AppState) {
     draw_preview(f.buffer_mut(), area, &model, raster, true);
 }
 
-fn pill(text: String, fg: Color, bg: Color) -> Span<'static> {
-    Span::styled(text, Style::new().fg(fg).bg(bg).add_modifier(Modifier::BOLD))
+fn pill(text: String, fill: Color) -> Span<'static> {
+    Span::styled(text, Palette::pill(fill).add_modifier(Modifier::BOLD))
 }
 
 fn render_top_bar(f: &mut Frame, area: Rect, state: &AppState) {
-    let theme = state.current_theme();
-    let primary = theme.primary_color();
+    let pal = Palette::from_theme(state.current_theme());
     let left = Line::from(vec![
-        pill(" \u{f018d} TermFetch Studio ".into(), theme.background_color(), primary),
-        Span::styled(" v2 ", Style::new().fg(Color::DarkGray)),
-        Span::styled(format!(" {} {} ", state.screen.icon(), state.screen.title()), Style::new().fg(Color::White).add_modifier(Modifier::BOLD)),
+        pill(" \u{f018d} TermFetch Studio ".into(), pal.primary),
+        Span::styled(" v2 ", Style::new().fg(pal.dim)),
+        Span::styled(format!(" {} {} ", state.screen.icon(), state.screen.title()), Style::new().fg(pal.fg).add_modifier(Modifier::BOLD)),
     ]);
     let mut right = Vec::new();
     if state.unsaved() {
-        right.push(pill(" ● unsaved ".into(), Color::Black, Color::Yellow));
+        right.push(pill(" ● unsaved ".into(), pal.warn));
         right.push(Span::raw(" "));
     }
     right.push(if state.settings.demo_mode {
-        pill(" 󰈈 DEMO ".into(), Color::Black, Color::Green)
+        pill(" ◉ PREVIEW ".into(), pal.ok)
     } else {
-        pill(" 󰈉 REAL ".into(), Color::Black, Color::LightRed)
+        pill(" ● REAL ".into(), pal.error)
     });
     right.push(Span::raw(" "));
     f.render_widget(Paragraph::new(left), area);
@@ -169,17 +174,18 @@ fn render_top_bar(f: &mut Frame, area: Rect, state: &AppState) {
 }
 
 fn render_bottom_bar(f: &mut Frame, area: Rect, state: &AppState) {
+    let pal = Palette::from_theme(state.current_theme());
     let (kind, msg) = &state.status;
     let color = match kind {
-        StatusKind::Info => Color::White,
-        StatusKind::Ok => Color::Green,
-        StatusKind::Warn => Color::Yellow,
-        StatusKind::Error => Color::Red,
+        StatusKind::Info => pal.fg,
+        StatusKind::Ok => pal.ok,
+        StatusKind::Warn => pal.warn,
+        StatusKind::Error => pal.error,
     };
     let quit = if state.unsaved() { "q save & quit" } else { "q quit" };
     let hints = format!("{} · {quit} ", state.screen.hints());
     let hint_w = hints.chars().count() as u16;
     let [msg_area, hint_area] = Layout::horizontal([Constraint::Min(10), Constraint::Length(hint_w.min(area.width / 2))]).areas(area);
     f.render_widget(Paragraph::new(Span::styled(format!(" {msg}"), Style::new().fg(color))), msg_area);
-    f.render_widget(Paragraph::new(Line::from(Span::styled(hints, Style::new().fg(Color::DarkGray))).right_aligned()), hint_area);
+    f.render_widget(Paragraph::new(Line::from(Span::styled(hints, Style::new().fg(pal.dim))).right_aligned()), hint_area);
 }

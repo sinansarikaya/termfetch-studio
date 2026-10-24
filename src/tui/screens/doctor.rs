@@ -1,30 +1,32 @@
 use crate::adapters::doctor::Level;
 use crate::app::state::AppState;
+use crate::tui::palette::Palette;
 use crate::tui::widgets::list::{panel, render_rows, Row};
 use ratatui::{
     layout::Rect,
-    style::{Color, Modifier, Style},
+    style::{Modifier, Style},
     text::{Line, Span},
     Frame,
 };
 
 pub fn render_doctor(f: &mut Frame, area: Rect, state: &mut AppState) {
+    let pal = Palette::from_theme(state.current_theme());
     let rows: Vec<Row> = state
         .doctor
         .iter()
         .enumerate()
         .map(|(i, c)| {
             let color = match c.level {
-                Level::Ok => Color::Green,
-                Level::Info => Color::Cyan,
-                Level::Warn => Color::Yellow,
-                Level::Fail => Color::Red,
+                Level::Ok => pal.ok,
+                Level::Info => pal.info,
+                Level::Warn => pal.warn,
+                Level::Fail => pal.error,
             };
             Row::Item(
                 Line::from(vec![
                     Span::styled(format!("{} ", c.level.symbol()), Style::new().fg(color).add_modifier(Modifier::BOLD)),
-                    Span::styled(format!("{:<17}", c.name), Style::new().fg(Color::White)),
-                    Span::styled(c.detail.clone(), Style::new().fg(Color::Gray)),
+                    Span::styled(format!("{:<17}", c.name), Style::new().fg(pal.fg)),
+                    Span::styled(c.detail.clone(), Style::new().fg(pal.muted)),
                 ]),
                 i,
             )

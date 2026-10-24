@@ -9,6 +9,7 @@ use crate::domain::preset::{Preset, DEMO_DATA};
 use crate::domain::settings::Settings;
 use crate::domain::style;
 use crate::domain::theme::Theme;
+use crate::tui::palette::Palette;
 use crate::imaging::{blend, config_logo_cells, fit_image_cells, kitty, HalfblockGrid, TermGeometry};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
@@ -237,20 +238,26 @@ pub fn draw_preview(buf: &mut Buffer, area: Rect, model: &PreviewModel, raster: 
     }
 
     let inner = if show_chrome {
-        let demo = if model.settings.demo_mode { " demo " } else { " real specs " };
+        // Chrome (not the fastfetch emulation itself) is contrast-checked.
+        let pal = Palette::from_theme(model.theme);
+        let (badge, fill) = if model.settings.demo_mode {
+            (" [d] preview ", model.theme.accent_color())
+        } else {
+            (" [d] real specs ", model.theme.secondary_color())
+        };
         Block::new()
             .borders(Borders::ALL)
             .border_type(BorderType::Rounded)
-            .border_style(Style::new().fg(primary).bg(bg))
+            .border_style(Style::new().fg(pal.visible(primary)).bg(bg))
             .title(Line::from(vec![
-                Span::styled(" \u{f02e9} Live Preview ", Style::new().fg(primary).bg(bg).add_modifier(Modifier::BOLD)),
-                Span::styled(format!("· {} ", model.preset.name), Style::new().fg(fg).bg(bg)),
+                Span::styled(" \u{f02e9} Live Preview ", Style::new().fg(pal.primary).bg(bg).add_modifier(Modifier::BOLD)),
+                Span::styled(format!("· {} ", model.preset.name), Style::new().fg(pal.fg).bg(bg)),
             ]))
-            .title(Line::from(Span::styled(format!(" {} ", model.theme.name), Style::new().fg(fg).bg(bg))).right_aligned())
+            .title(Line::from(Span::styled(format!(" {} ", model.theme.name), Style::new().fg(pal.fg).bg(bg))).right_aligned())
             .title_bottom(Line::from(vec![
-                Span::styled(demo, Style::new().fg(bg).bg(if model.settings.demo_mode { model.theme.accent_color() } else { model.theme.secondary_color() })),
-                Span::styled(" p ", Style::new().fg(primary).bg(bg).add_modifier(Modifier::BOLD)),
-                Span::styled("run fastfetch ", Style::new().fg(fg).bg(bg)),
+                Span::styled(badge, Palette::pill(fill).add_modifier(Modifier::BOLD)),
+                Span::styled(" p ", Style::new().fg(pal.primary).bg(bg).add_modifier(Modifier::BOLD)),
+                Span::styled("run fastfetch ", Style::new().fg(pal.fg).bg(bg)),
             ]).right_aligned())
             .render(area, buf);
         inner_area(area)
@@ -282,7 +289,7 @@ pub fn draw_preview(buf: &mut Buffer, area: Rect, model: &PreviewModel, raster: 
             let y = ly + lh / 2;
             if y < inner.bottom() {
                 let x = lx + lw.saturating_sub(msg.width() as u16) / 2;
-                buf.set_stringn(x, y, msg, usize::from(lw), Style::new().fg(Color::DarkGray).bg(bg));
+                buf.set_stringn(x, y, msg, usize::from(lw), Style::new().fg(Palette::from_theme(model.theme).dim).bg(bg));
             }
         }
     }

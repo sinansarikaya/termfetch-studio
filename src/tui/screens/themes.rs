@@ -1,14 +1,16 @@
 use crate::app::state::AppState;
+use crate::tui::palette::Palette;
 use crate::domain::color::SemanticGroup;
 use crate::tui::widgets::list::{panel, render_rows, Row};
 use ratatui::{
     layout::Rect,
-    style::{Color, Modifier, Style},
+    style::{Modifier, Style},
     text::{Line, Span},
     Frame,
 };
 
 pub fn render_themes(f: &mut Frame, area: Rect, state: &mut AppState) {
+    let pal = Palette::from_theme(state.current_theme());
     let selected = state.theme_idx();
     let applied = state.saved.theme.clone();
     let mut rows = Vec::new();
@@ -24,10 +26,10 @@ pub fn render_themes(f: &mut Frame, area: Rect, state: &mut AppState) {
             spans.push(Span::styled("●", Style::new().fg(crate::domain::theme::Theme::parse_color(g.theme_hex(t)))));
         }
         spans.push(Span::raw(" "));
-        let name_style = if i == selected { Style::new().fg(t.primary_color()).add_modifier(Modifier::BOLD) } else { Style::new().fg(Color::White) };
+        let name_style = if i == selected { Style::new().fg(pal.readable(t.primary_color())).add_modifier(Modifier::BOLD) } else { Style::new().fg(pal.fg) };
         spans.push(Span::styled(t.name.clone(), name_style));
         if t.id == applied {
-            spans.push(Span::styled("  ✓ applied", Style::new().fg(Color::Green)));
+            spans.push(Span::styled("  ✓ applied", Style::new().fg(pal.ok)));
         }
         rows.push(Row::Item(Line::from(spans), i));
     }

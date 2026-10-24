@@ -1,9 +1,10 @@
 //! Scrollable list with optional section headers and mouse hit-testing.
 
 use crate::app::state::{AppState, ClickMap, Focus};
+use crate::tui::palette::Palette;
 use ratatui::{
     layout::Rect,
-    style::{Color, Modifier, Style},
+    style::{Modifier, Style},
     text::{Line, Span},
     widgets::{Block, BorderType, Borders, List, ListItem},
     Frame,
@@ -15,8 +16,9 @@ pub enum Row<'a> {
 }
 
 pub fn panel<'a>(title: impl Into<String>, state: &AppState) -> Block<'a> {
-    let primary = state.current_theme().primary_color();
-    let border = if state.focus == Focus::Content { primary } else { Color::DarkGray };
+    let pal = Palette::from_theme(state.current_theme());
+    let primary = pal.primary;
+    let border = if state.focus == Focus::Content { primary } else { pal.border };
     Block::new()
         .borders(Borders::ALL)
         .border_type(BorderType::Rounded)
@@ -25,8 +27,8 @@ pub fn panel<'a>(title: impl Into<String>, state: &AppState) -> Block<'a> {
 }
 
 pub fn render_rows(f: &mut Frame, area: Rect, state: &mut AppState, block: Block, rows: Vec<Row>, selected: usize) {
-    let highlight_bg = Color::Rgb(45, 48, 64);
-    let primary = state.current_theme().primary_color();
+    let pal = Palette::from_theme(state.current_theme());
+    let (highlight_bg, primary) = (pal.sel_bg, pal.primary);
     let mut map = Vec::with_capacity(rows.len());
     let mut sel_row = 0;
     let items: Vec<ListItem> = rows
@@ -37,7 +39,7 @@ pub fn render_rows(f: &mut Frame, area: Rect, state: &mut AppState, block: Block
                 map.push(None);
                 ListItem::new(Line::from(Span::styled(
                     format!("── {t} "),
-                    Style::new().fg(Color::DarkGray).add_modifier(Modifier::BOLD),
+                    Style::new().fg(pal.dim).add_modifier(Modifier::BOLD),
                 )))
             }
             Row::Item(line, idx) => {

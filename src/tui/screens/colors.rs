@@ -1,4 +1,5 @@
 use crate::app::state::AppState;
+use crate::tui::palette::Palette;
 use crate::domain::color::{ColorValue, SemanticGroup};
 use crate::domain::style;
 use crate::tui::widgets::list::{panel, render_rows, Row};
@@ -17,8 +18,9 @@ pub fn render_colors(f: &mut Frame, area: Rect, state: &mut AppState) {
     let theme = state.current_theme().clone();
     let s = state.settings.clone();
     let fg = theme.text_color();
-    let value = |v: &ColorValue| Span::styled(format!("◀ {:<13} ▶", v.label()), Style::new().fg(Color::White).add_modifier(Modifier::BOLD));
-    let label = |t: &str| Span::styled(format!("{t:<14}"), Style::new().fg(Color::Gray));
+    let pal = Palette::from_theme(&theme);
+    let value = |v: &ColorValue| Span::styled(format!("◀ {:<13} ▶", v.label()), Style::new().fg(pal.fg).add_modifier(Modifier::BOLD));
+    let label = |t: &str| Span::styled(format!("{t:<14}"), Style::new().fg(pal.muted));
 
     let mut rows = vec![Row::Header("Base colours".into())];
     let icon_c = style::module_colors(&theme, &s, SemanticGroup::Os).key.tui_color(fg);
@@ -40,10 +42,10 @@ pub fn render_colors(f: &mut Frame, area: Rect, state: &mut AppState) {
         ));
     }
     rows.push(Row::Header("Actions".into()));
-    rows.push(Row::Item(Line::from(Span::styled("↺  Reset to theme colours", Style::new().fg(Color::Yellow))), 7));
+    rows.push(Row::Item(Line::from(Span::styled("↺  Reset to theme colours", Style::new().fg(pal.warn))), 7));
     let osc = if s.apply_terminal_colors { "on" } else { "off" };
     rows.push(Row::Item(
-        Line::from(vec![label("Terminal bg/fg"), Span::styled(format!("{osc} "), Style::new().fg(Color::White).add_modifier(Modifier::BOLD)), Span::styled("(OSC 10/11 on apply)", Style::new().fg(Color::DarkGray))]),
+        Line::from(vec![label("Terminal bg/fg"), Span::styled(format!("{osc} "), Style::new().fg(pal.fg).add_modifier(Modifier::BOLD)), Span::styled("(OSC 10/11 on apply)", Style::new().fg(pal.dim))]),
         8,
     ));
     let block = panel("\u{f020a} Icon & Text Colors", state);
