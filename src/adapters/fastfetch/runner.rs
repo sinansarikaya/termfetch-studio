@@ -13,9 +13,14 @@ const FIELD_SEP: char = '\u{1f}';
 
 pub fn version() -> Option<String> {
     let out = Command::new("fastfetch").arg("--version").output().ok()?;
-    out.status
-        .success()
-        .then(|| String::from_utf8_lossy(&out.stdout).lines().next().unwrap_or("fastfetch").trim().to_string())
+    out.status.success().then(|| {
+        String::from_utf8_lossy(&out.stdout)
+            .lines()
+            .next()
+            .unwrap_or("fastfetch")
+            .trim()
+            .to_string()
+    })
 }
 
 /// Real values shown in the preview when demo mode is off.
@@ -53,8 +58,14 @@ pub fn parse_probe_output(text: &str) -> RealInfo {
 }
 
 fn probe_config(modules: &[ModuleKind]) -> serde_json::Value {
-    let mut list = vec![json!({"type": "title", "format": format!("title{FIELD_SEP}{{user-name}}@{{host-name}}")})];
-    list.extend(modules.iter().map(|m| json!({"type": m.fastfetch_type(), "key": m.fastfetch_type()})));
+    let mut list = vec![
+        json!({"type": "title", "format": format!("title{FIELD_SEP}{{user-name}}@{{host-name}}")}),
+    ];
+    list.extend(
+        modules
+            .iter()
+            .map(|m| json!({"type": m.fastfetch_type(), "key": m.fastfetch_type()})),
+    );
     json!({
         "logo": {"type": "none"},
         "display": {"separator": FIELD_SEP.to_string(), "pipe": true},

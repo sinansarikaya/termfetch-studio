@@ -124,7 +124,13 @@ pub fn asset_candidates(data_dir: &Path) -> Vec<PathBuf> {
         .and_then(|e| e.parent().map(Path::to_path_buf))
     {
         out.push(exe_dir.join("assets"));
-        out.push(exe_dir.join("..").join("share").join(APP_DIR).join("assets"));
+        out.push(
+            exe_dir
+                .join("..")
+                .join("share")
+                .join(APP_DIR)
+                .join("assets"),
+        );
         // `target/{debug,release}/` -> crate root during development.
         out.push(exe_dir.join("..").join("..").join("assets"));
     }

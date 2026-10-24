@@ -16,7 +16,11 @@ fn main() {
                 if let Color::Rgb(r, g, b) = if y % 2 == 0 { cell.fg } else { cell.bg } {
                     for dy in 0..3 {
                         for dx in 0..3 {
-                            atlas.put_pixel((i as u32 % 6) * 204 + 6 + u32::from(x) * 3 + dx, (i as u32 / 6) * 108 + 6 + u32::from(y) * 3 + dy, Rgb([r, g, b]));
+                            atlas.put_pixel(
+                                (i as u32 % 6) * 204 + 6 + u32::from(x) * 3 + dx,
+                                (i as u32 / 6) * 108 + 6 + u32::from(y) * 3 + dy,
+                                Rgb([r, g, b]),
+                            );
                         }
                     }
                 }
@@ -24,5 +28,11 @@ fn main() {
         }
         println!("{}: {}", i + 1, theme.name);
     }
-    atlas.save(std::env::args().nth(1).unwrap_or_else(|| "theme-gallery.png".into())).expect("save atlas");
+    atlas
+        .save(
+            std::env::args()
+                .nth(1)
+                .unwrap_or_else(|| "theme-gallery.png".into()),
+        )
+        .expect("save atlas");
 }

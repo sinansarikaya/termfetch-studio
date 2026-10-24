@@ -9,8 +9,8 @@
 
 use super::kitty_diacritics::DIACRITICS;
 use base64::Engine;
-use image::codecs::png::{CompressionType, FilterType, PngEncoder};
 use image::ImageEncoder;
+use image::codecs::png::{CompressionType, FilterType, PngEncoder};
 use ratatui::style::Color;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::PathBuf;
@@ -35,7 +35,10 @@ pub fn detect() -> bool {
         "halfblock" | "blocks" | "off" | "none" => return false,
         _ => {}
     }
-    if std::env::var_os("TMUX").is_some() || std::env::var_os("STY").is_some() || var("TERM").starts_with("screen") {
+    if std::env::var_os("TMUX").is_some()
+        || std::env::var_os("STY").is_some()
+        || var("TERM").starts_with("screen")
+    {
         return false;
     }
     let term = var("TERM");
@@ -68,7 +71,9 @@ pub fn transmit_sequence(id: u32, png: &[u8], cols: u16, rows: u16) -> String {
     for (i, chunk) in chunks.iter().enumerate() {
         let more = u8::from(i + 1 < chunks.len());
         if i == 0 {
-            out.push_str(&format!("\x1b_Ga=T,U=1,f=100,t=d,i={id},c={cols},r={rows},q=2,m={more};{chunk}\x1b\\"));
+            out.push_str(&format!(
+                "\x1b_Ga=T,U=1,f=100,t=d,i={id},c={cols},r={rows},q=2,m={more};{chunk}\x1b\\"
+            ));
         } else {
             out.push_str(&format!("\x1b_Gm={more};{chunk}\x1b\\"));
         }
@@ -90,7 +95,9 @@ pub fn encode_png(path: &str, px: (u32, u32)) -> Result<Vec<u8>, String> {
         .decode()
         .map_err(|e| e.to_string())?;
     let (w, h) = (px.0.max(1), px.1.max(1));
-    let scaled = img.resize_exact(w, h, image::imageops::FilterType::Lanczos3).to_rgba8();
+    let scaled = img
+        .resize_exact(w, h, image::imageops::FilterType::Lanczos3)
+        .to_rgba8();
     let mut png = Vec::new();
     PngEncoder::new_with_quality(&mut png, CompressionType::Fast, FilterType::Adaptive)
         .write_image(scaled.as_raw(), w, h, image::ExtendedColorType::Rgba8)
@@ -126,7 +133,10 @@ pub struct KittyImages {
 
 impl KittyImages {
     pub fn new(workers: usize) -> Self {
-        let queue = Arc::new(Queue { jobs: Mutex::new(VecDeque::new()), ready: Condvar::new() });
+        let queue = Arc::new(Queue {
+            jobs: Mutex::new(VecDeque::new()),
+            ready: Condvar::new(),
+        });
         let (tx, rx) = mpsc::channel::<EncodeResult>();
         for i in 0..workers.max(1) {
             let queue = Arc::clone(&queue);
@@ -161,11 +171,9 @@ impl KittyImages {
             return;
         }
         if self.pending.contains(key) {
-            if urgent {
-                if let Some(pos) = jobs.iter().position(|k| k == key) {
-                    let job = jobs.remove(pos).expect("position is valid");
-                    jobs.push_front(job);
-                }
+            if urgent && let Some(pos) = jobs.iter().position(|k| k == key) {
+                let job = jobs.remove(pos).expect("position is valid");
+                jobs.push_front(job);
             }
             return;
         }
@@ -191,10 +199,10 @@ impl KittyImages {
             match res {
                 Ok(png) => {
                     while self.order.len() >= UPLOAD_LIMIT {
-                        if let Some(old) = self.order.pop_front() {
-                            if let Some(id) = self.uploaded.remove(&old) {
-                                out.push(delete_sequence(id));
-                            }
+                        if let Some(old) = self.order.pop_front()
+                            && let Some(id) = self.uploaded.remove(&old)
+                        {
+                            out.push(delete_sequence(id));
                         }
                     }
                     let id = self.alloc_id();
@@ -219,15 +227,27 @@ impl KittyImages {
     /// Forget every rendition of `path` (the file was replaced on disk).
     pub fn invalidate(&mut self, path: &str) -> Vec<String> {
         self.failed.retain(|k| k.path != path);
-        let stale: Vec<ImageKey> = self.uploaded.keys().filter(|k| k.path == path).cloned().collect();
+        let stale: Vec<ImageKey> = self
+            .uploaded
+            .keys()
+            .filter(|k| k.path == path)
+            .cloned()
+            .collect();
         self.order.retain(|k| k.path != path);
-        stale.iter().filter_map(|k| self.uploaded.remove(k)).map(delete_sequence).collect()
+        stale
+            .iter()
+            .filter_map(|k| self.uploaded.remove(k))
+            .map(delete_sequence)
+            .collect()
     }
 
     /// Sequences that free everything this instance uploaded.
     pub fn cleanup(&mut self) -> String {
         self.order.clear();
-        self.uploaded.drain().map(|(_, id)| delete_sequence(id)).collect()
+        self.uploaded
+            .drain()
+            .map(|(_, id)| delete_sequence(id))
+            .collect()
     }
 }
 
@@ -274,7 +294,10 @@ mod tests {
         let seq = transmit_sequence(7, &vec![0u8; 10_000], 10, 5);
         assert!(seq.starts_with("\x1b_Ga=T,U=1,f=100,t=d,i=7,c=10,r=5,q=2,m=1;"));
         assert!(seq.ends_with("\x1b\\"));
-        assert_eq!(seq.matches("\x1b_G").count(), (10_000usize.div_ceil(3) * 4).div_ceil(CHUNK));
+        assert_eq!(
+            seq.matches("\x1b_G").count(),
+            (10_000usize.div_ceil(3) * 4).div_ceil(CHUNK)
+        );
         assert!(seq.contains("\x1b_Gm=0;"));
     }
 
@@ -283,8 +306,14 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("tfs-kitty-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join("img.png");
-        image::RgbaImage::from_pixel(300, 200, image::Rgba([0, 0, 255, 255])).save(&path).unwrap();
-        let key = ImageKey { path: path.to_string_lossy().into_owned(), cells: (12, 4), px: (120, 80) };
+        image::RgbaImage::from_pixel(300, 200, image::Rgba([0, 0, 255, 255]))
+            .save(&path)
+            .unwrap();
+        let key = ImageKey {
+            path: path.to_string_lossy().into_owned(),
+            cells: (12, 4),
+            px: (120, 80),
+        };
 
         let mut k = KittyImages::new(1);
         k.request(&key, true);

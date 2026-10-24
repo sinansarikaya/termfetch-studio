@@ -40,6 +40,8 @@ pub enum Action {
     RunFastfetch,
     Refresh,
     Delete,
+    Undo,
+    Redo,
     Click {
         col: u16,
         row: u16,

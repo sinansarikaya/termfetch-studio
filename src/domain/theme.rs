@@ -47,14 +47,14 @@ pub struct Theme {
 impl Theme {
     pub fn parse_color(hex: &str) -> Color {
         let clean = hex.trim().trim_start_matches('#');
-        if clean.len() == 6 {
-            if let (Ok(r), Ok(g), Ok(b)) = (
+        if clean.len() == 6
+            && let (Ok(r), Ok(g), Ok(b)) = (
                 u8::from_str_radix(&clean[0..2], 16),
                 u8::from_str_radix(&clean[2..4], 16),
                 u8::from_str_radix(&clean[4..6], 16),
-            ) {
-                return Color::Rgb(r, g, b);
-            }
+            )
+        {
+            return Color::Rgb(r, g, b);
         }
         Color::Reset
     }
@@ -81,10 +81,7 @@ impl Theme {
 
     /// OSC sequences to apply background and foreground to host terminal
     pub fn osc_sequences(&self) -> String {
-        format!(
-            "\x1b]10;{}\x07\x1b]11;{}\x07",
-            self.text, self.background
-        )
+        format!("\x1b]10;{}\x07\x1b]11;{}\x07", self.text, self.background)
     }
 }
 
@@ -178,7 +175,6 @@ pub fn get_builtin_themes() -> Vec<Theme> {
                 time: "#e69875".into(),
             },
         },
-
         // ==========================================
         // 2. CLASSIC DARK PALETTES
         // ==========================================
@@ -352,7 +348,6 @@ pub fn get_builtin_themes() -> Vec<Theme> {
                 time: "#666666".into(),
             },
         },
-
         // ==========================================
         // 3. AUTHENTIC LIGHT THEMES
         // ==========================================
@@ -360,11 +355,11 @@ pub fn get_builtin_themes() -> Vec<Theme> {
             id: "solarized-light".into(),
             name: "Solarized Light ☀️".into(),
             category: ThemeCategory::Light,
-            primary: "#b58900".into(), // Ethan Schoonover amber
-            secondary: "#268bd2".into(), // Blue
-            accent: "#2aa198".into(), // Cyan
+            primary: "#b58900".into(),    // Ethan Schoonover amber
+            secondary: "#268bd2".into(),  // Blue
+            accent: "#2aa198".into(),     // Cyan
             background: "#fdf6e3".into(), // Base3 authentic ivory
-            text: "#657b83".into(), // Base00
+            text: "#657b83".into(),       // Base00
             groups: SemanticGroups {
                 os: "#b58900".into(),
                 desktop: "#6c71c4".into(),
@@ -377,9 +372,9 @@ pub fn get_builtin_themes() -> Vec<Theme> {
             id: "ayu-light".into(),
             name: "Ayu Light 🌤️".into(),
             category: ThemeCategory::Light,
-            primary: "#ff9940".into(), // Ayu orange
-            secondary: "#399ee6".into(), // Ayu blue
-            accent: "#86b300".into(), // Ayu green
+            primary: "#ff9940".into(),    // Ayu orange
+            secondary: "#399ee6".into(),  // Ayu blue
+            accent: "#86b300".into(),     // Ayu green
             background: "#fafafa".into(), // Authentic clean white
             text: "#5c6166".into(),
             groups: SemanticGroups {
@@ -424,7 +419,6 @@ pub fn get_builtin_themes() -> Vec<Theme> {
                 time: "#0184bc".into(),
             },
         },
-
         // ==========================================
         // 4. PASTEL & AESTHETIC PALETTES
         // ==========================================
@@ -479,7 +473,6 @@ pub fn get_builtin_themes() -> Vec<Theme> {
                 time: "#b3e5fc".into(),
             },
         },
-
         // ==========================================
         // 5. POP CULTURE & GAMING PALETTES
         // ==========================================

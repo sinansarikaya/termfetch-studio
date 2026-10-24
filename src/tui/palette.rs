@@ -3,7 +3,7 @@
 //! theme instead. Either way every text colour is contrast-checked against
 //! every surface it can be drawn on (canvas, cards, raised cards, selection).
 
-use crate::domain::contrast::{self, best_on, color, ensure, mix, Rgb, AA, AAA, UI};
+use crate::domain::contrast::{self, AA, AAA, Rgb, UI, best_on, color, ensure, mix};
 use crate::domain::theme::Theme;
 use ratatui::style::{Color, Style};
 
@@ -131,7 +131,11 @@ impl Palette {
     }
 
     pub fn for_settings(follow_theme: bool, theme: &Theme) -> Self {
-        if follow_theme { Self::from_theme(theme) } else { Self::studio() }
+        if follow_theme {
+            Self::from_theme(theme)
+        } else {
+            Self::studio()
+        }
     }
 
     fn build(b: Base) -> Self {
@@ -182,7 +186,10 @@ impl Palette {
     }
 
     fn lift(&self, c: Color, min: f64) -> Color {
-        let surfaces: Vec<Rgb> = [self.bg, self.surface, self.raised, self.sel_bg].into_iter().filter_map(contrast::to_rgb).collect();
+        let surfaces: Vec<Rgb> = [self.bg, self.surface, self.raised, self.sel_bg]
+            .into_iter()
+            .filter_map(contrast::to_rgb)
+            .collect();
         match contrast::to_rgb(c) {
             Some(c) => color(on_all(c, &surfaces, min)),
             None => c,

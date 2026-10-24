@@ -1,5 +1,8 @@
 use ratatui::{buffer::Buffer, layout::Rect};
-use termfetch_studio_v2::{domain::theme::get_builtin_themes, tui::widgets::ui::draw_thumbnail, tui::widgets::preview::buffer_to_ansi};
+use termfetch_studio_v2::{
+    domain::theme::get_builtin_themes, tui::widgets::preview::buffer_to_ansi,
+    tui::widgets::ui::draw_thumbnail,
+};
 
 fn main() {
     let themes = get_builtin_themes();

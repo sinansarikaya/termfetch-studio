@@ -41,12 +41,19 @@ impl TermGeometry {
     pub fn from_window(cols: u16, rows: u16, px_w: u16, px_h: u16) -> Self {
         let cols = cols.max(1);
         let rows = rows.max(1);
-        let (cw, ch) = (u32::from(px_w) / u32::from(cols), u32::from(px_h) / u32::from(rows));
+        let (cw, ch) = (
+            u32::from(px_w) / u32::from(cols),
+            u32::from(px_h) / u32::from(rows),
+        );
         let reported = cw > 0 && ch > 0;
         Self {
             cols,
             rows,
-            cell: if reported { CellSize { w: cw, h: ch } } else { CellSize::FALLBACK },
+            cell: if reported {
+                CellSize { w: cw, h: ch }
+            } else {
+                CellSize::FALLBACK
+            },
             cell_reported: reported,
         }
     }
@@ -172,13 +179,26 @@ mod tests {
 
     #[test]
     fn respects_bounds_and_ratio_for_many_shapes() {
-        for &(pw, ph) in &[(512, 512), (1920, 1080), (300, 900), (1000, 333), (17, 61), (4000, 30)] {
+        for &(pw, ph) in &[
+            (512, 512),
+            (1920, 1080),
+            (300, 900),
+            (1000, 333),
+            (17, 61),
+            (4000, 30),
+        ] {
             for &(mw, mh) in &[(20u16, 14u16), (36, 22), (52, 32), (8, 30)] {
                 let fit = fit_image_cells(pw, ph, CELL, mw, mh);
-                assert!(fit.0 >= 1 && fit.0 <= mw && fit.1 >= 1 && fit.1 <= mh, "{pw}x{ph} {fit:?}");
+                assert!(
+                    fit.0 >= 1 && fit.0 <= mw && fit.1 >= 1 && fit.1 <= mh,
+                    "{pw}x{ph} {fit:?}"
+                );
                 // Extreme ratios that can't fit in whole cells are allowed more slack.
                 if fit.0 > 2 && fit.1 > 2 {
-                    assert!(ratio_error(pw, ph, CELL, fit) < 0.12, "{pw}x{ph} in {mw}x{mh} -> {fit:?}");
+                    assert!(
+                        ratio_error(pw, ph, CELL, fit) < 0.12,
+                        "{pw}x{ph} in {mw}x{mh} -> {fit:?}"
+                    );
                 }
             }
         }
