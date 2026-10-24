@@ -2,7 +2,10 @@ use crate::adapters::backup;
 use crate::adapters::doctor;
 use crate::adapters::fastfetch::config;
 use crate::app::actions::Action;
-use crate::app::state::{AppState, Effect, Focus, Screen, StatusKind, COLOR_ROWS};
+use crate::app::state::{
+    AppState, DashCursor, DashRow, Dropdown, Effect, Focus, Hit, PreviewOutput, Screen, StatusKind, OPTION_APPLY, OPTION_ROWS, QUICK_ACTIONS,
+    SETTINGS_ROWS, TOOLS,
+};
 use crate::domain::color::SemanticGroup;
 use crate::domain::settings::Settings;
 use crate::imaging::TermGeometry;
@@ -26,42 +29,50 @@ pub fn reduce(state: &mut AppState, action: Action) {
     if action != Action::Tick {
         state.dirty = true;
     }
+    // Overlays swallow input first.
+    if state.help_open && !matches!(action, Action::Tick | Action::Resize | Action::Quit) {
+        if matches!(action, Action::ToggleHelp | Action::Back | Action::Activate | Action::Click { .. }) {
+            state.help_open = false;
+        }
+        return;
+    }
+    if state.dropdown.is_some() && dropdown_input(state, &action) {
+        return;
+    }
     match action {
         Action::Quit => quit(state),
         Action::Back => match state.focus {
-            Focus::Content => state.focus = Focus::Sidebar,
             Focus::Sidebar => quit(state),
+            Focus::Content | Focus::Options => state.focus = Focus::Sidebar,
         },
-        Action::ToggleFocus => {
-            state.focus = match state.focus {
-                Focus::Sidebar => Focus::Content,
-                Focus::Content => Focus::Sidebar,
+        Action::ToggleFocus => cycle_focus(state, true),
+        Action::FocusPrev => cycle_focus(state, false),
+        Action::Goto(screen) => goto(state, screen),
+        Action::Number(n) => {
+            let n = usize::from(n);
+            if state.screen == Screen::Dashboard && state.focus == Focus::Content && (1..=QUICK_ACTIONS).contains(&n) {
+                state.dash = DashCursor { row: DashRow::Quick, col: n - 1 };
+                quick_action(state, n - 1);
+            } else if let Some(&screen) = Screen::ALL.get(n.wrapping_sub(1)) {
+                goto(state, screen);
             }
         }
-        Action::Goto(screen) => goto(state, screen),
+        Action::ToggleHelp => state.help_open = !state.help_open,
+        Action::CycleOutput => {
+            let i = state.option_index(3);
+            set_option(state, 3, (i + 1) % PreviewOutput::ALL.len());
+        }
         Action::Up => navigate(state, -1),
         Action::Down => navigate(state, 1),
         Action::PageUp => navigate(state, -(PAGE as isize)),
         Action::PageDown => navigate(state, PAGE as isize),
         Action::Home => navigate(state, -10_000),
         Action::End => navigate(state, 10_000),
-        Action::Left => {
-            if state.focus == Focus::Content && state.screen == Screen::Colors {
-                cycle_color(state, false);
-            } else {
-                state.focus = Focus::Sidebar;
-            }
-        }
-        Action::Right => {
-            if state.focus == Focus::Content && state.screen == Screen::Colors {
-                cycle_color(state, true);
-            } else {
-                state.focus = Focus::Content;
-            }
-        }
+        Action::Left => horizontal(state, false),
+        Action::Right => horizontal(state, true),
         Action::Activate => activate(state),
         Action::Toggle => {
-            if state.screen == Screen::Modules {
+            if state.screen == Screen::Modules && state.focus == Focus::Content {
                 toggle_module(state);
             } else {
                 activate(state);
@@ -76,19 +87,8 @@ pub fn reduce(state: &mut AppState, action: Action) {
             apply(state);
         }
         Action::ToggleDemo => toggle_demo(state),
-        Action::CycleLogoSize => {
-            state.settings.logo_size = state.settings.logo_size.next();
-            let size = state.settings.logo_size;
-            let (w, h) = size.max_cells();
-            state.set_status(StatusKind::Info, format!("Logo size: {} (max {w}x{h} cells) - Enter to apply", size.label()));
-        }
-        Action::RunFastfetch => {
-            if state.fastfetch_version.is_some() {
-                state.effects.push(Effect::RunFastfetch);
-            } else {
-                state.set_status(StatusKind::Error, "fastfetch is not installed - see Doctor");
-            }
-        }
+        Action::CycleLogoSize => cycle_logo_size(state, true),
+        Action::RunFastfetch => run_fastfetch(state),
         Action::Refresh => match state.screen {
             Screen::Doctor => run_doctor(state),
             Screen::Backup => {
@@ -120,6 +120,87 @@ pub fn reduce(state: &mut AppState, action: Action) {
     }
 }
 
+/// Whether the Preview Options card was drawn in the last frame (it is
+/// hidden on narrow terminals, so `Tab` must skip it).
+fn options_visible(state: &AppState) -> bool {
+    state.hits.iter().any(|(_, h)| matches!(h, Hit::Option(_)))
+}
+
+fn cycle_focus(state: &mut AppState, forward: bool) {
+    let mut next = if forward { state.focus.next() } else { state.focus.prev() };
+    if next == Focus::Options && !options_visible(state) {
+        next = if forward { next.next() } else { next.prev() };
+    }
+    state.focus = next;
+}
+
+fn run_fastfetch(state: &mut AppState) {
+    if state.fastfetch_version.is_some() {
+        state.effects.push(Effect::RunFastfetch);
+    } else {
+        state.set_status(StatusKind::Error, "fastfetch is not installed - see Doctor");
+    }
+}
+
+fn cycle_logo_size(state: &mut AppState, forward: bool) {
+    let s = state.settings.logo_size;
+    state.settings.logo_size = if forward { s.next() } else { s.next().next() };
+    let size = state.settings.logo_size;
+    let (w, h) = size.max_cells();
+    state.set_status(StatusKind::Info, format!("Logo size: {} (max {w}x{h} cells) - Enter to apply", size.label()));
+}
+
+/// Keys while a Preview Options dropdown is open. Returns whether the action was consumed.
+fn dropdown_input(state: &mut AppState, action: &Action) -> bool {
+    let Some(dd) = state.dropdown.clone() else { return false };
+    let len = state.option_len(dd.field);
+    let cur = state.option_index(dd.field);
+    let delta = match action {
+        Action::Up | Action::Left | Action::ScrollUp => -1,
+        Action::Down | Action::Right | Action::ScrollDown => 1,
+        Action::PageUp => -(PAGE as isize),
+        Action::PageDown => PAGE as isize,
+        Action::Home => -10_000,
+        Action::End => 10_000,
+        Action::Activate | Action::Toggle | Action::ToggleFocus | Action::FocusPrev => {
+            state.dropdown = None;
+            return true;
+        }
+        Action::Back => {
+            set_option(state, dd.field, dd.original);
+            state.dropdown = None;
+            return true;
+        }
+        Action::Click { .. } => return false,
+        _ => return false,
+    };
+    set_option(state, dd.field, step(cur, len, delta, true));
+    true
+}
+
+/// Select choice `i` of a Preview Options field (previews, does not apply).
+fn set_option(state: &mut AppState, field: usize, i: usize) {
+    match field {
+        0 => {
+            if let Some(t) = state.themes.get(i) {
+                state.settings.theme = t.id.clone();
+                let name = t.name.clone();
+                state.set_status(StatusKind::Info, format!("Previewing theme {name} - A to apply"));
+            }
+        }
+        1 => {
+            if let Some(p) = state.presets.get(i) {
+                state.settings.preset = p.id.clone();
+                let name = p.name.clone();
+                state.set_status(StatusKind::Info, format!("Previewing preset {name} - A to apply"));
+            }
+        }
+        2 if i < state.logos.len() => select_logo(state, i),
+        3 => state.preview_output = PreviewOutput::ALL.get(i).copied().unwrap_or_default(),
+        _ => {}
+    }
+}
+
 fn goto(state: &mut AppState, screen: Screen) {
     state.screen = screen;
     match screen {
@@ -129,24 +210,35 @@ fn goto(state: &mut AppState, screen: Screen) {
     }
 }
 
+/// Jump to a screen with the center stage focused.
+fn open(state: &mut AppState, screen: Screen) {
+    goto(state, screen);
+    state.focus = Focus::Content;
+}
+
 fn navigate(state: &mut AppState, delta: isize) {
-    if state.focus == Focus::Sidebar {
-        let idx = step(state.screen.index(), Screen::ALL.len(), delta, true);
-        goto(state, Screen::ALL[idx]);
-        return;
+    match state.focus {
+        Focus::Sidebar => {
+            let idx = step(state.screen.index(), Screen::ALL.len(), delta, true);
+            goto(state, Screen::ALL[idx]);
+            return;
+        }
+        Focus::Options => {
+            state.options_cursor = step(state.options_cursor, OPTION_ROWS, delta, true);
+            return;
+        }
+        Focus::Content => {}
     }
     match state.screen {
         Screen::Themes => {
-            let i = step(state.theme_idx(), state.themes.len(), delta, true);
-            state.settings.theme = state.themes[i].id.clone();
-            let name = state.themes[i].name.clone();
-            state.set_status(StatusKind::Info, format!("Previewing theme {name} - Enter to apply"));
+            // Vertical moves jump a whole row of the card grid.
+            let cols = state.grid_cols.max(1) as isize;
+            let i = (state.theme_idx() as isize + delta.saturating_mul(cols)).clamp(0, state.themes.len() as isize - 1) as usize;
+            set_option(state, 0, i);
         }
         Screen::Presets => {
             let i = step(state.preset_idx(), state.presets.len(), delta, true);
-            state.settings.preset = state.presets[i].id.clone();
-            let name = state.presets[i].name.clone();
-            state.set_status(StatusKind::Info, format!("Previewing preset {name} - Enter to apply"));
+            set_option(state, 1, i);
         }
         Screen::Logos => {
             let i = step(state.logo_idx(), state.logos.len(), delta, true);
@@ -155,10 +247,76 @@ fn navigate(state: &mut AppState, delta: isize) {
         Screen::Modules => {
             state.module_cursor = step(state.module_cursor, state.module_rows().len(), delta, true);
         }
-        Screen::Colors => state.color_cursor = step(state.color_cursor, COLOR_ROWS, delta, true),
+        Screen::Settings => state.color_cursor = step(state.color_cursor, SETTINGS_ROWS, delta, true),
         Screen::Backup => state.backup_cursor = step(state.backup_cursor, state.backups.len() + 1, delta, true),
         Screen::Doctor => state.doctor_cursor = step(state.doctor_cursor, state.doctor.len(), delta, false),
-        Screen::Dashboard => {}
+        Screen::Dashboard => dash_vertical(state, delta),
+    }
+}
+
+fn dash_vertical(state: &mut AppState, delta: isize) {
+    let recent = state.recent_theme_indices().len();
+    let d = &mut state.dash;
+    match (d.row, delta.signum()) {
+        (DashRow::Quick, 1) => *d = DashCursor { row: DashRow::Recent, col: d.col.min(recent.saturating_sub(1)) },
+        (DashRow::Recent, 1) => *d = DashCursor { row: DashRow::Tools, col: 0 },
+        (DashRow::Recent, -1) => *d = DashCursor { row: DashRow::Quick, col: d.col.min(QUICK_ACTIONS - 1) },
+        (DashRow::Tools, -1) if d.col == 0 => *d = DashCursor { row: DashRow::Recent, col: state.recent_offset.min(recent.saturating_sub(1)) },
+        (DashRow::Tools, s) => d.col = (d.col as isize + s).clamp(0, TOOLS as isize - 1) as usize,
+        _ => {}
+    }
+}
+
+fn horizontal(state: &mut AppState, forward: bool) {
+    let dir: isize = if forward { 1 } else { -1 };
+    match state.focus {
+        Focus::Sidebar => {
+            if forward {
+                state.focus = Focus::Content;
+            }
+            return;
+        }
+        Focus::Options => {
+            let f = state.options_cursor;
+            if f < OPTION_APPLY {
+                let i = step(state.option_index(f), state.option_len(f), dir, true);
+                set_option(state, f, i);
+            }
+            return;
+        }
+        Focus::Content => {}
+    }
+    match state.screen {
+        Screen::Settings => cycle_setting(state, forward),
+        Screen::Themes => {
+            let cols = state.grid_cols.max(1);
+            let i = state.theme_idx();
+            if !forward && i % cols == 0 {
+                state.focus = Focus::Sidebar;
+            } else {
+                set_option(state, 0, step(i, state.themes.len(), dir, false));
+            }
+        }
+        Screen::Dashboard => {
+            let len = match state.dash.row {
+                DashRow::Quick => QUICK_ACTIONS,
+                DashRow::Recent => state.recent_theme_indices().len(),
+                DashRow::Tools => 1,
+            };
+            let col = state.dash.col as isize + dir;
+            if col < 0 {
+                state.focus = Focus::Sidebar;
+            } else if state.dash.row != DashRow::Tools {
+                state.dash.col = (col as usize).min(len.saturating_sub(1));
+            }
+        }
+        _ => {
+            if !forward {
+                state.focus = Focus::Sidebar;
+            } else if options_visible(state) {
+                state.focus = Focus::Options;
+            }
+        }
     }
 }
 
@@ -171,22 +329,78 @@ fn select_logo(state: &mut AppState, i: usize) {
     state.set_status(StatusKind::Info, format!("Previewing logo {} - Enter to apply", logo.name));
 }
 
+fn quick_action(state: &mut AppState, i: usize) {
+    match i {
+        0 => open(state, Screen::Themes),
+        1 => open(state, Screen::Presets),
+        2 => open(state, Screen::Logos),
+        _ => {
+            if apply(state) {
+                run_fastfetch(state);
+            }
+        }
+    }
+}
+
+fn tool_action(state: &mut AppState, i: usize) {
+    match i {
+        0 => open(state, Screen::Doctor),
+        1 => {
+            let c = doctor::shell_integration();
+            let hint = if c.level == doctor::Level::Ok { String::new() } else { " - add `fastfetch` to ~/.zshrc, ~/.bashrc or ~/.config/fish/config.fish".into() };
+            let kind = if c.level == doctor::Level::Ok { StatusKind::Ok } else { StatusKind::Info };
+            state.set_status(kind, format!("Shell integration: {}{hint}", c.detail));
+        }
+        2 => open(state, Screen::Backup),
+        _ => {
+            open(state, Screen::Backup);
+            let dir = state.paths.backups_dir();
+            state.set_status(StatusKind::Info, format!("Export: create a backup and copy its folder from {}; import: drop a backup folder there and restore it", dir.display()));
+        }
+    }
+}
+
+/// Apply the theme of a Recent Themes card.
+fn apply_recent(state: &mut AppState, pos: usize) {
+    let Some(&ti) = state.recent_theme_indices().get(pos) else { return };
+    state.settings.theme = state.themes[ti].id.clone();
+    if apply(state) {
+        // The applied theme moves to the front of the row.
+        state.dash = DashCursor { row: DashRow::Recent, col: 0 };
+        state.recent_offset = 0;
+    }
+}
+
 fn activate(state: &mut AppState) {
-    if state.focus == Focus::Sidebar {
-        state.focus = Focus::Content;
-        return;
+    match state.focus {
+        Focus::Sidebar => {
+            state.focus = Focus::Content;
+            return;
+        }
+        Focus::Options => {
+            if state.options_cursor == OPTION_APPLY {
+                apply(state);
+            } else {
+                let field = state.options_cursor;
+                state.dropdown = Some(Dropdown { field, original: state.option_index(field) });
+            }
+            return;
+        }
+        Focus::Content => {}
     }
     match state.screen {
+        Screen::Dashboard => match state.dash.row {
+            DashRow::Quick => quick_action(state, state.dash.col),
+            DashRow::Recent => apply_recent(state, state.dash.col),
+            DashRow::Tools => tool_action(state, state.dash.col),
+        },
         Screen::Modules => toggle_module(state),
-        Screen::Colors => match state.color_cursor {
+        Screen::Settings => match state.color_cursor {
             7 => {
                 state.settings.reset_colors();
                 state.set_status(StatusKind::Info, "Colours reset to theme defaults - a to apply");
             }
-            8 => {
-                state.settings.apply_terminal_colors = !state.settings.apply_terminal_colors;
-            }
-            _ => cycle_color(state, true),
+            _ => cycle_setting(state, true),
         },
         Screen::Backup => {
             if state.backup_cursor == 0 {
@@ -196,7 +410,7 @@ fn activate(state: &mut AppState) {
             }
         }
         Screen::Doctor => run_doctor(state),
-        _ => {
+        Screen::Themes | Screen::Presets | Screen::Logos => {
             apply(state);
         }
     }
@@ -243,7 +457,7 @@ fn after_module_edit(state: &mut AppState, msg: String) {
     state.set_status(StatusKind::Info, format!("{msg} - Custom preset selected, a to apply"));
 }
 
-fn cycle_color(state: &mut AppState, forward: bool) {
+fn cycle_setting(state: &mut AppState, forward: bool) {
     let s = &mut state.settings;
     match state.color_cursor {
         0 => s.icon_color = s.icon_color.cycle(forward, false),
@@ -254,6 +468,10 @@ fn cycle_color(state: &mut AppState, forward: bool) {
             *v = v.cycle(forward, true);
         }
         8 => s.apply_terminal_colors = !s.apply_terminal_colors,
+        9 => toggle_demo(state),
+        10 => cycle_logo_size(state, forward),
+        11 => s.run_fastfetch_on_exit = !s.run_fastfetch_on_exit,
+        12 => s.ui_follow_theme = !s.ui_follow_theme,
         _ => {}
     }
 }
@@ -281,6 +499,8 @@ fn quit(state: &mut AppState) {
 
 /// Returns whether the settings were written.
 fn apply(state: &mut AppState) -> bool {
+    let theme = state.settings.theme.clone();
+    state.settings.remember_theme(&theme);
     let settings = state.settings.clone();
     match write_all(state, &settings) {
         Ok(targets) => {
@@ -382,11 +602,56 @@ fn run_doctor(state: &mut AppState) {
 }
 
 fn click(state: &mut AppState, col: u16, row: u16) {
-    let s = state.sidebar_area;
-    if s.width > 0 && col >= s.x && col < s.x + s.width && row > s.y && row < s.y + s.height - 1 {
-        if let Some(&screen) = Screen::ALL.get(usize::from(row - s.y - 1)) {
-            state.focus = Focus::Sidebar;
-            goto(state, screen);
+    let inside = |r: &ratatui::layout::Rect| col >= r.x && col < r.x + r.width && row >= r.y && row < r.y + r.height;
+    let hit = state.hits.iter().rev().find(|(r, _)| inside(r)).map(|&(_, h)| h);
+    if let Some(dd) = state.dropdown.clone() {
+        if let Some(Hit::DropItem(i)) = hit {
+            set_option(state, dd.field, i);
+        }
+        state.dropdown = None;
+        return;
+    }
+    if let Some(hit) = hit {
+        match hit {
+            Hit::Nav(screen) => {
+                state.focus = Focus::Sidebar;
+                goto(state, screen);
+            }
+            Hit::Quick(i) => {
+                state.focus = Focus::Content;
+                state.dash = DashCursor { row: DashRow::Quick, col: i };
+                quick_action(state, i);
+            }
+            Hit::Recent(i) => {
+                state.focus = Focus::Content;
+                state.dash = DashCursor { row: DashRow::Recent, col: i };
+                apply_recent(state, i);
+            }
+            Hit::RecentScroll => {
+                let len = state.recent_theme_indices().len();
+                let n = state.recent_visible.max(1);
+                state.recent_offset = if state.recent_offset + n >= len { 0 } else { state.recent_offset + 1 };
+            }
+            Hit::ViewAll => open(state, Screen::Themes),
+            Hit::Tool(i) => {
+                state.focus = Focus::Content;
+                state.dash = DashCursor { row: DashRow::Tools, col: i };
+                tool_action(state, i);
+            }
+            Hit::Option(i) => {
+                state.focus = Focus::Options;
+                state.options_cursor = i;
+                activate(state);
+            }
+            Hit::ThemeCard(i) => {
+                state.focus = Focus::Content;
+                if state.theme_idx() == i {
+                    apply(state);
+                } else {
+                    set_option(state, 0, i);
+                }
+            }
+            Hit::DropItem(_) => {}
         }
         return;
     }
@@ -395,18 +660,22 @@ fn click(state: &mut AppState, col: u16, row: u16) {
     };
     state.focus = Focus::Content;
     match state.screen {
-        Screen::Themes => state.settings.theme = state.themes[idx].id.clone(),
-        Screen::Presets => state.settings.preset = state.presets[idx].id.clone(),
+        Screen::Presets => set_option(state, 1, idx),
         Screen::Logos => select_logo(state, idx),
         Screen::Modules => state.module_cursor = idx,
-        Screen::Colors => state.color_cursor = idx,
+        Screen::Settings => state.color_cursor = idx,
         Screen::Backup => state.backup_cursor = idx,
         Screen::Doctor => state.doctor_cursor = idx,
-        Screen::Dashboard => {}
+        Screen::Themes | Screen::Dashboard => {}
     }
 }
 
 fn tick(state: &mut AppState) {
+    let clock = state.sysinfo.clock();
+    if clock != state.clock {
+        state.clock = clock;
+        state.dirty = true;
+    }
     if let Some(k) = state.kitty.as_mut() {
         let uploads = k.poll();
         if !uploads.is_empty() {
@@ -463,7 +732,7 @@ mod tests {
     #[test]
     fn quit_autosaves_unsaved_changes_to_both_configs() {
         let (mut s, root) = app();
-        reduce(&mut s, Action::Goto(Screen::Colors));
+        reduce(&mut s, Action::Goto(Screen::Settings));
         s.focus = Focus::Content;
         reduce(&mut s, Action::Right);
         reduce(&mut s, Action::Goto(Screen::Themes));
@@ -529,7 +798,7 @@ mod tests {
     #[test]
     fn colors_cycle_and_reset() {
         let (mut s, root) = app();
-        reduce(&mut s, Action::Goto(Screen::Colors));
+        reduce(&mut s, Action::Goto(Screen::Settings));
         s.focus = Focus::Content;
         reduce(&mut s, Action::Right);
         assert_ne!(s.settings.icon_color, crate::domain::color::ColorValue::Theme);

@@ -223,47 +223,52 @@ pub fn inner_area(area: Rect) -> Rect {
     }
 }
 
+/// Studio chrome around the live preview: `● Live Preview · <preset>` with
+/// fullscreen / preview-mode icons. Returns the inner (terminal) rect.
+pub fn draw_preview_chrome(buf: &mut Buffer, area: Rect, pal: &Palette, preset: &str, demo: bool, focused: bool) -> Rect {
+    let bg = Style::new().bg(pal.bg);
+    let eye = if demo { ("\u{f0208} ", pal.ok) } else { ("\u{f0209} ", pal.warn) };
+    let block = Block::new()
+        .borders(Borders::ALL)
+        .border_type(BorderType::Rounded)
+        .border_style(Style::new().fg(if focused { pal.primary } else { pal.border }).bg(pal.bg))
+        .title(Line::from(vec![
+            Span::styled(" ● ", Style::new().fg(pal.ok).bg(pal.bg)),
+            Span::styled("Live Preview ", Style::new().fg(pal.fg).bg(pal.bg).add_modifier(Modifier::BOLD)),
+            Span::styled(format!("· {preset} "), Style::new().fg(pal.muted).bg(pal.bg)),
+        ]))
+        .title(
+            Line::from(vec![
+                Span::styled(" \u{f0293}  ", Style::new().fg(pal.muted).bg(pal.bg)),
+                Span::styled(eye.0, Style::new().fg(eye.1).bg(pal.bg)),
+                Span::styled(" ", bg),
+            ])
+            .right_aligned(),
+        );
+    let inner = block.inner(area);
+    block.render(area, buf);
+    inner
+}
+
 /// Draw the full preview pane. `raster` must have been produced at
-/// `model.logo_cells(..)` for image logos.
-pub fn draw_preview(buf: &mut Buffer, area: Rect, model: &PreviewModel, raster: LogoRaster, show_chrome: bool) {
+/// `model.logo_cells(..)` for image logos. With `chrome`, the pane gets the
+/// studio frame and the emulated terminal is painted inside it.
+pub fn draw_preview(buf: &mut Buffer, area: Rect, model: &PreviewModel, raster: LogoRaster, chrome: Option<&Palette>) {
     let (bg, fg) = (model.bg(), model.fg());
-    let primary = model.theme.primary_color();
-    buf.set_style(area, Style::new().bg(bg).fg(fg));
-    for y in area.top()..area.bottom() {
-        for x in area.left()..area.right() {
+    let area = area.intersection(buf.area);
+    let body = match chrome {
+        Some(pal) => draw_preview_chrome(buf, area, pal, &model.preset.name, model.settings.demo_mode, false),
+        None => area,
+    };
+    buf.set_style(body, Style::new().bg(bg).fg(fg));
+    for y in body.top()..body.bottom() {
+        for x in body.left()..body.right() {
             if let Some(c) = buf.cell_mut((x, y)) {
                 c.set_char(' ');
             }
         }
     }
-
-    let inner = if show_chrome {
-        // Chrome (not the fastfetch emulation itself) is contrast-checked.
-        let pal = Palette::from_theme(model.theme);
-        let (badge, fill) = if model.settings.demo_mode {
-            (" [d] preview ", model.theme.accent_color())
-        } else {
-            (" [d] real specs ", model.theme.secondary_color())
-        };
-        Block::new()
-            .borders(Borders::ALL)
-            .border_type(BorderType::Rounded)
-            .border_style(Style::new().fg(pal.visible(primary)).bg(bg))
-            .title(Line::from(vec![
-                Span::styled(" \u{f02e9} Live Preview ", Style::new().fg(pal.primary).bg(bg).add_modifier(Modifier::BOLD)),
-                Span::styled(format!("· {} ", model.preset.name), Style::new().fg(pal.fg).bg(bg)),
-            ]))
-            .title(Line::from(Span::styled(format!(" {} ", model.theme.name), Style::new().fg(pal.fg).bg(bg))).right_aligned())
-            .title_bottom(Line::from(vec![
-                Span::styled(badge, Palette::pill(fill).add_modifier(Modifier::BOLD)),
-                Span::styled(" p ", Style::new().fg(pal.primary).bg(bg).add_modifier(Modifier::BOLD)),
-                Span::styled("run fastfetch ", Style::new().fg(pal.fg).bg(bg)),
-            ]).right_aligned())
-            .render(area, buf);
-        inner_area(area)
-    } else {
-        area
-    };
+    let inner = if chrome.is_some() { inner_area(area) } else { area };
     if inner.width < 4 || inner.height < 3 {
         return;
     }

@@ -18,6 +18,27 @@ pub enum Focus {
     #[default]
     Sidebar,
     Content,
+    /// Preview Options card under the live preview.
+    Options,
+}
+
+impl Focus {
+    /// `Tab` order: menu → center stage → preview options.
+    pub fn next(self) -> Self {
+        match self {
+            Self::Sidebar => Self::Content,
+            Self::Content => Self::Options,
+            Self::Options => Self::Sidebar,
+        }
+    }
+
+    pub fn prev(self) -> Self {
+        match self {
+            Self::Sidebar => Self::Options,
+            Self::Content => Self::Sidebar,
+            Self::Options => Self::Content,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -27,7 +48,7 @@ pub enum Screen {
     Presets,
     Logos,
     Modules,
-    Colors,
+    Settings,
     Backup,
     Doctor,
 }
@@ -39,9 +60,20 @@ impl Screen {
         Screen::Presets,
         Screen::Logos,
         Screen::Modules,
-        Screen::Colors,
+        Screen::Settings,
         Screen::Backup,
         Screen::Doctor,
+    ];
+
+    /// Entries of the main navigation; Backup and Doctor live under Settings
+    /// (Dashboard → Tools & Utilities, or keys 7 / 8).
+    pub const NAV: [Screen; 6] = [
+        Screen::Dashboard,
+        Screen::Themes,
+        Screen::Presets,
+        Screen::Logos,
+        Screen::Modules,
+        Screen::Settings,
     ];
 
     pub fn index(self) -> usize {
@@ -52,10 +84,10 @@ impl Screen {
         match self {
             Self::Dashboard => "\u{f056e}",
             Self::Themes => "\u{f03d8}",
-            Self::Presets => "\u{f0645}",
-            Self::Logos => "\u{f02e9}",
+            Self::Presets => "\u{f0249}",
+            Self::Logos => "\u{f02d4}",
             Self::Modules => "\u{f0169}",
-            Self::Colors => "\u{f020a}",
+            Self::Settings => "\u{f0493}",
             Self::Backup => "\u{f006f}",
             Self::Doctor => "\u{f04d9}",
         }
@@ -67,29 +99,107 @@ impl Screen {
             Self::Themes => "Themes",
             Self::Presets => "Presets",
             Self::Logos => "Logos",
-            Self::Modules => "Module Builder",
-            Self::Colors => "Colors",
+            Self::Modules => "Modules",
+            Self::Settings => "Settings",
             Self::Backup => "Backup & Restore",
             Self::Doctor => "Doctor",
         }
     }
 
-    /// Context key hints for the status bar.
-    pub fn hints(self) -> &'static str {
+    /// One-line description under the center-stage title.
+    pub fn subtitle(self) -> &'static str {
         match self {
-            Self::Dashboard => "Enter apply · d preview · p fastfetch · 1-8 jump",
-            Self::Themes | Self::Presets => "↑↓ browse · Enter apply · p fastfetch",
-            Self::Logos => "↑↓ browse · s size · Enter apply · p fastfetch",
-            Self::Modules => "Space toggle · J/K move · a apply",
-            Self::Colors => "↑↓ field · ←→ colour · Enter reset/toggle · a apply",
-            Self::Backup => "Enter create/restore · x delete",
-            Self::Doctor => "r re-run checks",
+            Self::Dashboard => "Customize, preview and manage your Fastfetch themes with ease.",
+            Self::Themes => "Browse the palettes - the live preview follows the highlighted card.",
+            Self::Presets => "Choose which modules fastfetch prints and how they are grouped.",
+            Self::Logos => "ASCII art or hi-res images, aspect-locked to the configured size.",
+            Self::Modules => "Build your own preset: toggle modules and set their order.",
+            Self::Settings => "Icon & text colours, preview mode and studio preferences.",
+            Self::Backup => "Snapshot and restore settings.json and both fastfetch configs.",
+            Self::Doctor => "Check dependencies, terminal capabilities and config health.",
+        }
+    }
+
+    /// Screen-specific key badges shown in the bottom bar.
+    pub fn extra_keys(self) -> &'static [(&'static str, &'static str)] {
+        match self {
+            Self::Dashboard => &[("1-4", "Quick Action")],
+            Self::Themes | Self::Presets => &[("a", "Apply")],
+            Self::Logos => &[("s", "Size"), ("a", "Apply")],
+            Self::Modules => &[("Space", "Toggle"), ("J/K", "Reorder")],
+            Self::Settings => &[("←→", "Change")],
+            Self::Backup => &[("x", "Delete")],
+            Self::Doctor => &[("r", "Re-run")],
         }
     }
 }
 
-/// Colour editor rows.
-pub const COLOR_ROWS: usize = 9;
+/// Settings screen rows: 0-6 colours, 7 reset, 8 terminal colours,
+/// 9 preview mode, 10 logo size, 11 fastfetch on exit, 12 studio chrome.
+pub const SETTINGS_ROWS: usize = 13;
+
+/// Dashboard rows that take keyboard focus.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum DashRow {
+    #[default]
+    Quick,
+    Recent,
+    Tools,
+}
+
+/// Dashboard focus: a row plus the index of the card / entry inside it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct DashCursor {
+    pub row: DashRow,
+    pub col: usize,
+}
+
+pub const QUICK_ACTIONS: usize = 4;
+pub const TOOLS: usize = 4;
+/// Preview Options rows: theme, preset, logo, output, then the Apply button.
+pub const OPTION_ROWS: usize = 5;
+pub const OPTION_APPLY: usize = 4;
+
+/// What the live preview box shows.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum PreviewOutput {
+    #[default]
+    Terminal,
+    Config,
+}
+
+impl PreviewOutput {
+    pub const ALL: [PreviewOutput; 2] = [Self::Terminal, Self::Config];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Terminal => "Terminal Preview",
+            Self::Config => "Generated Config (JSONC)",
+        }
+    }
+}
+
+/// Open Preview Options dropdown: the field it belongs to and the value to
+/// restore on `Esc`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Dropdown {
+    pub field: usize,
+    pub original: usize,
+}
+
+/// Clickable regions registered while rendering (topmost last).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Hit {
+    Nav(Screen),
+    Quick(usize),
+    Recent(usize),
+    RecentScroll,
+    ViewAll,
+    Tool(usize),
+    Option(usize),
+    DropItem(usize),
+    ThemeCard(usize),
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum StatusKind {
@@ -140,11 +250,28 @@ pub struct AppState {
     pub focus: Focus,
     pub module_cursor: usize,
     pub color_cursor: usize,
+    pub dash: DashCursor,
+    /// First visible Recent Themes card and how many fit (set while rendering).
+    pub recent_offset: usize,
+    pub recent_visible: usize,
+    /// Columns of the Themes card grid and its first visible row (set while rendering).
+    pub grid_cols: usize,
+    pub grid_scroll: usize,
+    pub options_cursor: usize,
+    pub dropdown: Option<Dropdown>,
+    pub preview_output: PreviewOutput,
+    /// Generated config shown by the JSONC output, cached per selection.
+    pub config_cache: Option<(Settings, String)>,
+    pub help_open: bool,
+    pub hits: Vec<(Rect, Hit)>,
+    /// Inner rect of the live preview box (the emulated terminal) from the last frame.
+    pub preview_body: Rect,
+    pub sysinfo: crate::adapters::sysinfo::SysInfo,
+    pub clock: String,
     pub backup_cursor: usize,
     pub doctor_cursor: usize,
     pub list_states: [ListState; 8],
     pub click: ClickMap,
-    pub sidebar_area: Rect,
     pub fastfetch_version: Option<String>,
     pub real_info: Option<RealInfo>,
     pub real_rx: Option<Receiver<RealInfo>>,
@@ -176,11 +303,24 @@ impl AppState {
             focus: Focus::Sidebar,
             module_cursor: 0,
             color_cursor: 0,
+            dash: DashCursor::default(),
+            recent_offset: 0,
+            recent_visible: 4,
+            grid_cols: 1,
+            grid_scroll: 0,
+            options_cursor: 0,
+            dropdown: None,
+            preview_output: PreviewOutput::default(),
+            config_cache: None,
+            help_open: false,
+            hits: Vec::new(),
+            preview_body: Rect::default(),
+            sysinfo: crate::adapters::sysinfo::SysInfo::detect(),
+            clock: String::new(),
             backup_cursor: 0,
             doctor_cursor: 0,
             list_states: Default::default(),
             click: ClickMap::default(),
-            sidebar_area: Rect::default(),
             fastfetch_version: runner::version(),
             real_info: None,
             real_rx: None,
@@ -199,6 +339,7 @@ impl AppState {
             paths,
         };
         app.sync_custom_preset();
+        app.clock = app.sysinfo.clock();
         // Decode every image logo up front so browsing the gallery never waits.
         let images: Vec<String> = app.logos.iter().filter_map(|l| l.existing_image().map(str::to_string)).collect();
         if let Some(sel) = app.current_logo().existing_image().map(str::to_string) {
@@ -217,6 +358,65 @@ impl AppState {
             self.kitty = Some(KittyImages::new(2));
             self.dirty = true;
         }
+    }
+
+    /// Chrome palette for the current settings.
+    pub fn palette(&self) -> crate::tui::palette::Palette {
+        crate::tui::palette::Palette::for_settings(self.settings.ui_follow_theme, self.current_theme())
+    }
+
+    /// Theme indices for the Dashboard's Recent Themes row: the applied theme,
+    /// the recently applied ones, then a few favourites to fill the row.
+    pub fn recent_theme_indices(&self) -> Vec<usize> {
+        const FAVOURITES: [&str; 6] = ["monokai-pro", "tokyo-night", "catppuccin-mocha", "nord", "dracula", "rose-pine"];
+        let ids = std::iter::once(self.saved.theme.as_str())
+            .chain(self.saved.recent_themes.iter().map(String::as_str))
+            .chain(FAVOURITES);
+        let mut out: Vec<usize> = Vec::new();
+        for id in ids {
+            if let Some(i) = self.themes.iter().position(|t| t.id == id) {
+                if !out.contains(&i) {
+                    out.push(i);
+                }
+            }
+            if out.len() == crate::domain::settings::RECENT_THEMES_MAX {
+                break;
+            }
+        }
+        out
+    }
+
+    /// Number of choices of a Preview Options field.
+    pub fn option_len(&self, field: usize) -> usize {
+        match field {
+            0 => self.themes.len(),
+            1 => self.presets.len(),
+            2 => self.logos.len(),
+            3 => PreviewOutput::ALL.len(),
+            _ => 0,
+        }
+    }
+
+    /// Currently selected choice of a Preview Options field.
+    pub fn option_index(&self, field: usize) -> usize {
+        match field {
+            0 => self.theme_idx(),
+            1 => self.preset_idx(),
+            2 => self.logo_idx(),
+            3 => PreviewOutput::ALL.iter().position(|&o| o == self.preview_output).unwrap_or(0),
+            _ => 0,
+        }
+    }
+
+    pub fn option_label(&self, field: usize, i: usize) -> String {
+        match field {
+            0 => self.themes.get(i).map(|t| t.name.clone()),
+            1 => self.presets.get(i).map(|p| p.name.clone()),
+            2 => self.logos.get(i).map(|l| l.name.clone()),
+            3 => PreviewOutput::ALL.get(i).map(|o| o.label().to_string()),
+            _ => None,
+        }
+        .unwrap_or_default()
     }
 
     pub fn theme_idx(&self) -> usize {

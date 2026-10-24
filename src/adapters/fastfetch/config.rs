@@ -308,6 +308,35 @@ pub fn resolve_logo_spec(logo: &LogoItem, settings: &Settings, paths: &Paths, ge
     }
 }
 
+/// The logo spec [`resolve_logo_spec`] would produce, without touching the disk
+/// (used to show the generated config inside the TUI).
+pub fn planned_logo_spec(logo: &LogoItem, settings: &Settings, paths: &Paths, geo: &TermGeometry) -> LogoSpec {
+    match logo.kind {
+        LogoKind::PresetImage | LogoKind::CustomImage => {
+            let Some(src) = logo.existing_image().map(PathBuf::from) else {
+                return LogoSpec::Auto;
+            };
+            let dims = image_dimensions(&src).unwrap_or((1, 1));
+            let (width, height) = config_logo_cells(dims, settings.logo_size.max_cells(), geo);
+            let source = if logo.kind == LogoKind::CustomImage {
+                src
+            } else {
+                let name = src.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| format!("{}.png", logo.id));
+                paths.images_dir().join(name)
+            };
+            LogoSpec::Image { protocol: detect_image_protocol().into(), source: source.to_string_lossy().into_owned(), width, height }
+        }
+        LogoKind::Ascii if logo.art.trim().is_empty() => LogoSpec::Auto,
+        LogoKind::Ascii => LogoSpec::Text { source: paths.logos_dir().join(format!("{}.txt", logo.id)).to_string_lossy().into_owned() },
+    }
+}
+
+/// Generated config text for display only; writes nothing.
+pub fn render_dry(theme: &Theme, preset: &Preset, logo: &LogoItem, settings: &Settings, paths: &Paths, geo: &TermGeometry) -> Result<String> {
+    let cfg = build_config(theme, preset, &planned_logo_spec(logo, settings, paths, geo), settings);
+    to_jsonc(&cfg, theme, preset, settings)
+}
+
 pub fn render(theme: &Theme, preset: &Preset, logo: &LogoItem, settings: &Settings, paths: &Paths, geo: &TermGeometry) -> Result<String> {
     let spec = resolve_logo_spec(logo, settings, paths, geo)?;
     let cfg = build_config(theme, preset, &spec, settings);

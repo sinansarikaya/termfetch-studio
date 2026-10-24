@@ -15,6 +15,19 @@ fn app(name: &str) -> (AppState, std::path::PathBuf) {
     (AppState::new(Paths::with_root(&root), Settings::default(), geo), root)
 }
 
+/// Text of the emulated terminal inside the live preview box.
+fn preview_text(t: &Terminal<TestBackend>, body: ratatui::layout::Rect) -> String {
+    let buf = t.backend().buffer();
+    let mut s = String::new();
+    for y in body.top()..body.bottom() {
+        for x in body.left()..body.right() {
+            s.push_str(buf[(x, y)].symbol());
+        }
+        s.push('\n');
+    }
+    s
+}
+
 fn dump(t: &Terminal<TestBackend>) -> String {
     let buf = t.backend().buffer();
     let mut s = String::new();
@@ -41,6 +54,73 @@ fn every_screen_renders_at_every_size() {
             t.draw(|f| render_ui(f, &mut state)).unwrap();
         }
     }
+    let _ = std::fs::remove_dir_all(root);
+}
+
+#[test]
+fn dashboard_matches_the_studio_layout() {
+    let (mut state, root) = app("dashboard");
+    let mut t = Terminal::new(TestBackend::new(180, 45)).unwrap();
+    t.draw(|f| render_ui(f, &mut state)).unwrap();
+    let out = dump(&t);
+    if std::env::var_os("TFS_DUMP").is_some() {
+        println!("{out}");
+    }
+    for needle in [
+        "TermFetch Studio", "v2.0", "Customize your terminal, your way.", "Fastfetch:",
+        "Dashboard", "Themes", "Presets", "Logos", "Modules", "Settings",
+        "CURRENT THEME", "CURRENT PRESET", "CONFIG PATH",
+        "Welcome to", "Quick Actions", "Edit Theme", "Manage Presets", "Change Logo", "Apply & Preview",
+        "Recent Themes", "View All", "System Overview", "Tools & Utilities", "System Diagnostics", "Backup & Restore",
+        "Live Preview", "Preview Options", "Terminal Preview", "Apply Theme to System",
+        "Navigate", "Next Section", "Demo Mode", "Run Fastfetch", "Quit",
+    ] {
+        assert!(out.contains(needle), "missing {needle:?}\n{out}");
+    }
+    let _ = std::fs::remove_dir_all(root);
+}
+
+#[test]
+fn dashboard_keyboard_flow_and_options_dropdown() {
+    use termfetch_studio_v2::app::state::{DashRow, PreviewOutput};
+    let (mut state, root) = app("flow");
+    let mut t = Terminal::new(TestBackend::new(180, 45)).unwrap();
+    t.draw(|f| render_ui(f, &mut state)).unwrap();
+    // Tab: menu -> stage -> options.
+    reduce(&mut state, Action::ToggleFocus);
+    assert_eq!(state.focus, Focus::Content);
+    reduce(&mut state, Action::Down);
+    assert_eq!(state.dash.row, DashRow::Recent);
+    reduce(&mut state, Action::Down);
+    assert_eq!(state.dash.row, DashRow::Tools);
+    reduce(&mut state, Action::Up);
+    reduce(&mut state, Action::Up);
+    reduce(&mut state, Action::Number(1));
+    assert_eq!(state.screen, Screen::Themes, "quick action 1 opens the theme editor");
+    reduce(&mut state, Action::Goto(Screen::Dashboard));
+    reduce(&mut state, Action::ToggleFocus);
+    assert_eq!(state.focus, Focus::Options);
+    // Dropdown: browse with arrows, Esc restores the original theme.
+    let before = state.settings.theme.clone();
+    reduce(&mut state, Action::Activate);
+    assert!(state.dropdown.is_some());
+    t.draw(|f| render_ui(f, &mut state)).unwrap();
+    reduce(&mut state, Action::Down);
+    assert_ne!(state.settings.theme, before);
+    reduce(&mut state, Action::Back);
+    assert!(state.dropdown.is_none());
+    assert_eq!(state.settings.theme, before);
+    // Output field cycles to the generated config view.
+    state.options_cursor = 3;
+    reduce(&mut state, Action::Right);
+    assert_eq!(state.preview_output, PreviewOutput::Config);
+    t.draw(|f| render_ui(f, &mut state)).unwrap();
+    assert!(dump(&t).contains("\"modules\""), "config output shows the JSONC");
+    // Apply button writes both configs and records the recent theme.
+    state.options_cursor = 4;
+    reduce(&mut state, Action::Activate);
+    assert!(state.paths.fastfetch_config.exists(), "{:?}", state.status);
+    assert_eq!(state.saved.recent_themes.first(), Some(&state.saved.theme));
     let _ = std::fs::remove_dir_all(root);
 }
 
@@ -83,8 +163,9 @@ fn image_logos_render_from_decode_pool_without_blocking() {
     if std::env::var_os("TFS_DUMP").is_some() {
         println!("{out}");
     }
-    assert!(out.contains('▀'), "half-block image expected in preview");
-    assert!(out.contains("cyberdeck"));
+    let preview = preview_text(&t, state.preview_body);
+    assert!(preview.contains('▀'), "half-block image expected in preview");
+    assert!(preview.contains("cyberdeck"));
     let _ = std::fs::remove_dir_all(root);
 }
 
@@ -117,9 +198,9 @@ fn kitty_mode_uploads_full_resolution_and_draws_placeholders() {
         }
         std::thread::sleep(Duration::from_millis(10));
     }
-    let out = dump(&t);
-    assert!(out.contains(PLACEHOLDER), "placeholder cells expected once uploaded");
-    assert!(!out.contains('▀'), "half blocks must be replaced by the real image");
+    let preview = preview_text(&t, state.preview_body);
+    assert!(preview.contains(PLACEHOLDER), "placeholder cells expected once uploaded");
+    assert!(!preview.contains('▀'), "half blocks must be replaced by the real image");
     assert!(uploads.iter().any(|s| s.starts_with("\x1b_Ga=T,U=1,f=100")));
     let _ = std::fs::remove_dir_all(root);
 }

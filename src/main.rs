@@ -16,7 +16,7 @@ use termfetch_studio_v2::adapters::doctor::{self, Level};
 use termfetch_studio_v2::adapters::fastfetch::{config, runner};
 use termfetch_studio_v2::app::actions::Action;
 use termfetch_studio_v2::app::reducer::reduce;
-use termfetch_studio_v2::app::state::{AppState, Effect, Screen, StatusKind};
+use termfetch_studio_v2::app::state::{AppState, Effect, StatusKind};
 use termfetch_studio_v2::cli::{BackupCmd, Cli, Command, DemoArg, ListArg, Selection};
 use termfetch_studio_v2::domain::color::{ColorValue, PALETTE};
 use termfetch_studio_v2::domain::logo::{builtin_logos, LogoItem};
@@ -125,7 +125,7 @@ fn print_preview(paths: &Paths, s: &Settings) {
     let grid = logo.existing_image().and_then(|p| pool.grid(p, cw, ch));
     let mut buf = Buffer::empty(area);
     let raster = grid.as_deref().map_or(LogoRaster::None, LogoRaster::Halfblock);
-    draw_preview(&mut buf, area, &model, raster, false);
+    draw_preview(&mut buf, area, &model, raster, None);
     print!("{}", buffer_to_ansi(&buf));
 }
 
@@ -274,7 +274,9 @@ fn key_action(key: KeyEvent) -> Option<Action> {
         KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => Action::Quit,
         KeyCode::Char('q') => Action::Quit,
         KeyCode::Esc => Action::Back,
-        KeyCode::Tab | KeyCode::BackTab => Action::ToggleFocus,
+        KeyCode::BackTab => Action::FocusPrev,
+        KeyCode::Tab if shift => Action::FocusPrev,
+        KeyCode::Tab => Action::ToggleFocus,
         KeyCode::Up if shift => Action::MoveItem { up: true },
         KeyCode::Down if shift => Action::MoveItem { up: false },
         KeyCode::Char('K') => Action::MoveItem { up: true },
@@ -289,13 +291,15 @@ fn key_action(key: KeyEvent) -> Option<Action> {
         KeyCode::Right | KeyCode::Char('l') => Action::Right,
         KeyCode::Enter => Action::Activate,
         KeyCode::Char(' ') => Action::Toggle,
-        KeyCode::Char('a') => Action::Apply,
+        KeyCode::Char('a' | 'A') => Action::Apply,
+        KeyCode::Char('?') => Action::ToggleHelp,
+        KeyCode::Char('o') => Action::CycleOutput,
         KeyCode::Char('d') => Action::ToggleDemo,
         KeyCode::Char('s') => Action::CycleLogoSize,
         KeyCode::Char('p') => Action::RunFastfetch,
         KeyCode::Char('r') => Action::Refresh,
         KeyCode::Char('x') | KeyCode::Delete => Action::Delete,
-        KeyCode::Char(c @ '1'..='8') => Action::Goto(Screen::ALL[(c as u8 - b'1') as usize]),
+        KeyCode::Char(c @ '1'..='8') => Action::Number(c as u8 - b'0'),
         _ => return None,
     })
 }

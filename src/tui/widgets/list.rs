@@ -1,12 +1,12 @@
 //! Scrollable list with optional section headers and mouse hit-testing.
 
 use crate::app::state::{AppState, ClickMap, Focus};
-use crate::tui::palette::Palette;
+use crate::tui::widgets::ui::{card, fill, line_at};
 use ratatui::{
     layout::Rect,
     style::{Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, BorderType, Borders, List, ListItem},
+    widgets::{Block, List, ListItem},
     Frame,
 };
 
@@ -15,19 +15,35 @@ pub enum Row<'a> {
     Item(Line<'a>, usize),
 }
 
+/// Card for the center stage; its border lights up while the content has focus.
 pub fn panel<'a>(title: impl Into<String>, state: &AppState) -> Block<'a> {
-    let pal = Palette::from_theme(state.current_theme());
-    let primary = pal.primary;
-    let border = if state.focus == Focus::Content { primary } else { pal.border };
-    Block::new()
-        .borders(Borders::ALL)
-        .border_type(BorderType::Rounded)
-        .border_style(Style::new().fg(border))
-        .title(Span::styled(format!(" {} ", title.into()), Style::new().fg(primary).add_modifier(Modifier::BOLD)))
+    let pal = state.palette();
+    card(&pal, state.focus == Focus::Content).title(Line::from(vec![
+        Span::styled(" ", Style::new().bg(pal.bg)),
+        Span::styled(format!("{} ", title.into()), Style::new().fg(pal.primary).bg(pal.bg).add_modifier(Modifier::BOLD)),
+    ]))
+}
+
+/// Center-stage page header (icon + title, subtitle) on the canvas; returns
+/// the remaining content area.
+pub fn screen_frame(f: &mut Frame, area: Rect, state: &AppState) -> Rect {
+    let pal = state.palette();
+    fill(f.buffer_mut(), area, Style::new().bg(pal.bg).fg(pal.fg));
+    let area = Rect { x: area.x + 1, width: area.width.saturating_sub(2), ..area };
+    if area.height < 10 {
+        return area;
+    }
+    let s = state.screen;
+    line_at(f.buffer_mut(), area, 0, Line::from(vec![
+        Span::styled(format!("{}  ", s.icon()), Style::new().fg(pal.primary).bg(pal.bg)),
+        Span::styled(s.title(), Style::new().fg(pal.fg).bg(pal.bg).add_modifier(Modifier::BOLD)),
+    ]));
+    line_at(f.buffer_mut(), area, 1, Line::from(Span::styled(s.subtitle(), Style::new().fg(pal.muted).bg(pal.bg))));
+    Rect { y: area.y + 3, height: area.height - 3, ..area }
 }
 
 pub fn render_rows(f: &mut Frame, area: Rect, state: &mut AppState, block: Block, rows: Vec<Row>, selected: usize) {
-    let pal = Palette::from_theme(state.current_theme());
+    let pal = state.palette();
     let (highlight_bg, primary) = (pal.sel_bg, pal.primary);
     let mut map = Vec::with_capacity(rows.len());
     let mut sel_row = 0;

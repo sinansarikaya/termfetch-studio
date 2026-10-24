@@ -1,7 +1,6 @@
 use crate::app::state::AppState;
-use crate::tui::palette::Palette;
 use crate::domain::theme::Theme;
-use crate::tui::widgets::list::{panel, render_rows, Row};
+use crate::tui::widgets::list::{panel, render_rows, screen_frame, Row};
 use ratatui::{
     layout::Rect,
     style::{Modifier, Style},
@@ -10,8 +9,9 @@ use ratatui::{
 };
 
 pub fn render_modules(f: &mut Frame, area: Rect, state: &mut AppState) {
+    let area = screen_frame(f, area, state);
     let theme = state.current_theme().clone();
-    let pal = Palette::from_theme(&theme);
+    let pal = state.palette();
     let module_rows = state.module_rows();
     let enabled_count = state.settings.custom_modules.len();
     let mut rows = Vec::new();

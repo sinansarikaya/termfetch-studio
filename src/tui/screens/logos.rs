@@ -1,7 +1,6 @@
 use crate::app::state::AppState;
-use crate::tui::palette::Palette;
 use crate::domain::logo::{LogoGroup, LogoKind};
-use crate::tui::widgets::list::{panel, render_rows, Row};
+use crate::tui::widgets::list::{panel, render_rows, screen_frame, Row};
 use ratatui::{
     layout::{Constraint, Layout, Rect},
     style::{Modifier, Style},
@@ -11,9 +10,10 @@ use ratatui::{
 };
 
 pub fn render_logos(f: &mut Frame, area: Rect, state: &mut AppState) {
+    let area = screen_frame(f, area, state);
     let [list_area, info_area] = Layout::vertical([Constraint::Min(8), Constraint::Length(6)]).areas(area);
     let selected = state.logo_idx();
-    let pal = Palette::from_theme(state.current_theme());
+    let pal = state.palette();
     let primary = pal.primary;
     let mut rows = Vec::new();
     let mut last: Option<LogoGroup> = None;

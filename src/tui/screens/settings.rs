@@ -1,8 +1,7 @@
 use crate::app::state::AppState;
-use crate::tui::palette::Palette;
 use crate::domain::color::{ColorValue, SemanticGroup};
 use crate::domain::style;
-use crate::tui::widgets::list::{panel, render_rows, Row};
+use crate::tui::widgets::list::{panel, render_rows, screen_frame, Row};
 use ratatui::{
     layout::Rect,
     style::{Color, Modifier, Style},
@@ -10,15 +9,20 @@ use ratatui::{
     Frame,
 };
 
+fn value_size(pal: &crate::tui::palette::Palette, v: &str) -> Span<'static> {
+    Span::styled(format!("◀ {v:<13} ▶"), Style::new().fg(pal.fg).add_modifier(Modifier::BOLD))
+}
+
 fn swatch(c: Color) -> Span<'static> {
     Span::styled("██", Style::new().fg(c))
 }
 
-pub fn render_colors(f: &mut Frame, area: Rect, state: &mut AppState) {
+pub fn render_settings(f: &mut Frame, area: Rect, state: &mut AppState) {
+    let area = screen_frame(f, area, state);
     let theme = state.current_theme().clone();
     let s = state.settings.clone();
     let fg = theme.text_color();
-    let pal = Palette::from_theme(&theme);
+    let pal = state.palette();
     let value = |v: &ColorValue| Span::styled(format!("◀ {:<13} ▶", v.label()), Style::new().fg(pal.fg).add_modifier(Modifier::BOLD));
     let label = |t: &str| Span::styled(format!("{t:<14}"), Style::new().fg(pal.muted));
 
@@ -48,7 +52,26 @@ pub fn render_colors(f: &mut Frame, area: Rect, state: &mut AppState) {
         Line::from(vec![label("Terminal bg/fg"), Span::styled(format!("{osc} "), Style::new().fg(pal.fg).add_modifier(Modifier::BOLD)), Span::styled("(OSC 10/11 on apply)", Style::new().fg(pal.dim))]),
         8,
     ));
-    let block = panel("\u{f020a} Icon & Text Colors", state);
+    let on_off = |b: bool, on: &str, off: &str| Span::styled(format!("{} ", if b { on } else { off }), Style::new().fg(if b { pal.ok } else { pal.muted }).add_modifier(Modifier::BOLD));
+    rows.push(Row::Header("Studio".into()));
+    rows.push(Row::Item(
+        Line::from(vec![label("Preview mode"), on_off(s.demo_mode, "ON", "OFF"), Span::styled(if s.demo_mode { "privacy-safe mock specs (d)" } else { "real system specs (d)" }, Style::new().fg(pal.dim))]),
+        9,
+    ));
+    let (mw, mh) = s.logo_size.max_cells();
+    rows.push(Row::Item(
+        Line::from(vec![label("Logo size"), value_size(&pal, s.logo_size.label()), Span::styled(format!(" max {mw}x{mh} cells (s)"), Style::new().fg(pal.dim))]),
+        10,
+    ));
+    rows.push(Row::Item(
+        Line::from(vec![label("Exit fastfetch"), on_off(s.run_fastfetch_on_exit, "on", "off"), Span::styled("run fastfetch after quitting", Style::new().fg(pal.dim))]),
+        11,
+    ));
+    rows.push(Row::Item(
+        Line::from(vec![label("Studio chrome"), value_size(&pal, if s.ui_follow_theme { "Follow theme" } else { "Studio indigo" }), Span::styled(" UI colours", Style::new().fg(pal.dim))]),
+        12,
+    ));
+    let block = panel("\u{f0493} Settings · colours & preferences", state);
     let cursor = state.color_cursor;
     render_rows(f, area, state, block, rows, cursor);
 }
