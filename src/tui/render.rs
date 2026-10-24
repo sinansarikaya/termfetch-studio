@@ -3,7 +3,8 @@ use crate::tui::screens::{
     backup::render_backup, colors::render_colors, dashboard::render_dashboard, doctor::render_doctor,
     logos::render_logos, modules::render_modules, presets::render_presets, themes::render_themes,
 };
-use crate::tui::widgets::preview::{draw_preview, inner_area, ImageState, PreviewModel};
+use crate::imaging::kitty::ImageKey;
+use crate::tui::widgets::preview::{draw_preview, inner_area, ImageState, LogoRaster, PreviewModel};
 use crate::tui::widgets::sidebar::render_sidebar;
 use ratatui::{
     layout::{Constraint, Layout, Rect},
@@ -68,28 +69,8 @@ pub fn image_state(state: &AppState) -> ImageState {
     }
 }
 
-fn render_preview_pane(f: &mut Frame, area: Rect, state: &mut AppState) {
-    let image = image_state(state);
-    let inner = inner_area(area);
-    // Size first (immutable borrow), then fetch/cached-rasterise the grid.
-    let cells = {
-        let model = PreviewModel {
-            theme: state.current_theme(),
-            preset: state.current_preset(),
-            logo: state.current_logo(),
-            settings: &state.settings,
-            info: state.real_info.as_ref(),
-            info_loading: state.real_rx.is_some(),
-            image,
-            geo: state.geo,
-        };
-        model.logo_cells((inner.width, inner.height))
-    };
-    let grid = match (image, state.current_logo().file_path.clone()) {
-        (ImageState::Ready(_), Some(p)) => state.pool.grid(&p, cells.0, cells.1),
-        _ => None,
-    };
-    let model = PreviewModel {
+fn preview_model(state: &AppState, image: ImageState) -> PreviewModel<'_> {
+    PreviewModel {
         theme: state.current_theme(),
         preset: state.current_preset(),
         logo: state.current_logo(),
@@ -98,8 +79,66 @@ fn render_preview_pane(f: &mut Frame, area: Rect, state: &mut AppState) {
         info_loading: state.real_rx.is_some(),
         image,
         geo: state.geo,
+    }
+}
+
+/// Kitty rendition of `path` shown in `cells` at the terminal's cell pixel size.
+fn kitty_key(state: &AppState, path: &str, cells: (u16, u16)) -> ImageKey {
+    let cell = state.geo.cell;
+    ImageKey {
+        path: path.to_string(),
+        cells,
+        px: (u32::from(cells.0) * cell.w, u32::from(cells.1) * cell.h),
+    }
+}
+
+/// Pre-upload every decoded image logo at the size the preview would show it,
+/// so browsing the gallery only switches placeholder ids.
+fn kitty_prefetch(state: &mut AppState, avail: (u16, u16)) {
+    let keys: Vec<ImageKey> = state
+        .logos
+        .iter()
+        .filter_map(|l| l.existing_image())
+        .filter_map(|p| state.pool.get(p).map(|img| (p, img.dims)))
+        .map(|(p, dims)| {
+            let cells = preview_model(state, ImageState::Ready(dims)).logo_cells(avail);
+            kitty_key(state, p, cells)
+        })
+        .collect();
+    if let Some(k) = state.kitty.as_mut() {
+        keys.iter().for_each(|key| k.request(key, false));
+    }
+}
+
+fn render_preview_pane(f: &mut Frame, area: Rect, state: &mut AppState) {
+    let image = image_state(state);
+    let inner = inner_area(area);
+    let avail = (inner.width, inner.height);
+    // Size first (immutable borrow), then fetch/cached-rasterise the logo.
+    let cells = preview_model(state, image).logo_cells(avail);
+    let path = state.current_logo().file_path.clone();
+    let mut kitty_id = None;
+    if let (ImageState::Ready(_), Some(p), true) = (image, path.as_deref(), state.kitty.is_some()) {
+        let key = kitty_key(state, p, cells);
+        let k = state.kitty.as_mut().expect("checked above");
+        kitty_id = k.id(&key);
+        if kitty_id.is_none() {
+            k.request(&key, true);
+        }
+        kitty_prefetch(state, avail);
+    }
+    // Half blocks are the fallback until the full-resolution upload is in the terminal.
+    let grid = match (image, kitty_id, path) {
+        (ImageState::Ready(_), None, Some(p)) => state.pool.grid(&p, cells.0, cells.1),
+        _ => None,
     };
-    draw_preview(f.buffer_mut(), area, &model, grid.as_deref(), true);
+    let raster = match (kitty_id, grid.as_deref()) {
+        (Some(id), _) => LogoRaster::Kitty(id),
+        (None, Some(g)) => LogoRaster::Halfblock(g),
+        (None, None) => LogoRaster::None,
+    };
+    let model = preview_model(state, image);
+    draw_preview(f.buffer_mut(), area, &model, raster, true);
 }
 
 fn pill(text: String, fg: Color, bg: Color) -> Span<'static> {
@@ -137,7 +176,8 @@ fn render_bottom_bar(f: &mut Frame, area: Rect, state: &AppState) {
         StatusKind::Warn => Color::Yellow,
         StatusKind::Error => Color::Red,
     };
-    let hints = format!("{} · q quit ", state.screen.hints());
+    let quit = if state.unsaved() { "q save & quit" } else { "q quit" };
+    let hints = format!("{} · {quit} ", state.screen.hints());
     let hint_w = hints.chars().count() as u16;
     let [msg_area, hint_area] = Layout::horizontal([Constraint::Min(10), Constraint::Length(hint_w.min(area.width / 2))]).areas(area);
     f.render_widget(Paragraph::new(Span::styled(format!(" {msg}"), Style::new().fg(color))), msg_area);

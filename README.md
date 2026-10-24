@@ -29,7 +29,15 @@ Builder, Colors, Backup & Restore, Doctor), the active screen in the middle and
 a wide **Live Preview** on the right, painted in the theme background. The
 preview reproduces fastfetch's layout exactly (logo padding, `keyWidth`,
 separator, resolved colours). Image logos are decoded once by a background
-worker pool and drawn with half-blocks, so scrolling stays well above 60 FPS.
+worker pool, so scrolling stays well above 60 FPS.
+
+In terminals with the Kitty graphics protocol (kitty, Ghostty) the preview shows
+image logos at full resolution: each logo is resized to the preview's exact
+pixel box and PNG-encoded on a background thread, uploaded once, and then drawn
+through Unicode placeholder cells, so switching logos only swaps an image id.
+The whole gallery is pre-uploaded in the background; half-blocks are shown
+until an upload lands and are used everywhere else (including tmux/screen).
+Force a mode with `TERMFETCH_STUDIO_GRAPHICS=kitty` or `=halfblock`.
 
 | Key | Action |
 |---|---|
@@ -43,7 +51,7 @@ worker pool and drawn with half-blocks, so scrolling stays well above 60 FPS.
 | `←`/`→` | Colors: cycle icon, text and per-group colours |
 | `x` | Backup: delete selected backup · `r` Doctor: re-run checks |
 | `1`–`8` | jump to a screen · mouse click and wheel supported |
-| `q` / `Esc` | quit |
+| `q` / `Esc` | quit; unsaved changes are saved and applied to both fastfetch configs first |
 
 ## CLI
 
@@ -89,7 +97,7 @@ src/
 ├── cli/                 # clap definitions
 ├── app/                 # AppState, Action, reducer (+ effects)
 ├── domain/              # themes, presets/modules, logos, colours, settings, style resolution
-├── imaging/             # fit_image_cells, half-block raster, background decode pool
+├── imaging/             # fit_image_cells, half-block raster, Kitty graphics, decode pool
 ├── adapters/            # fastfetch config/runner, backup, doctor, atomic fs
 └── tui/                 # layout, sidebar, preview, screens
 ```

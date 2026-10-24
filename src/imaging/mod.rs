@@ -1,5 +1,7 @@
 //! Aspect-ratio-correct image sizing and half-block rasterisation.
 
+pub mod kitty;
+mod kitty_diacritics;
 pub mod pool;
 
 use image::RgbaImage;

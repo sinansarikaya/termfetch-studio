@@ -5,6 +5,7 @@ use crate::domain::logo::{builtin_logos, LogoItem};
 use crate::domain::preset::{get_builtin_presets, ModuleKind, Preset};
 use crate::domain::settings::Settings;
 use crate::domain::theme::{get_builtin_themes, Theme};
+use crate::imaging::kitty::KittyImages;
 use crate::imaging::pool::ImagePool;
 use crate::imaging::TermGeometry;
 use crate::paths::Paths;
@@ -148,11 +149,15 @@ pub struct AppState {
     pub real_info: Option<RealInfo>,
     pub real_rx: Option<Receiver<RealInfo>>,
     pub pool: ImagePool,
+    /// Kitty graphics uploader; `None` renders image logos with half blocks.
+    pub kitty: Option<KittyImages>,
     pub geo: TermGeometry,
     pub backups: Vec<BackupEntry>,
     pub doctor: Vec<Check>,
     pub status: (StatusKind, String),
     pub running: bool,
+    /// Printed to the shell after the TUI exits (auto-save result).
+    pub exit_message: Option<(StatusKind, String)>,
     pub dirty: bool,
     pub effects: Vec<Effect>,
 }
@@ -180,6 +185,7 @@ impl AppState {
             real_info: None,
             real_rx: None,
             pool: ImagePool::with_default_workers(),
+            kitty: None,
             geo,
             doctor: Vec::new(),
             status: (
@@ -187,6 +193,7 @@ impl AppState {
                 "Welcome to TermFetch Studio. Tab switches focus, Enter applies, p runs fastfetch.".into(),
             ),
             running: true,
+            exit_message: None,
             dirty: true,
             effects: Vec::new(),
             paths,
@@ -202,6 +209,14 @@ impl AppState {
             app.start_real_probe();
         }
         app
+    }
+
+    /// Render image logos at full resolution through the Kitty graphics protocol.
+    pub fn enable_kitty(&mut self) {
+        if self.kitty.is_none() {
+            self.kitty = Some(KittyImages::new(2));
+            self.dirty = true;
+        }
     }
 
     pub fn theme_idx(&self) -> usize {
