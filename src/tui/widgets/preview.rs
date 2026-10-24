@@ -9,7 +9,7 @@ use crate::domain::preset::{Preset, DEMO_DATA};
 use crate::domain::settings::Settings;
 use crate::domain::style;
 use crate::domain::theme::Theme;
-use crate::imaging::{blend, config_logo_cells, fit_image_cells, HalfblockGrid, TermGeometry};
+use crate::imaging::{blend, config_logo_cells, fit_image_cells, kitty, HalfblockGrid, TermGeometry};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::{Color, Modifier, Style};
@@ -23,6 +23,17 @@ pub enum ImageState {
     Ready((u32, u32)),
     Loading,
     Missing,
+}
+
+/// How an image logo is painted into the preview.
+#[derive(Debug, Clone, Copy)]
+pub enum LogoRaster<'a> {
+    /// Not rasterised yet.
+    None,
+    /// `▀` half blocks (any truecolor terminal).
+    Halfblock(&'a HalfblockGrid),
+    /// Full-resolution image already uploaded to the terminal under this id.
+    Kitty(u32),
 }
 
 pub struct PreviewModel<'a> {
@@ -184,6 +195,23 @@ pub fn draw_halfblocks(buf: &mut Buffer, x: u16, y: u16, clip: Rect, grid: &Half
     }
 }
 
+/// Paint a `w` x `h` Kitty placeholder block for image `id` at (x, y).
+pub fn draw_kitty_placeholders(buf: &mut Buffer, x: u16, y: u16, clip: Rect, (w, h): (u16, u16), id: u32, bg: Color) {
+    let fg = kitty::id_color(id);
+    for cy in 0..h {
+        for cx in 0..w {
+            let (px, py) = (x + cx, y + cy);
+            if px >= clip.right() || py >= clip.bottom() {
+                continue;
+            }
+            if let Some(cell) = buf.cell_mut((px, py)) {
+                cell.reset();
+                cell.set_symbol(&kitty::placeholder(cy, cx)).set_fg(fg).set_bg(bg);
+            }
+        }
+    }
+}
+
 /// Inner content rect (inside the border, with a one-column margin).
 pub fn inner_area(area: Rect) -> Rect {
     let inner = Block::new().borders(Borders::ALL).inner(area);
@@ -194,9 +222,9 @@ pub fn inner_area(area: Rect) -> Rect {
     }
 }
 
-/// Draw the full preview pane. `grid` must have been rasterised at
+/// Draw the full preview pane. `raster` must have been produced at
 /// `model.logo_cells(..)` for image logos.
-pub fn draw_preview(buf: &mut Buffer, area: Rect, model: &PreviewModel, grid: Option<&HalfblockGrid>, show_chrome: bool) {
+pub fn draw_preview(buf: &mut Buffer, area: Rect, model: &PreviewModel, raster: LogoRaster, show_chrome: bool) {
     let (bg, fg) = (model.bg(), model.fg());
     let primary = model.theme.primary_color();
     buf.set_style(area, Style::new().bg(bg).fg(fg));
@@ -237,8 +265,9 @@ pub fn draw_preview(buf: &mut Buffer, area: Rect, model: &PreviewModel, grid: Op
     let lx = inner.x;
     let ly = inner.y + LOGO_PADDING_TOP;
     let logo_style = Style::new().fg(style::logo_color(model.theme).tui_color(fg)).bg(bg);
-    match (model.image, grid) {
-        (ImageState::Ready(_), Some(g)) => draw_halfblocks(buf, lx, ly, inner, g, bg),
+    match (model.image, raster) {
+        (ImageState::Ready(_), LogoRaster::Halfblock(g)) => draw_halfblocks(buf, lx, ly, inner, g, bg),
+        (ImageState::Ready(_), LogoRaster::Kitty(id)) => draw_kitty_placeholders(buf, lx, ly, inner, (lw, lh), id, bg),
         (ImageState::NotImage, _) => {
             for (i, l) in model.logo.art.lines().enumerate() {
                 let y = ly + i as u16;

@@ -27,10 +27,10 @@ pub fn reduce(state: &mut AppState, action: Action) {
         state.dirty = true;
     }
     match action {
-        Action::Quit => state.running = false,
+        Action::Quit => quit(state),
         Action::Back => match state.focus {
             Focus::Content => state.focus = Focus::Sidebar,
-            Focus::Sidebar => state.running = false,
+            Focus::Sidebar => quit(state),
         },
         Action::ToggleFocus => {
             state.focus = match state.focus {
@@ -72,7 +72,9 @@ pub fn reduce(state: &mut AppState, action: Action) {
                 move_module(state, up);
             }
         }
-        Action::Apply => apply(state),
+        Action::Apply => {
+            apply(state);
+        }
         Action::ToggleDemo => toggle_demo(state),
         Action::CycleLogoSize => {
             state.settings.logo_size = state.settings.logo_size.next();
@@ -98,6 +100,9 @@ pub fn reduce(state: &mut AppState, action: Action) {
                 if let Some(p) = logo.file_path.as_deref() {
                     state.pool.invalidate(p);
                     state.pool.request(p, true);
+                    if let Some(k) = state.kitty.as_mut() {
+                        state.effects.extend(k.invalidate(p).into_iter().map(Effect::WriteTerminal));
+                    }
                 }
             }
             _ => {}
@@ -191,7 +196,9 @@ fn activate(state: &mut AppState) {
             }
         }
         Screen::Doctor => run_doctor(state),
-        _ => apply(state),
+        _ => {
+            apply(state);
+        }
     }
 }
 
@@ -260,7 +267,20 @@ fn write_all(state: &mut AppState, settings: &Settings) -> anyhow::Result<Vec<st
     config::apply(&theme, &preset, &logo, settings, &state.paths, &state.geo)
 }
 
-fn apply(state: &mut AppState) {
+/// Leaving the TUI commits whatever is on screen: unsaved edits are written to
+/// settings.json and both fastfetch configs so the next `fastfetch` shows them.
+fn quit(state: &mut AppState) {
+    if state.unsaved() {
+        let ok = apply(state);
+        let (kind, msg) = state.status.clone();
+        let msg = if ok { msg.replacen("✓ Applied", "✓ Saved on exit:", 1) } else { format!("Changes were NOT saved - {msg}") };
+        state.exit_message = Some((kind, msg));
+    }
+    state.running = false;
+}
+
+/// Returns whether the settings were written.
+fn apply(state: &mut AppState) -> bool {
     let settings = state.settings.clone();
     match write_all(state, &settings) {
         Ok(targets) => {
@@ -272,8 +292,12 @@ fn apply(state: &mut AppState) {
             let list = targets.iter().map(|p| p.display().to_string()).collect::<Vec<_>>().join(" + ");
             let (theme, preset) = (state.current_theme().name.clone(), state.current_preset().name.clone());
             state.set_status(StatusKind::Ok, format!("✓ Applied {theme} · {preset} → {list}"));
+            true
         }
-        Err(e) => state.set_status(StatusKind::Error, format!("Apply failed: {e:#}")),
+        Err(e) => {
+            state.set_status(StatusKind::Error, format!("Apply failed: {e:#}"));
+            false
+        }
     }
 }
 
@@ -383,6 +407,13 @@ fn click(state: &mut AppState, col: u16, row: u16) {
 }
 
 fn tick(state: &mut AppState) {
+    if let Some(k) = state.kitty.as_mut() {
+        let uploads = k.poll();
+        if !uploads.is_empty() {
+            state.effects.extend(uploads.into_iter().map(Effect::WriteTerminal));
+            state.dirty = true;
+        }
+    }
     let done = state.pool.poll();
     if let Some(sel) = state.current_logo().existing_image() {
         if done.iter().any(|p| p == sel) {
@@ -426,6 +457,38 @@ mod tests {
         assert!(!s.unsaved(), "{:?}", s.status);
         assert!(s.paths.studio_config().exists());
         assert!(s.paths.fastfetch_config.exists());
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn quit_autosaves_unsaved_changes_to_both_configs() {
+        let (mut s, root) = app();
+        reduce(&mut s, Action::Goto(Screen::Colors));
+        s.focus = Focus::Content;
+        reduce(&mut s, Action::Right);
+        reduce(&mut s, Action::Goto(Screen::Themes));
+        reduce(&mut s, Action::Down);
+        assert!(s.unsaved());
+        let (theme, icon) = (s.settings.theme.clone(), s.settings.icon_color.clone());
+        reduce(&mut s, Action::Quit);
+        assert!(!s.running);
+        assert!(!s.unsaved(), "{:?}", s.status);
+        let persisted = Settings::load(&s.paths.settings_file()).unwrap();
+        assert_eq!((persisted.theme, persisted.icon_color), (theme, icon));
+        let studio = std::fs::read_to_string(s.paths.studio_config()).unwrap();
+        let fastfetch = std::fs::read_to_string(&s.paths.fastfetch_config).unwrap();
+        assert_eq!(studio, fastfetch);
+        assert!(matches!(&s.exit_message, Some((StatusKind::Ok, m)) if m.contains("Saved on exit")), "{:?}", s.exit_message);
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn quit_without_changes_writes_nothing() {
+        let (mut s, root) = app();
+        reduce(&mut s, Action::Back);
+        assert!(!s.running);
+        assert!(s.exit_message.is_none());
+        assert!(!s.paths.fastfetch_config.exists());
         let _ = std::fs::remove_dir_all(root);
     }
 

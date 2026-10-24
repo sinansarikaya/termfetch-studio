@@ -87,3 +87,39 @@ fn image_logos_render_from_decode_pool_without_blocking() {
     assert!(out.contains("cyberdeck"));
     let _ = std::fs::remove_dir_all(root);
 }
+
+#[test]
+fn kitty_mode_uploads_full_resolution_and_draws_placeholders() {
+    use termfetch_studio_v2::app::state::Effect;
+    use termfetch_studio_v2::imaging::kitty::PLACEHOLDER;
+
+    let (mut state, root) = app("kitty");
+    state.enable_kitty();
+    reduce(&mut state, Action::Goto(Screen::Logos));
+    state.focus = Focus::Content;
+    let pika = state.logos.iter().position(|l| l.id == "pikachu").unwrap();
+    while state.logo_idx() != pika {
+        reduce(&mut state, Action::Down);
+    }
+    let mut t = Terminal::new(TestBackend::new(180, 45)).unwrap();
+    let mut uploads = Vec::new();
+    let start = Instant::now();
+    loop {
+        t.draw(|f| render_ui(f, &mut state)).unwrap();
+        if dump(&t).contains(PLACEHOLDER) || start.elapsed() > Duration::from_secs(30) {
+            break;
+        }
+        reduce(&mut state, Action::Tick);
+        for e in std::mem::take(&mut state.effects) {
+            if let Effect::WriteTerminal(seq) = e {
+                uploads.push(seq);
+            }
+        }
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    let out = dump(&t);
+    assert!(out.contains(PLACEHOLDER), "placeholder cells expected once uploaded");
+    assert!(!out.contains('▀'), "half blocks must be replaced by the real image");
+    assert!(uploads.iter().any(|s| s.starts_with("\x1b_Ga=T,U=1,f=100")));
+    let _ = std::fs::remove_dir_all(root);
+}

@@ -23,11 +23,12 @@ use termfetch_studio_v2::domain::logo::{builtin_logos, LogoItem};
 use termfetch_studio_v2::domain::preset::{get_builtin_presets, ModuleKind, Preset};
 use termfetch_studio_v2::domain::settings::{LogoSize, Settings};
 use termfetch_studio_v2::domain::theme::{get_builtin_themes, Theme};
+use termfetch_studio_v2::imaging::kitty;
 use termfetch_studio_v2::imaging::pool::ImagePool;
 use termfetch_studio_v2::imaging::TermGeometry;
 use termfetch_studio_v2::paths::Paths;
 use termfetch_studio_v2::tui::render::render_ui;
-use termfetch_studio_v2::tui::widgets::preview::{buffer_to_ansi, draw_preview, ImageState, PreviewModel};
+use termfetch_studio_v2::tui::widgets::preview::{buffer_to_ansi, draw_preview, ImageState, LogoRaster, PreviewModel};
 
 type Tui = Terminal<CrosstermBackend<io::Stdout>>;
 
@@ -123,7 +124,8 @@ fn print_preview(paths: &Paths, s: &Settings) {
     let (cw, ch) = model.logo_cells((width, height));
     let grid = logo.existing_image().and_then(|p| pool.grid(p, cw, ch));
     let mut buf = Buffer::empty(area);
-    draw_preview(&mut buf, area, &model, grid.as_deref(), false);
+    let raster = grid.as_deref().map_or(LogoRaster::None, LogoRaster::Halfblock);
+    draw_preview(&mut buf, area, &model, raster, false);
     print!("{}", buffer_to_ansi(&buf));
 }
 
@@ -322,31 +324,42 @@ fn live_fastfetch(terminal: &mut Tui, state: &mut AppState) -> Result<()> {
     Ok(())
 }
 
+fn write_raw(seq: &str) -> Result<()> {
+    let mut out = stdout();
+    out.write_all(seq.as_bytes())?;
+    out.flush()?;
+    Ok(())
+}
+
+fn run_effects(terminal: &mut Tui, state: &mut AppState) -> Result<()> {
+    for effect in std::mem::take(&mut state.effects) {
+        match effect {
+            Effect::WriteTerminal(seq) => write_raw(&seq)?,
+            Effect::RunFastfetch => {
+                if let Err(e) = live_fastfetch(terminal, state) {
+                    state.set_status(StatusKind::Error, format!("Live run failed: {e:#}"));
+                    state.dirty = true;
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
 fn run_app(terminal: &mut Tui, state: &mut AppState) -> Result<()> {
     while state.running {
+        // Effects first: Kitty uploads must reach the terminal before the
+        // frame that references them through placeholder cells.
+        run_effects(terminal, state)?;
         if state.dirty {
             terminal.draw(|f| render_ui(f, state))?;
             state.dirty = false;
         }
 
-        for effect in std::mem::take(&mut state.effects) {
-            match effect {
-                Effect::WriteTerminal(seq) => {
-                    let mut out = stdout();
-                    out.write_all(seq.as_bytes())?;
-                    out.flush()?;
-                }
-                Effect::RunFastfetch => {
-                    if let Err(e) = live_fastfetch(terminal, state) {
-                        state.set_status(StatusKind::Error, format!("Live run failed: {e:#}"));
-                        state.dirty = true;
-                    }
-                }
-            }
-        }
-
         // Fast ticks only while background work is in flight; otherwise idle cheaply.
-        let busy = state.pool.has_pending() || state.real_rx.is_some();
+        let busy = state.pool.has_pending()
+            || state.real_rx.is_some()
+            || state.kitty.as_ref().is_some_and(|k| k.has_pending());
         let timeout = Duration::from_millis(if busy { 16 } else { 250 });
         if event::poll(timeout)? {
             // Drain the whole queue before redrawing so key repeat never lags behind.
@@ -371,6 +384,12 @@ fn run_app(terminal: &mut Tui, state: &mut AppState) -> Result<()> {
             }
         }
         reduce(state, Action::Tick);
+    }
+    // Terminal colours applied by the auto-save on quit.
+    for effect in std::mem::take(&mut state.effects) {
+        if let Effect::WriteTerminal(seq) = effect {
+            write_raw(&seq)?;
+        }
     }
     Ok(())
 }
@@ -399,10 +418,20 @@ fn main() -> Result<()> {
     set_panic_hook();
     let mut terminal = setup_terminal()?;
     let mut state = AppState::new(paths, settings, TermGeometry::detect());
+    if kitty::detect() {
+        state.enable_kitty();
+    }
     if let Some(e) = load_err {
         state.set_status(StatusKind::Warn, format!("settings.json unreadable ({e:#}); using defaults until you apply"));
     }
     let res = run_app(&mut terminal, &mut state);
+    if let Some(k) = state.kitty.as_mut() {
+        let _ = write_raw(&k.cleanup());
+    }
     restore_terminal(&mut terminal)?;
+    if let Some((kind, msg)) = &state.exit_message {
+        let color = if *kind == StatusKind::Ok { 32 } else { 31 };
+        eprintln!("\x1b[{color}m{msg}\x1b[0m");
+    }
     res
 }
