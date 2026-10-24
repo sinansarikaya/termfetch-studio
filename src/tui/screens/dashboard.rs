@@ -6,11 +6,11 @@ use crate::domain::preset::ModuleKind;
 use crate::tui::palette::Palette;
 use crate::tui::widgets::ui::{card, draw_thumbnail, ellipsize, fill, line_at, theme_dots, width};
 use ratatui::{
+    Frame,
     layout::{Constraint, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
     widgets::Widget,
-    Frame,
 };
 
 pub struct QuickAction {
@@ -61,10 +61,12 @@ fn wrap(text: &str, w: usize, lines: usize) -> Vec<String> {
 
 /// Section header inside a card: icon + bold title (+ muted subtitle row).
 fn section_header(buf: &mut ratatui::buffer::Buffer, area: Rect, pal: &Palette, icon: &str, icon_c: Color, title: &str, subtitle: Option<&str>) {
-    line_at(buf, area, 0, Line::from(vec![
-        Span::styled(format!("{icon} "), Style::new().fg(icon_c)),
-        Span::styled(title.to_string(), Style::new().fg(pal.fg).add_modifier(Modifier::BOLD)),
-    ]));
+    line_at(
+        buf,
+        area,
+        0,
+        Line::from(vec![Span::styled(format!("{icon} "), Style::new().fg(icon_c)), Span::styled(title.to_string(), Style::new().fg(pal.fg).add_modifier(Modifier::BOLD))]),
+    );
     if let Some(s) = subtitle {
         line_at(buf, area, 1, Line::from(Span::styled(format!("   {s}"), Style::new().fg(pal.muted))));
     }
@@ -75,22 +77,38 @@ pub fn render_dashboard(f: &mut Frame, area: Rect, state: &mut AppState) {
     fill(f.buffer_mut(), area, Style::new().bg(pal.bg).fg(pal.fg));
     let area = Rect { x: area.x + 1, width: area.width.saturating_sub(2), ..area };
     let roomy = area.height >= 36;
-    let (welcome_h, quick_h, recent_h) = match area.height {
-        h if h >= 36 => (3, 11, 11),
-        h if h >= 24 => (3, 8, 9),
-        _ => (2, 8, 9),
+    let (welcome_h, mut quick_h, recent_h) = match area.height {
+        h if h >= 36 => (3, 9, 12),
+        h if h >= 24 => (3, 7, 9),
+        _ => (2, 6, 7),
     };
+    if area.width < 68 {
+        quick_h = quick_h.max(10);
+    }
     let [welcome, quick, recent, bottom] =
         Layout::vertical([Constraint::Length(welcome_h), Constraint::Length(quick_h), Constraint::Length(recent_h), Constraint::Min(0)]).areas(area);
 
     // Welcome banner.
     let buf = f.buffer_mut();
-    line_at(buf, welcome, 0, Line::from(vec![
-        Span::styled("👋 Welcome to ", Style::new().fg(pal.fg).bg(pal.bg).add_modifier(Modifier::BOLD)),
-        Span::styled("TermFetch Studio", Style::new().fg(pal.accent2).bg(pal.bg).add_modifier(Modifier::BOLD)),
-        Span::styled("!", Style::new().fg(pal.fg).bg(pal.bg).add_modifier(Modifier::BOLD)),
-    ]));
-    line_at(buf, welcome, 1, Line::from(Span::styled(crate::app::state::Screen::Dashboard.subtitle(), Style::new().fg(pal.muted).bg(pal.bg))));
+    line_at(
+        buf,
+        welcome,
+        0,
+        Line::from(vec![
+            Span::styled("👋 Welcome to ", Style::new().fg(pal.fg).bg(pal.bg).add_modifier(Modifier::BOLD)),
+            Span::styled("TermFetch Studio", Style::new().fg(pal.accent2).bg(pal.bg).add_modifier(Modifier::BOLD)),
+            Span::styled("!", Style::new().fg(pal.fg).bg(pal.bg).add_modifier(Modifier::BOLD)),
+        ]),
+    );
+    line_at(
+        buf,
+        welcome,
+        1,
+        Line::from(Span::styled(
+            format!("{} · {} · fastfetch {}", state.current_theme().name, state.current_preset().name, state.fastfetch_version.as_deref().unwrap_or("missing")),
+            Style::new().fg(pal.muted).bg(pal.bg),
+        )),
+    );
 
     render_quick(f, quick, state, &pal, roomy);
     render_recent(f, recent, state, &pal, roomy);
@@ -119,7 +137,15 @@ fn render_quick(f: &mut Frame, area: Rect, state: &mut AppState, pal: &Palette, 
     if tiles.height < 3 {
         return;
     }
-    let cols = Layout::horizontal([Constraint::Ratio(1, 4); 4]).spacing(1).split(tiles);
+    let cols: Vec<Rect> = if tiles.width >= 64 {
+        Layout::horizontal([Constraint::Ratio(1, 4); 4]).spacing(1).split(tiles).to_vec()
+    } else {
+        Layout::vertical([Constraint::Ratio(1, 2); 2])
+            .split(tiles)
+            .iter()
+            .flat_map(|&row| Layout::horizontal([Constraint::Ratio(1, 2); 2]).spacing(1).split(row).to_vec())
+            .collect()
+    };
     let focus = dash_focus(state, DashRow::Quick);
     let colors = quick_colors(pal);
     for (i, (qa, &rect)) in QUICK.iter().zip(cols.iter()).enumerate() {
@@ -186,10 +212,20 @@ fn render_recent(f: &mut Frame, area: Rect, state: &mut AppState, pal: &Palette,
         let theme = &state.themes[ti];
         let active = theme.id == state.settings.theme;
         let sel = focus == Some(pos);
-        let block = card(pal, active || sel).style(Style::new().bg(pal.raised).fg(pal.fg)).border_style(Style::new().fg(if sel { pal.accent2 } else if active { pal.primary } else { pal.border }).bg(pal.surface));
+        let block = card(pal, active || sel).style(Style::new().bg(pal.raised).fg(pal.fg)).border_style(
+            Style::new()
+                .fg(if sel {
+                    pal.accent2
+                } else if active {
+                    pal.primary
+                } else {
+                    pal.border
+                })
+                .bg(pal.surface),
+        );
         let t = block.inner(rect);
         block.render(rect, f.buffer_mut());
-        let thumb_h = t.height.saturating_sub(2).min(3);
+        let thumb_h = t.height.saturating_sub(2).min(6);
         draw_thumbnail(f.buffer_mut(), Rect { height: thumb_h, ..t }, theme);
         if active && t.width >= 4 && thumb_h > 0 {
             let check = Rect { x: t.right() - 3, y: t.y, width: 3, height: 1 };
@@ -199,7 +235,15 @@ fn render_recent(f: &mut Frame, area: Rect, state: &mut AppState, pal: &Palette,
         let name_bg = if sel { pal.sel_bg } else { pal.raised };
         let name_row = Rect { y: t.y + thumb_h, height: 1, ..t };
         fill(f.buffer_mut(), name_row, Style::new().bg(name_bg));
-        line_at(f.buffer_mut(), name_row, 0, Line::from(Span::styled(format!(" {}", ellipsize(&theme.name, tw.saturating_sub(1))), Style::new().fg(if sel { pal.primary } else { pal.fg }).bg(name_bg).add_modifier(Modifier::BOLD))));
+        line_at(
+            f.buffer_mut(),
+            name_row,
+            0,
+            Line::from(Span::styled(
+                format!(" {}", ellipsize(&theme.name, tw.saturating_sub(1))),
+                Style::new().fg(if sel { pal.primary } else { pal.fg }).bg(name_bg).add_modifier(Modifier::BOLD),
+            )),
+        );
         let mut dots = vec![Span::raw(" ")];
         dots.extend(theme_dots(theme, tw >= 17));
         line_at(f.buffer_mut(), t, thumb_h + 1, Line::from(dots));
@@ -219,15 +263,19 @@ fn render_overview(f: &mut Frame, area: Rect, state: &AppState, pal: &Palette) {
     let inner = Rect { x: inner.x + 1, width: inner.width.saturating_sub(2), ..inner };
     section_header(f.buffer_mut(), inner, pal, "\u{f02fc}", pal.info, "System Overview", None);
     let os_icon = if state.settings.demo_mode { "\u{f08c7}" } else { state.sysinfo.distro_icon() };
-    let rows: [(&str, Color, &str, ModuleKind); 6] = [
+    let rows: [(&str, Color, &str, ModuleKind); 10] = [
         (os_icon, pal.info, "OS", ModuleKind::Os),
         ("\u{f0322}", pal.error, "Host", ModuleKind::Host),
         ("\u{f061a}", pal.orange, "Kernel", ModuleKind::Kernel),
         ("\u{f0954}", pal.warn, "Uptime", ModuleKind::Uptime),
         ("\u{f07b7}", pal.link, "Terminal", ModuleKind::Terminal),
         ("\u{f048d}", pal.special, "Shell", ModuleKind::Shell),
+        ("󰻠", pal.info, "CPU", ModuleKind::Cpu),
+        ("󰢮", pal.special, "GPU", ModuleKind::Gpu),
+        ("󰍛", pal.ok, "Memory", ModuleKind::Memory),
+        ("󰍹", pal.orange, "Display", ModuleKind::Display),
     ];
-    let gap = if inner.height >= 9 { 2 } else { 1 };
+    let gap = 1;
     let w = usize::from(inner.width);
     for (i, (icon, c, label, m)) in rows.iter().enumerate() {
         let value = if state.settings.demo_mode {
@@ -235,11 +283,16 @@ fn render_overview(f: &mut Frame, area: Rect, state: &AppState, pal: &Palette) {
         } else {
             state.real_info.as_ref().and_then(|r| r.get(*m)).map(str::to_string).unwrap_or_else(|| if state.real_rx.is_some() { "…".into() } else { "-".into() })
         };
-        line_at(f.buffer_mut(), inner, gap + i as u16, Line::from(vec![
-            Span::styled(format!("{icon}  "), Style::new().fg(*c)),
-            Span::styled(format!("{label:<10}"), Style::new().fg(pal.muted)),
-            Span::styled(ellipsize(&value, w.saturating_sub(13)), Style::new().fg(pal.fg)),
-        ]));
+        line_at(
+            f.buffer_mut(),
+            inner,
+            gap + i as u16,
+            Line::from(vec![
+                Span::styled(format!("{icon}  "), Style::new().fg(*c)),
+                Span::styled(format!("{label:<10}"), Style::new().fg(pal.muted)),
+                Span::styled(ellipsize(&value, w.saturating_sub(13)), Style::new().fg(pal.fg)),
+            ]),
+        );
     }
 }
 
@@ -263,10 +316,15 @@ fn render_tools(f: &mut Frame, area: Rect, state: &mut AppState, pal: &Palette) 
         let rect = Rect { y: inner.y + dy, height: per.min(inner.height - dy), ..inner };
         fill(f.buffer_mut(), rect, Style::new().bg(bg));
         let buf = f.buffer_mut();
-        line_at(buf, rect, 0, Line::from(vec![
-            Span::styled(format!(" {}  ", tool.icon), Style::new().fg(colors[i]).bg(bg)),
-            Span::styled(ellipsize(tool.title, w.saturating_sub(7)), Style::new().fg(if sel { pal.primary } else { pal.fg }).bg(bg).add_modifier(Modifier::BOLD)),
-        ]));
+        line_at(
+            buf,
+            rect,
+            0,
+            Line::from(vec![
+                Span::styled(format!(" {}  ", tool.icon), Style::new().fg(colors[i]).bg(bg)),
+                Span::styled(ellipsize(tool.title, w.saturating_sub(7)), Style::new().fg(if sel { pal.primary } else { pal.fg }).bg(bg).add_modifier(Modifier::BOLD)),
+            ]),
+        );
         if per == 2 {
             line_at(buf, rect, 1, Line::from(Span::styled(format!("    {}", ellipsize(tool.desc, w.saturating_sub(7))), Style::new().fg(pal.dim).bg(bg))));
         }

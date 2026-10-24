@@ -1,16 +1,16 @@
 use crate::app::state::AppState;
-use crate::tui::widgets::list::{panel, render_rows, screen_frame, Row};
+use crate::tui::widgets::list::{Row, panel, render_rows, screen_frame};
 use ratatui::{
+    Frame,
     layout::{Constraint, Layout, Rect},
     style::{Modifier, Style},
     text::{Line, Span},
     widgets::{Paragraph, Wrap},
-    Frame,
 };
 
 pub fn render_presets(f: &mut Frame, area: Rect, state: &mut AppState) {
     let area = screen_frame(f, area, state);
-    let [list_area, info_area] = Layout::vertical([Constraint::Min(8), Constraint::Length(9)]).areas(area);
+    let [list_area, info_area] = Layout::vertical([Constraint::Min(8), Constraint::Length((area.height / 2).clamp(9, 16))]).areas(area);
     let selected = state.preset_idx();
     let pal = state.palette();
     let primary = pal.primary;
@@ -29,15 +29,12 @@ pub fn render_presets(f: &mut Frame, area: Rect, state: &mut AppState) {
             Row::Item(Line::from(spans), i)
         })
         .collect();
-    let block = panel("\u{f0645} Presets", state);
+    let block = panel("Presets · Enter use · d copy · r rename · x delete", state);
     render_rows(f, list_area, state, block, rows, selected);
 
     let p = state.current_preset();
     let theme = state.current_theme();
-    let mut lines = vec![
-        Line::from(Span::styled(p.description.clone(), Style::new().fg(pal.muted))),
-        Line::default(),
-    ];
+    let mut lines = vec![Line::from(Span::styled(p.description.clone(), Style::new().fg(pal.muted))), Line::default()];
     for section in &p.sections {
         let mut spans = Vec::new();
         for m in section {
@@ -50,6 +47,6 @@ pub fn render_presets(f: &mut Frame, area: Rect, state: &mut AppState) {
     if p.id == "custom" {
         lines.push(Line::from(Span::styled("Edit this preset in Module Builder (5)", Style::new().fg(pal.dim))));
     }
-    let info = Paragraph::new(lines).wrap(Wrap { trim: true }).block(panel("Modules", state));
+    let info = Paragraph::new(lines).wrap(Wrap { trim: true }).block(panel(format!("{} · {} modules", p.name, p.module_count()), state));
     f.render_widget(info, info_area);
 }

@@ -201,7 +201,7 @@ pub fn get_builtin_themes() -> Vec<Theme> {
         },
         Theme {
             id: "nord".into(),
-            name: "Nord ❄️".into(),
+            name: "Nord Aurora ❄️".into(),
             category: ThemeCategory::Dark,
             primary: "#81a1c1".into(),
             secondary: "#88c0d0".into(),

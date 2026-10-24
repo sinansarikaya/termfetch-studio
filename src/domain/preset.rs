@@ -95,9 +95,7 @@ impl ModuleKind {
     }
 
     pub fn from_type(s: &str) -> Option<Self> {
-        Self::ALL
-            .into_iter()
-            .find(|m| m.fastfetch_type().eq_ignore_ascii_case(s.trim()))
+        Self::ALL.into_iter().find(|m| m.fastfetch_type().eq_ignore_ascii_case(s.trim()))
     }
 
     pub fn icon(self) -> &'static str {
@@ -164,21 +162,8 @@ impl ModuleKind {
     pub fn group(self) -> SemanticGroup {
         match self {
             Self::Os | Self::Kernel | Self::Packages | Self::Shell => SemanticGroup::Os,
-            Self::Wm
-            | Self::De
-            | Self::WmTheme
-            | Self::Icons
-            | Self::Cursor
-            | Self::Terminal
-            | Self::TerminalFont => SemanticGroup::Desktop,
-            Self::Host
-            | Self::Cpu
-            | Self::Gpu
-            | Self::Memory
-            | Self::Swap
-            | Self::Disk
-            | Self::Battery
-            | Self::Display => SemanticGroup::Hardware,
+            Self::Wm | Self::De | Self::WmTheme | Self::Icons | Self::Cursor | Self::Terminal | Self::TerminalFont => SemanticGroup::Desktop,
+            Self::Host | Self::Cpu | Self::Gpu | Self::Memory | Self::Swap | Self::Disk | Self::Battery | Self::Display => SemanticGroup::Hardware,
             Self::LocalIp | Self::PublicIp | Self::Wifi => SemanticGroup::Network,
             Self::DateTime | Self::Uptime | Self::Media => SemanticGroup::Time,
         }
@@ -246,22 +231,11 @@ impl Preset {
                 _ => sections.push(vec![m]),
             }
         }
-        Self {
-            id: "custom".into(),
-            name: "Custom Modules".into(),
-            description: "Your own module selection and order from the Module Builder".into(),
-            sections,
-            color_dots: true,
-        }
+        Self { id: "custom".into(), name: "Custom Modules".into(), description: "Your own module selection and order from the Module Builder".into(), sections, color_dots: true }
     }
 }
 
-pub const DEFAULT_CUSTOM_MODULES: [ModuleKind; 4] = [
-    ModuleKind::Os,
-    ModuleKind::Kernel,
-    ModuleKind::Shell,
-    ModuleKind::Uptime,
-];
+pub const DEFAULT_CUSTOM_MODULES: [ModuleKind; 4] = [ModuleKind::Os, ModuleKind::Kernel, ModuleKind::Shell, ModuleKind::Uptime];
 
 pub fn get_builtin_presets() -> Vec<Preset> {
     use ModuleKind::*;
@@ -290,34 +264,21 @@ pub fn get_builtin_presets() -> Vec<Preset> {
             id: "focused".into(),
             name: "Focused".into(),
             description: "Daily glance: system, terminal and core hardware".into(),
-            sections: vec![
-                vec![Os, Kernel, Packages, Uptime],
-                vec![Terminal, Shell],
-                vec![Cpu, Memory, Disk],
-            ],
+            sections: vec![vec![Os, Kernel, Packages, Uptime], vec![Terminal, Shell], vec![Cpu, Memory, Disk]],
             color_dots: true,
         },
         Preset {
             id: "developer".into(),
             name: "Developer".into(),
             description: "Toolchain view: system, terminal/WM, hardware and network".into(),
-            sections: vec![
-                vec![Os, Kernel, Packages, Shell],
-                vec![Terminal, TerminalFont, De, Wm],
-                vec![Cpu, Gpu, Memory, Swap, Disk],
-                vec![LocalIp, PublicIp],
-            ],
+            sections: vec![vec![Os, Kernel, Packages, Shell], vec![Terminal, TerminalFont, De, Wm], vec![Cpu, Gpu, Memory, Swap, Disk], vec![LocalIp, PublicIp]],
             color_dots: true,
         },
         Preset {
             id: "gaming".into(),
             name: "Gaming".into(),
             description: "Rig showcase: GPU, CPU, display, battery and Wi-Fi".into(),
-            sections: vec![
-                vec![Os, Kernel, Uptime],
-                vec![Cpu, Gpu, Memory, Swap, Disk, Display, Battery],
-                vec![LocalIp, Wifi],
-            ],
+            sections: vec![vec![Os, Kernel, Uptime], vec![Cpu, Gpu, Memory, Swap, Disk, Display, Battery], vec![LocalIp, Wifi]],
             color_dots: true,
         },
         Preset::custom(&DEFAULT_CUSTOM_MODULES),
@@ -351,3 +312,28 @@ pub const DEMO_DATA: DemoData = DemoData {
     memory: "16.42 GiB / 64.00 GiB (25%)",
     local_ip: "192.168.1.100 / 24",
 };
+
+#[derive(Deserialize)]
+struct PresetLibrary {
+    presets: Vec<Preset>,
+}
+
+/// Persisted studio library, with migration from the first user-copy format.
+pub fn load_presets(config: &std::path::Path) -> Vec<Preset> {
+    let mut presets = get_builtin_presets();
+    if let Ok(bytes) = std::fs::read(config.join("presets.json")) {
+        if let Ok(library) = serde_json::from_slice::<PresetLibrary>(&bytes) {
+            if !library.presets.is_empty() {
+                return library.presets;
+            }
+        }
+        if let Ok(custom) = serde_json::from_slice::<Vec<Preset>>(&bytes) {
+            for p in custom {
+                if p.id.starts_with("user-") && !presets.iter().any(|old| old.id == p.id) {
+                    presets.push(p);
+                }
+            }
+        }
+    }
+    presets
+}

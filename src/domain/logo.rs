@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 pub enum LogoGroup {
     DistroAscii,
     AnimePopAscii,
+    CustomAscii,
     PresetImage,
     Custom,
 }
@@ -13,9 +14,10 @@ impl LogoGroup {
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::DistroAscii => "Distro ASCII",
-            Self::AnimePopAscii => "Pop & Anime ASCII",
-            Self::PresetImage => "HD Preset Images",
-            Self::Custom => "Custom Image",
+            Self::AnimePopAscii => "Custom ASCII · Pop & Anime",
+            Self::CustomAscii => "Custom ASCII",
+            Self::PresetImage => "PNG/Image · Presets",
+            Self::Custom => "PNG/Image · Custom",
         }
     }
 }
@@ -44,9 +46,7 @@ impl LogoItem {
 
     /// Image file on disk, if this is an image logo whose file exists.
     pub fn existing_image(&self) -> Option<&str> {
-        self.file_path
-            .as_deref()
-            .filter(|p| self.is_image() && std::path::Path::new(p).is_file())
+        self.file_path.as_deref().filter(|p| self.is_image() && std::path::Path::new(p).is_file())
     }
 }
 
@@ -71,7 +71,8 @@ pub fn builtin_logos(paths: &Paths) -> Vec<LogoItem> {
     /      \
    /   ,,   \
   /   |  |  -\
- /_-''    ''-_\"#.into(),
+ /_-''    ''-_\"#
+                .into(),
             file_path: None,
         },
         LogoItem {
@@ -86,10 +87,10 @@ pub fn builtin_logos(paths: &Paths) -> Vec<LogoItem> {
  //  _  \\
 | \     )|_
 /`\_`>  <_/ \
-\__/'---'\__/"#.into(),
+\__/'---'\__/"#
+                .into(),
             file_path: None,
         },
-
         // ==========================================
         // 2. POP CULTURE & ANIME ASCII LOGOS
         // ==========================================
@@ -103,7 +104,8 @@ pub fn builtin_logos(paths: &Paths) -> Vec<LogoItem> {
     /\__/\
    / O O  \
   =\_ Y _/="
-   `'---'`"#.into(),
+   `'---'`"#
+                .into(),
             file_path: None,
         },
         LogoItem {
@@ -113,7 +115,8 @@ pub fn builtin_logos(paths: &Paths) -> Vec<LogoItem> {
             kind: LogoKind::Ascii,
             art: r#" /\_/\
 ( o.o )
- > ^ <"#.into(),
+ > ^ <"#
+                .into(),
             file_path: None,
         },
         LogoItem {
@@ -124,7 +127,8 @@ pub fn builtin_logos(paths: &Paths) -> Vec<LogoItem> {
             art: r#" |\_/|
 =( °w° )=
   )   (  //
- (__ __)//"#.into(),
+ (__ __)//"#
+                .into(),
             file_path: None,
         },
         LogoItem {
@@ -134,7 +138,8 @@ pub fn builtin_logos(paths: &Paths) -> Vec<LogoItem> {
             kind: LogoKind::Ascii,
             art: r#" () ()
 >(. .)<
- (") (")"#.into(),
+ (") (")"#
+                .into(),
             file_path: None,
         },
         LogoItem {
@@ -148,7 +153,8 @@ pub fn builtin_logos(paths: &Paths) -> Vec<LogoItem> {
  ***********
    *******
      ***
-      *"#.into(),
+      *"#
+            .into(),
             file_path: None,
         },
         LogoItem {
@@ -161,7 +167,8 @@ pub fn builtin_logos(paths: &Paths) -> Vec<LogoItem> {
    (_) (_)
     (_) (_)
      (_) (_)
-      (_) (_)"#.into(),
+      (_) (_)"#
+                .into(),
             file_path: None,
         },
         LogoItem {
@@ -173,7 +180,8 @@ pub fn builtin_logos(paths: &Paths) -> Vec<LogoItem> {
  / -   -  \
 |  @   @   |
  \   ^    /
-  '-...-'"#.into(),
+  '-...-'"#
+                .into(),
             file_path: None,
         },
         LogoItem {
@@ -185,7 +193,8 @@ pub fn builtin_logos(paths: &Paths) -> Vec<LogoItem> {
   /  _  \
  |  (_)  |
   \ ___ /
-   '---'"#.into(),
+   '---'"#
+                .into(),
             file_path: None,
         },
         LogoItem {
@@ -196,7 +205,8 @@ pub fn builtin_logos(paths: &Paths) -> Vec<LogoItem> {
             art: r#"   / _ \
  \_\(_)/_/
   _// \\_
-   /   \"#.into(),
+   /   \"#
+                .into(),
             file_path: None,
         },
         LogoItem {
@@ -208,7 +218,8 @@ pub fn builtin_logos(paths: &Paths) -> Vec<LogoItem> {
  _--^^^#####//      \\#####^^^--_
 <#####*{{{{{{{  ||  }}}}}}}*#####>
      /        ||        \
-    /        //\\        \"#.into(),
+    /        //\\        \"#
+                .into(),
             file_path: None,
         },
         LogoItem {
@@ -220,7 +231,8 @@ pub fn builtin_logos(paths: &Paths) -> Vec<LogoItem> {
    [■█■█■]
    [■■█■■]
    [■███■]
-   [■█■█■]"#.into(),
+   [■█■█■]"#
+                .into(),
             file_path: None,
         },
         LogoItem {
@@ -232,7 +244,8 @@ pub fn builtin_logos(paths: &Paths) -> Vec<LogoItem> {
    *  |  *
  - - -O- - -
    *  |  *
-      *"#.into(),
+      *"#
+            .into(),
             file_path: None,
         },
         LogoItem {
@@ -247,7 +260,8 @@ pub fn builtin_logos(paths: &Paths) -> Vec<LogoItem> {
 /|      |\
  |  ||  |
     /\
-   /  \"#.into(),
+   /  \"#
+                .into(),
             file_path: None,
         },
     ];
@@ -275,9 +289,7 @@ pub fn builtin_logos(paths: &Paths) -> Vec<LogoItem> {
     let preset_dir = paths.preset_logos_dir();
 
     for (file, label) in preset_images {
-        let file_path = preset_dir
-            .as_ref()
-            .map(|dir| dir.join(file).to_string_lossy().into_owned());
+        let file_path = preset_dir.as_ref().map(|dir| dir.join(file).to_string_lossy().into_owned());
 
         logos.push(LogoItem {
             id: file.trim_end_matches(".png").into(),
@@ -302,5 +314,19 @@ pub fn builtin_logos(paths: &Paths) -> Vec<LogoItem> {
         file_path: Some(custom_path.to_string_lossy().into_owned()),
     });
 
+    let mut files: Vec<_> = std::fs::read_dir(paths.config_dir.join("ascii"))
+        .into_iter()
+        .flatten()
+        .filter_map(Result::ok)
+        .map(|e| e.path())
+        .filter(|p| matches!(p.extension().and_then(|s| s.to_str()), Some("txt" | "ascii")))
+        .collect();
+    files.sort();
+    for path in files {
+        if let Ok(art) = std::fs::read_to_string(&path) {
+            let name = path.file_stem().unwrap_or_default().to_string_lossy().into_owned();
+            logos.push(LogoItem { id: format!("custom-ascii-{name}"), name, group: LogoGroup::CustomAscii, kind: LogoKind::Ascii, art, file_path: None });
+        }
+    }
     logos
 }

@@ -1,4 +1,4 @@
-use ratatui::{backend::TestBackend, Terminal};
+use ratatui::{Terminal, backend::TestBackend};
 use std::time::{Duration, Instant};
 use termfetch_studio_v2::app::actions::Action;
 use termfetch_studio_v2::app::reducer::reduce;
@@ -67,13 +67,40 @@ fn dashboard_matches_the_studio_layout() {
         println!("{out}");
     }
     for needle in [
-        "TermFetch Studio", "v2.0", "Customize your terminal, your way.", "Fastfetch:",
-        "Dashboard", "Themes", "Presets", "Logos", "Modules", "Settings",
-        "CURRENT THEME", "CURRENT PRESET", "CONFIG PATH",
-        "Welcome to", "Quick Actions", "Edit Theme", "Manage Presets", "Change Logo", "Apply & Preview",
-        "Recent Themes", "View All", "System Overview", "Tools & Utilities", "System Diagnostics", "Backup & Restore",
-        "Live Preview", "Preview Options", "Terminal Preview", "Apply Theme to System",
-        "Navigate", "Next Section", "Demo Mode", "Run Fastfetch", "Quit",
+        "TermFetch Studio",
+        "v2.0",
+        "Customize your terminal, your way.",
+        "Fastfetch:",
+        "Dashboard",
+        "Themes",
+        "Presets",
+        "Logos",
+        "Modules",
+        "Settings",
+        "CURRENT THEME",
+        "CURRENT PRESET",
+        "CONFIG PATH",
+        "Welcome to",
+        "Quick Actions",
+        "Edit Theme",
+        "Manage Presets",
+        "Change Logo",
+        "Apply & Preview",
+        "Recent Themes",
+        "View All",
+        "System Overview",
+        "Tools & Utilities",
+        "System Diagnostics",
+        "Backup & Restore",
+        "Live Preview",
+        "Preview Options",
+        "Terminal Preview",
+        "Apply Theme to System",
+        "Navigate",
+        "Next Section",
+        "Demo Mode",
+        "Run Fastfetch",
+        "Quit",
     ] {
         assert!(out.contains(needle), "missing {needle:?}\n{out}");
     }
@@ -202,5 +229,150 @@ fn kitty_mode_uploads_full_resolution_and_draws_placeholders() {
     assert!(preview.contains(PLACEHOLDER), "placeholder cells expected once uploaded");
     assert!(!preview.contains('▀'), "half blocks must be replaced by the real image");
     assert!(uploads.iter().any(|s| s.starts_with("\x1b_Ga=T,U=1,f=100")));
+    let _ = std::fs::remove_dir_all(root);
+}
+
+#[test]
+fn focus_preview_expands_and_restores_with_keyboard_and_mouse() {
+    use termfetch_studio_v2::app::state::Hit;
+    let (mut state, root) = app("focus-upgrade");
+    let mut t = Terminal::new(TestBackend::new(180, 45)).unwrap();
+    t.draw(|f| render_ui(f, &mut state)).unwrap();
+    let normal = state.preview_body;
+    assert!((73..=85).contains(&normal.width));
+    let (button, _) = state.hits.iter().find(|(_, h)| *h == Hit::FocusPreview).unwrap();
+    let (col, row) = (button.x, button.y);
+    reduce(&mut state, Action::Click { col, row });
+    t.draw(|f| render_ui(f, &mut state)).unwrap();
+    assert!(state.preview_body.width > normal.width * 2);
+    reduce(&mut state, Action::Back);
+    assert!(!state.preview_focus);
+    t.draw(|f| render_ui(f, &mut state)).unwrap();
+    assert_eq!(state.preview_body, normal);
+    let _ = std::fs::remove_dir_all(root);
+}
+
+#[test]
+fn theme_search_filters_navigation_and_supports_empty_results() {
+    let (mut state, root) = app("search-upgrade");
+    state.screen = Screen::Themes;
+    state.focus = Focus::Content;
+    reduce(&mut state, Action::SearchThemes);
+    for c in "gruvbox".chars() {
+        reduce(&mut state, Action::Text(c));
+    }
+    reduce(&mut state, Action::Activate);
+    assert_eq!(state.filtered_themes().len(), 2);
+    reduce(&mut state, Action::Right);
+    assert!(state.current_theme().id.contains("gruvbox"));
+    reduce(&mut state, Action::FilterThemes);
+    assert_eq!(state.current_theme().id, "gruvbox-dark");
+    state.theme_search = "no such theme".into();
+    reduce(&mut state, Action::Down);
+    let mut t = Terminal::new(TestBackend::new(180, 45)).unwrap();
+    t.draw(|f| render_ui(f, &mut state)).unwrap();
+    assert!(state.filtered_themes().is_empty());
+    let _ = std::fs::remove_dir_all(root);
+}
+
+#[test]
+fn preset_copy_rename_and_confirmed_delete_persist() {
+    let (mut state, root) = app("presets-upgrade");
+    state.screen = Screen::Presets;
+    state.focus = Focus::Content;
+    let count = state.presets.len();
+    let sections = state.current_preset().sections.clone();
+    reduce(&mut state, Action::ToggleDemo);
+    assert_eq!(state.presets.len(), count + 1);
+    assert_eq!(state.current_preset().sections, sections);
+    reduce(&mut state, Action::Refresh);
+    state.input = "My workstation".into();
+    reduce(&mut state, Action::Activate);
+    let loaded = termfetch_studio_v2::domain::preset::load_presets(&state.paths.config_dir);
+    assert!(loaded.iter().any(|p| p.name == "My workstation"));
+    reduce(&mut state, Action::Delete);
+    reduce(&mut state, Action::Back);
+    assert_eq!(state.presets.len(), count + 1);
+    reduce(&mut state, Action::Delete);
+    for c in "yes".chars() {
+        reduce(&mut state, Action::Text(c));
+    }
+    reduce(&mut state, Action::Activate);
+    assert_eq!(state.presets.len(), count);
+    assert_eq!(termfetch_studio_v2::domain::preset::load_presets(&state.paths.config_dir).len(), count);
+    let _ = std::fs::remove_dir_all(root);
+}
+
+#[test]
+fn thumbnails_are_deterministic_crisp_and_theme_specific() {
+    use ratatui::{buffer::Buffer, layout::Rect};
+    use termfetch_studio_v2::{domain::theme::get_builtin_themes, tui::widgets::ui::draw_thumbnail};
+    let area = Rect::new(0, 0, 64, 16);
+    let mut scenes = Vec::new();
+    for theme in get_builtin_themes() {
+        let mut a = Buffer::empty(area);
+        let mut b = Buffer::empty(area);
+        draw_thumbnail(&mut a, area, &theme);
+        draw_thumbnail(&mut b, area, &theme);
+        assert_eq!(a, b);
+        assert!(a.content.iter().all(|c| c.symbol() == "▀"));
+        assert!(!scenes.contains(&a), "duplicate scene {}", theme.id);
+        scenes.push(a);
+        draw_thumbnail(&mut b, Rect::new(63, 15, 8, 8), &theme);
+    }
+}
+
+#[test]
+fn custom_ascii_gallery_does_not_import_generated_logo_cache() {
+    let (state, root) = app("ascii-upgrade");
+    let dir = state.paths.config_dir.join("ascii");
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("robot.txt"), " [o_o]\n /|_|\\").unwrap();
+    let logos = termfetch_studio_v2::domain::logo::builtin_logos(&state.paths);
+    let logo = logos.iter().find(|l| l.id == "custom-ascii-robot").unwrap();
+    assert_eq!(logo.art, " [o_o]\n /|_|\\");
+    assert!(!logo.is_image());
+    let _ = std::fs::remove_dir_all(root);
+}
+
+#[test]
+fn all_quick_actions_have_click_targets_at_standard_and_compact_sizes() {
+    use termfetch_studio_v2::app::state::Hit;
+    let (mut state, root) = app("quick-upgrade");
+    for (w, h) in [(180, 45), (120, 32)] {
+        let mut t = Terminal::new(TestBackend::new(w, h)).unwrap();
+        for i in 0..4 {
+            state.screen = Screen::Dashboard;
+            state.focus = Focus::Content;
+            t.draw(|f| render_ui(f, &mut state)).unwrap();
+            let rect = state.hits.iter().find(|(_, hit)| *hit == Hit::Quick(i)).unwrap().0;
+            assert!(rect.width > 8 && rect.height >= 3);
+            reduce(&mut state, Action::Click { col: rect.x, row: rect.y });
+            let clicked = state.screen;
+            state.screen = Screen::Dashboard;
+            state.focus = Focus::Content;
+            reduce(&mut state, Action::Number((i + 1) as u8));
+            assert_eq!(state.screen, clicked);
+        }
+    }
+    let _ = std::fs::remove_dir_all(root);
+}
+
+#[test]
+fn builtin_presets_can_be_renamed_and_deleted_with_confirmation() {
+    let (mut state, root) = app("builtin-preset-upgrade");
+    state.screen = Screen::Presets;
+    state.focus = Focus::Content;
+    let id = state.current_preset().id.clone();
+    reduce(&mut state, Action::Refresh);
+    state.input = "Renamed built-in".into();
+    reduce(&mut state, Action::Activate);
+    let loaded = termfetch_studio_v2::domain::preset::load_presets(&state.paths.config_dir);
+    assert_eq!(loaded.iter().find(|p| p.id == id).unwrap().name, "Renamed built-in");
+    reduce(&mut state, Action::Delete);
+    state.input = "yes".into();
+    reduce(&mut state, Action::Activate);
+    let loaded = termfetch_studio_v2::domain::preset::load_presets(&state.paths.config_dir);
+    assert!(!loaded.iter().any(|p| p.id == id));
     let _ = std::fs::remove_dir_all(root);
 }

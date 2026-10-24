@@ -1,13 +1,13 @@
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use clap::Parser;
 use crossterm::{
     cursor::Show,
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseEventKind},
     execute,
-    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+    terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
-use ratatui::{backend::CrosstermBackend, buffer::Buffer, layout::Rect, Terminal};
-use std::io::{self, stdout, BufRead, Write};
+use ratatui::{Terminal, backend::CrosstermBackend, buffer::Buffer, layout::Rect};
+use std::io::{self, BufRead, Write, stdout};
 use std::path::PathBuf;
 use std::{panic, time::Duration};
 
@@ -19,16 +19,16 @@ use termfetch_studio_v2::app::reducer::reduce;
 use termfetch_studio_v2::app::state::{AppState, Effect, StatusKind};
 use termfetch_studio_v2::cli::{BackupCmd, Cli, Command, DemoArg, ListArg, Selection};
 use termfetch_studio_v2::domain::color::{ColorValue, PALETTE};
-use termfetch_studio_v2::domain::logo::{builtin_logos, LogoItem};
-use termfetch_studio_v2::domain::preset::{get_builtin_presets, ModuleKind, Preset};
+use termfetch_studio_v2::domain::logo::{LogoItem, builtin_logos};
+use termfetch_studio_v2::domain::preset::{ModuleKind, Preset};
 use termfetch_studio_v2::domain::settings::{LogoSize, Settings};
-use termfetch_studio_v2::domain::theme::{get_builtin_themes, Theme};
+use termfetch_studio_v2::domain::theme::{Theme, get_builtin_themes};
+use termfetch_studio_v2::imaging::TermGeometry;
 use termfetch_studio_v2::imaging::kitty;
 use termfetch_studio_v2::imaging::pool::ImagePool;
-use termfetch_studio_v2::imaging::TermGeometry;
 use termfetch_studio_v2::paths::Paths;
 use termfetch_studio_v2::tui::render::render_ui;
-use termfetch_studio_v2::tui::widgets::preview::{buffer_to_ansi, draw_preview, ImageState, LogoRaster, PreviewModel};
+use termfetch_studio_v2::tui::widgets::preview::{ImageState, LogoRaster, PreviewModel, buffer_to_ansi, draw_preview};
 
 type Tui = Terminal<CrosstermBackend<io::Stdout>>;
 
@@ -44,9 +44,9 @@ struct Catalogue {
 
 impl Catalogue {
     fn load(paths: &Paths, settings: &Settings) -> Self {
-        let mut presets = get_builtin_presets();
+        let mut presets = termfetch_studio_v2::domain::preset::load_presets(&paths.config_dir);
         if let Some(slot) = presets.iter_mut().find(|p| p.id == "custom") {
-            *slot = Preset::custom(&settings.custom_modules);
+            slot.sections = Preset::custom(&settings.custom_modules).sections;
         }
         Self { themes: get_builtin_themes(), presets, logos: builtin_logos(paths) }
     }
@@ -112,9 +112,7 @@ fn print_preview(paths: &Paths, s: &Settings) {
         None if logo.is_image() => ImageState::Missing,
         None => ImageState::NotImage,
     };
-    let info = (!s.demo_mode && runner::version().is_some())
-        .then(|| runner::probe_real_info(&ModuleKind::ALL, &paths.cache_dir.join("probe.jsonc")).ok())
-        .flatten();
+    let info = (!s.demo_mode && runner::version().is_some()).then(|| runner::probe_real_info(&ModuleKind::ALL, &paths.cache_dir.join("probe.jsonc")).ok()).flatten();
     let model = PreviewModel { theme, preset, logo, settings: s, info: info.as_ref(), info_loading: false, image, geo };
     let width = geo.cols.clamp(60, 140);
     let lines = model.lines().len() as u16;
@@ -158,7 +156,9 @@ fn run_cli(cli: &Cli, paths: &Paths) -> Result<Option<i32>> {
         print_preview(paths, &s);
         return Ok(Some(0));
     }
-    let Some(cmd) = &cli.command else { return Ok(None) };
+    let Some(cmd) = &cli.command else {
+        return Ok(None);
+    };
     match cmd {
         Command::Apply(sel) | Command::Preview(sel) => {
             let mut s = load_settings(paths)?;
@@ -293,6 +293,9 @@ fn key_action(key: KeyEvent) -> Option<Action> {
         KeyCode::Char(' ') => Action::Toggle,
         KeyCode::Char('a' | 'A') => Action::Apply,
         KeyCode::Char('?') => Action::ToggleHelp,
+        KeyCode::Char('f') => Action::FocusPreview,
+        KeyCode::Char('c') => Action::FilterThemes,
+        KeyCode::Char('/') => Action::SearchThemes,
         KeyCode::Char('o') => Action::CycleOutput,
         KeyCode::Char('d') => Action::ToggleDemo,
         KeyCode::Char('s') => Action::CycleLogoSize,
@@ -361,15 +364,25 @@ fn run_app(terminal: &mut Tui, state: &mut AppState) -> Result<()> {
         }
 
         // Fast ticks only while background work is in flight; otherwise idle cheaply.
-        let busy = state.pool.has_pending()
-            || state.real_rx.is_some()
-            || state.kitty.as_ref().is_some_and(|k| k.has_pending());
+        let busy = state.pool.has_pending() || state.real_rx.is_some() || state.kitty.as_ref().is_some_and(|k| k.has_pending());
         let timeout = Duration::from_millis(if busy { 16 } else { 250 });
         if event::poll(timeout)? {
             // Drain the whole queue before redrawing so key repeat never lags behind.
             loop {
                 let action = match event::read()? {
-                    Event::Key(k) if k.kind != KeyEventKind::Release => key_action(k),
+                    Event::Key(k) if k.kind != KeyEventKind::Release => {
+                        if state.editor.is_some() {
+                            match k.code {
+                                KeyCode::Esc => Some(Action::Back),
+                                KeyCode::Enter => Some(Action::Activate),
+                                KeyCode::Backspace => Some(Action::Erase),
+                                KeyCode::Char(c) => Some(Action::Text(c)),
+                                _ => None,
+                            }
+                        } else {
+                            key_action(k)
+                        }
+                    }
                     Event::Mouse(m) => match m.kind {
                         MouseEventKind::Down(_) => Some(Action::Click { col: m.column, row: m.row }),
                         MouseEventKind::ScrollUp => Some(Action::ScrollUp),

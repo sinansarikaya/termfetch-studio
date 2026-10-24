@@ -3,8 +3,7 @@ use crate::adapters::doctor;
 use crate::adapters::fastfetch::config;
 use crate::app::actions::Action;
 use crate::app::state::{
-    AppState, DashCursor, DashRow, Dropdown, Effect, Focus, Hit, PreviewOutput, Screen, StatusKind, OPTION_APPLY, OPTION_ROWS, QUICK_ACTIONS,
-    SETTINGS_ROWS, TOOLS,
+    AppState, DashCursor, DashRow, Dropdown, Effect, Focus, Hit, OPTION_APPLY, OPTION_ROWS, PreviewOutput, QUICK_ACTIONS, SETTINGS_ROWS, Screen, StatusKind, TOOLS,
 };
 use crate::domain::color::SemanticGroup;
 use crate::domain::settings::Settings;
@@ -18,16 +17,65 @@ fn step(idx: usize, len: usize, delta: isize, wrap: bool) -> usize {
     }
     let n = len as isize;
     let next = idx as isize + delta;
-    if wrap && delta.abs() == 1 {
-        next.rem_euclid(n) as usize
-    } else {
-        next.clamp(0, n - 1) as usize
-    }
+    if wrap && delta.abs() == 1 { next.rem_euclid(n) as usize } else { next.clamp(0, n - 1) as usize }
 }
 
 pub fn reduce(state: &mut AppState, action: Action) {
     if action != Action::Tick {
         state.dirty = true;
+    }
+    if state.editor.is_some() && !matches!(action, Action::Tick | Action::Resize) {
+        match action {
+            Action::Back => {
+                state.editor = None;
+            }
+            Action::Text(c) if !c.is_control() => {
+                if state.input.chars().count() < 100 {
+                    state.input.push(c);
+                }
+            }
+            Action::Erase => {
+                state.input.pop();
+            }
+            Action::Activate => {
+                let kind = state.editor.take().unwrap();
+                if kind == "search" {
+                    state.theme_search = state.input.clone();
+                    state.grid_scroll = 0;
+                    select_filtered(state);
+                } else if kind == "rename" && !state.input.trim().is_empty() {
+                    let i = state.preset_idx();
+                    state.presets[i].name = state.input.trim().into();
+                    persist_presets(state);
+                } else if kind == "delete" && state.input.eq_ignore_ascii_case("yes") {
+                    let i = state.preset_idx();
+                    if state.presets.len() > 1 {
+                        state.presets.remove(i);
+                        state.settings.preset = state.presets[0].id.clone();
+                        persist_presets(state);
+                    }
+                }
+            }
+            _ => {}
+        }
+        return;
+    }
+    if state.preview_focus {
+        match action {
+            Action::Up | Action::ScrollUp | Action::PageUp => {
+                state.preview_scroll = state.preview_scroll.saturating_sub(if action == Action::PageUp { 10 } else { 1 });
+                return;
+            }
+            Action::Down | Action::ScrollDown | Action::PageDown => {
+                state.preview_scroll = state.preview_scroll.saturating_add(if action == Action::PageDown { 10 } else { 1 });
+                return;
+            }
+            Action::Home => {
+                state.preview_scroll = 0;
+                return;
+            }
+            _ => {}
+        }
     }
     // Overlays swallow input first.
     if state.help_open && !matches!(action, Action::Tick | Action::Resize | Action::Quit) {
@@ -40,7 +88,26 @@ pub fn reduce(state: &mut AppState, action: Action) {
         return;
     }
     match action {
+        Action::FocusPreview => {
+            state.preview_focus = !state.preview_focus;
+            state.dropdown = None;
+        }
+        Action::FilterThemes => {
+            if state.screen == Screen::Themes {
+                state.theme_filter = (state.theme_filter + 1) % 6;
+                state.grid_scroll = 0;
+                select_filtered(state);
+            }
+        }
+        Action::SearchThemes => {
+            if state.screen == Screen::Themes {
+                state.editor = Some("search".into());
+                state.input = state.theme_search.clone();
+            }
+        }
+        Action::Text(_) | Action::Erase => {}
         Action::Quit => quit(state),
+        Action::Back if state.preview_focus => state.preview_focus = false,
         Action::Back => match state.focus {
             Focus::Sidebar => quit(state),
             Focus::Content | Focus::Options => state.focus = Focus::Sidebar,
@@ -86,10 +153,26 @@ pub fn reduce(state: &mut AppState, action: Action) {
         Action::Apply => {
             apply(state);
         }
+        Action::ToggleDemo if state.screen == Screen::Presets && state.focus == Focus::Content => {
+            let mut p = state.current_preset().clone();
+            let mut n = 1;
+            while state.presets.iter().any(|p| p.id == format!("user-{n}")) {
+                n += 1;
+            }
+            p.id = format!("user-{n}");
+            p.name = format!("{} copy", p.name);
+            state.settings.preset = p.id.clone();
+            state.presets.push(p);
+            persist_presets(state);
+        }
         Action::ToggleDemo => toggle_demo(state),
         Action::CycleLogoSize => cycle_logo_size(state, true),
         Action::RunFastfetch => run_fastfetch(state),
         Action::Refresh => match state.screen {
+            Screen::Presets => {
+                state.editor = Some("rename".into());
+                state.input = state.current_preset().name.clone();
+            }
             Screen::Doctor => run_doctor(state),
             Screen::Backup => {
                 state.refresh_backups();
@@ -108,7 +191,14 @@ pub fn reduce(state: &mut AppState, action: Action) {
             _ => {}
         },
         Action::Delete => {
-            if state.screen == Screen::Backup {
+            if state.screen == Screen::Presets {
+                if state.presets.len() > 1 {
+                    state.editor = Some("delete".into());
+                    state.input.clear();
+                } else {
+                    state.set_status(StatusKind::Info, "At least one preset must remain");
+                }
+            } else if state.screen == Screen::Backup {
                 delete_backup(state);
             }
         }
@@ -152,7 +242,9 @@ fn cycle_logo_size(state: &mut AppState, forward: bool) {
 
 /// Keys while a Preview Options dropdown is open. Returns whether the action was consumed.
 fn dropdown_input(state: &mut AppState, action: &Action) -> bool {
-    let Some(dd) = state.dropdown.clone() else { return false };
+    let Some(dd) = state.dropdown.clone() else {
+        return false;
+    };
     let len = state.option_len(dd.field);
     let cur = state.option_index(dd.field);
     let delta = match action {
@@ -233,8 +325,12 @@ fn navigate(state: &mut AppState, delta: isize) {
         Screen::Themes => {
             // Vertical moves jump a whole row of the card grid.
             let cols = state.grid_cols.max(1) as isize;
-            let i = (state.theme_idx() as isize + delta.saturating_mul(cols)).clamp(0, state.themes.len() as isize - 1) as usize;
-            set_option(state, 0, i);
+            let list = state.filtered_themes();
+            if !list.is_empty() {
+                let pos = list.iter().position(|&i| i == state.theme_idx()).unwrap_or(0);
+                let i = step(pos, list.len(), delta.saturating_mul(cols), false);
+                set_option(state, 0, list[i]);
+            }
         }
         Screen::Presets => {
             let i = step(state.preset_idx(), state.presets.len(), delta, true);
@@ -290,11 +386,15 @@ fn horizontal(state: &mut AppState, forward: bool) {
         Screen::Settings => cycle_setting(state, forward),
         Screen::Themes => {
             let cols = state.grid_cols.max(1);
-            let i = state.theme_idx();
+            let list = state.filtered_themes();
+            if list.is_empty() {
+                return;
+            }
+            let i = list.iter().position(|&i| i == state.theme_idx()).unwrap_or(0);
             if !forward && i % cols == 0 {
                 state.focus = Focus::Sidebar;
             } else {
-                set_option(state, 0, step(i, state.themes.len(), dir, false));
+                set_option(state, 0, list[step(i, list.len(), dir, false)]);
             }
         }
         Screen::Dashboard => {
@@ -362,7 +462,9 @@ fn tool_action(state: &mut AppState, i: usize) {
 
 /// Apply the theme of a Recent Themes card.
 fn apply_recent(state: &mut AppState, pos: usize) {
-    let Some(&ti) = state.recent_theme_indices().get(pos) else { return };
+    let Some(&ti) = state.recent_theme_indices().get(pos) else {
+        return;
+    };
     state.settings.theme = state.themes[ti].id.clone();
     if apply(state) {
         // The applied theme moves to the front of the row.
@@ -442,7 +544,9 @@ fn move_module(state: &mut AppState, up: bool) {
         return;
     };
     let list = &mut state.settings.custom_modules;
-    let Some(i) = list.iter().position(|&x| x == m) else { return };
+    let Some(i) = list.iter().position(|&x| x == m) else {
+        return;
+    };
     let j = if up { i.checked_sub(1) } else { (i + 1 < list.len()).then_some(i + 1) };
     if let Some(j) = j {
         list.swap(i, j);
@@ -472,6 +576,8 @@ fn cycle_setting(state: &mut AppState, forward: bool) {
         10 => cycle_logo_size(state, forward),
         11 => s.run_fastfetch_on_exit = !s.run_fastfetch_on_exit,
         12 => s.ui_follow_theme = !s.ui_follow_theme,
+        13 => open(state, Screen::Doctor),
+        14 => open(state, Screen::Backup),
         _ => {}
     }
 }
@@ -530,11 +636,7 @@ fn toggle_demo(state: &mut AppState) {
     let mut saved = state.saved.clone();
     saved.demo_mode = on;
     let regenerate = state.paths.studio_config().exists();
-    let result = if regenerate {
-        write_all(state, &saved).map(|_| ())
-    } else {
-        saved.save(&state.paths.settings_file())
-    };
+    let result = if regenerate { write_all(state, &saved).map(|_| ()) } else { saved.save(&state.paths.settings_file()) };
     match result {
         Ok(()) => {
             state.saved = saved;
@@ -597,7 +699,13 @@ fn run_doctor(state: &mut AppState) {
     state.doctor_cursor = 0;
     let fails = state.doctor.iter().filter(|c| c.level == doctor::Level::Fail).count();
     let warns = state.doctor.iter().filter(|c| c.level == doctor::Level::Warn).count();
-    let kind = if fails > 0 { StatusKind::Error } else if warns > 0 { StatusKind::Warn } else { StatusKind::Ok };
+    let kind = if fails > 0 {
+        StatusKind::Error
+    } else if warns > 0 {
+        StatusKind::Warn
+    } else {
+        StatusKind::Ok
+    };
     state.set_status(kind, format!("Doctor: {} checks, {fails} failed, {warns} warnings", state.doctor.len()));
 }
 
@@ -642,6 +750,12 @@ fn click(state: &mut AppState, col: u16, row: u16) {
                 state.focus = Focus::Options;
                 state.options_cursor = i;
                 activate(state);
+            }
+            Hit::FocusPreview => state.preview_focus = !state.preview_focus,
+            Hit::ThemeFilter => {
+                state.theme_filter = (state.theme_filter + 1) % 6;
+                state.grid_scroll = 0;
+                select_filtered(state);
             }
             Hit::ThemeCard(i) => {
                 state.focus = Focus::Content;
@@ -827,5 +941,23 @@ mod tests {
         assert_eq!(s.settings.theme, original_theme, "{:?}", s.status);
         assert!(s.backups.iter().any(|b| b.name.contains("pre-restore")));
         let _ = std::fs::remove_dir_all(root);
+    }
+}
+
+fn select_filtered(state: &mut AppState) {
+    let list = state.filtered_themes();
+    if !list.contains(&state.theme_idx()) {
+        if let Some(&i) = list.first() {
+            set_option(state, 0, i);
+        }
+    }
+}
+fn persist_presets(state: &mut AppState) {
+    let custom = serde_json::json!({"presets": &state.presets});
+    let result = serde_json::to_vec_pretty(&custom)
+        .map_err(anyhow::Error::from)
+        .and_then(|bytes| crate::adapters::fsutil::atomic_write(&state.paths.config_dir.join("presets.json"), &bytes));
+    if let Err(e) = result {
+        state.set_status(StatusKind::Error, format!("Cannot save presets: {e}"));
     }
 }

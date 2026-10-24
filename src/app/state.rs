@@ -1,13 +1,13 @@
-use crate::adapters::backup::{list_backups, BackupEntry};
+use crate::adapters::backup::{BackupEntry, list_backups};
 use crate::adapters::doctor::Check;
 use crate::adapters::fastfetch::runner::{self, RealInfo};
-use crate::domain::logo::{builtin_logos, LogoItem};
-use crate::domain::preset::{get_builtin_presets, ModuleKind, Preset};
+use crate::domain::logo::{LogoItem, builtin_logos};
+use crate::domain::preset::{ModuleKind, Preset};
 use crate::domain::settings::Settings;
-use crate::domain::theme::{get_builtin_themes, Theme};
+use crate::domain::theme::{Theme, get_builtin_themes};
+use crate::imaging::TermGeometry;
 use crate::imaging::kitty::KittyImages;
 use crate::imaging::pool::ImagePool;
-use crate::imaging::TermGeometry;
 use crate::paths::Paths;
 use ratatui::layout::Rect;
 use ratatui::widgets::ListState;
@@ -54,27 +54,11 @@ pub enum Screen {
 }
 
 impl Screen {
-    pub const ALL: [Screen; 8] = [
-        Screen::Dashboard,
-        Screen::Themes,
-        Screen::Presets,
-        Screen::Logos,
-        Screen::Modules,
-        Screen::Settings,
-        Screen::Backup,
-        Screen::Doctor,
-    ];
+    pub const ALL: [Screen; 8] = [Screen::Dashboard, Screen::Themes, Screen::Presets, Screen::Logos, Screen::Modules, Screen::Settings, Screen::Backup, Screen::Doctor];
 
     /// Entries of the main navigation; Backup and Doctor live under Settings
     /// (Dashboard → Tools & Utilities, or keys 7 / 8).
-    pub const NAV: [Screen; 6] = [
-        Screen::Dashboard,
-        Screen::Themes,
-        Screen::Presets,
-        Screen::Logos,
-        Screen::Modules,
-        Screen::Settings,
-    ];
+    pub const NAV: [Screen; 6] = [Screen::Dashboard, Screen::Themes, Screen::Presets, Screen::Logos, Screen::Modules, Screen::Settings];
 
     pub fn index(self) -> usize {
         Self::ALL.iter().position(|&s| s == self).unwrap_or(0)
@@ -124,7 +108,8 @@ impl Screen {
     pub fn extra_keys(self) -> &'static [(&'static str, &'static str)] {
         match self {
             Self::Dashboard => &[("1-4", "Quick Action")],
-            Self::Themes | Self::Presets => &[("a", "Apply")],
+            Self::Themes => &[("c", "Category"), ("/", "Search"), ("a", "Apply")],
+            Self::Presets => &[("Enter", "Use"), ("d", "Copy"), ("r", "Rename"), ("x", "Delete")],
             Self::Logos => &[("s", "Size"), ("a", "Apply")],
             Self::Modules => &[("Space", "Toggle"), ("J/K", "Reorder")],
             Self::Settings => &[("←→", "Change")],
@@ -136,7 +121,7 @@ impl Screen {
 
 /// Settings screen rows: 0-6 colours, 7 reset, 8 terminal colours,
 /// 9 preview mode, 10 logo size, 11 fastfetch on exit, 12 studio chrome.
-pub const SETTINGS_ROWS: usize = 13;
+pub const SETTINGS_ROWS: usize = 15;
 
 /// Dashboard rows that take keyboard focus.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -199,6 +184,8 @@ pub enum Hit {
     Option(usize),
     DropItem(usize),
     ThemeCard(usize),
+    FocusPreview,
+    ThemeFilter,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -263,6 +250,13 @@ pub struct AppState {
     /// Generated config shown by the JSONC output, cached per selection.
     pub config_cache: Option<(Settings, String)>,
     pub help_open: bool,
+    pub preview_focus: bool,
+    pub preview_scroll: u16,
+    pub theme_filter: usize,
+    pub theme_search: String,
+    /// Active text dialog: search, rename, or delete confirmation.
+    pub editor: Option<String>,
+    pub input: String,
     pub hits: Vec<(Rect, Hit)>,
     /// Inner rect of the live preview box (the emulated terminal) from the last frame.
     pub preview_body: Rect,
@@ -290,6 +284,25 @@ pub struct AppState {
 }
 
 impl AppState {
+    pub fn filtered_themes(&self) -> Vec<usize> {
+        self.themes
+            .iter()
+            .enumerate()
+            .filter(|(_, t)| {
+                let category = match self.theme_filter {
+                    1 => "Dark",
+                    2 => "Light",
+                    3 => "Top Community",
+                    4 => "Pastel",
+                    5 => "Pop Culture & Gaming",
+                    _ => "",
+                };
+                (category.is_empty() || t.category.as_str() == category) && t.name.to_lowercase().contains(&self.theme_search.to_lowercase())
+            })
+            .map(|(i, _)| i)
+            .collect()
+    }
+
     pub fn new(paths: Paths, settings: Settings, geo: TermGeometry) -> Self {
         let logos = builtin_logos(&paths);
         let mut app = Self {
@@ -297,7 +310,7 @@ impl AppState {
             saved: settings.clone(),
             settings,
             themes: get_builtin_themes(),
-            presets: get_builtin_presets(),
+            presets: crate::domain::preset::load_presets(&paths.config_dir),
             logos,
             screen: Screen::Dashboard,
             focus: Focus::Sidebar,
@@ -313,6 +326,12 @@ impl AppState {
             preview_output: PreviewOutput::default(),
             config_cache: None,
             help_open: false,
+            preview_focus: false,
+            preview_scroll: 0,
+            theme_filter: 0,
+            theme_search: String::new(),
+            editor: None,
+            input: String::new(),
             hits: Vec::new(),
             preview_body: Rect::default(),
             sysinfo: crate::adapters::sysinfo::SysInfo::detect(),
@@ -328,17 +347,16 @@ impl AppState {
             kitty: None,
             geo,
             doctor: Vec::new(),
-            status: (
-                StatusKind::Info,
-                "Welcome to TermFetch Studio. Tab switches focus, Enter applies, p runs fastfetch.".into(),
-            ),
+            status: (StatusKind::Info, "Welcome to TermFetch Studio. Tab switches focus, Enter applies, p runs fastfetch.".into()),
             running: true,
             exit_message: None,
             dirty: true,
             effects: Vec::new(),
             paths,
         };
-        app.sync_custom_preset();
+        if app.presets.iter().any(|p| p.id == "custom") {
+            app.sync_custom_preset();
+        }
         app.clock = app.sysinfo.clock();
         // Decode every image logo up front so browsing the gallery never waits.
         let images: Vec<String> = app.logos.iter().filter_map(|l| l.existing_image().map(str::to_string)).collect();
@@ -369,9 +387,7 @@ impl AppState {
     /// the recently applied ones, then a few favourites to fill the row.
     pub fn recent_theme_indices(&self) -> Vec<usize> {
         const FAVOURITES: [&str; 6] = ["monokai-pro", "tokyo-night", "catppuccin-mocha", "nord", "dracula", "rose-pine"];
-        let ids = std::iter::once(self.saved.theme.as_str())
-            .chain(self.saved.recent_themes.iter().map(String::as_str))
-            .chain(FAVOURITES);
+        let ids = std::iter::once(self.saved.theme.as_str()).chain(self.saved.recent_themes.iter().map(String::as_str)).chain(FAVOURITES);
         let mut out: Vec<usize> = Vec::new();
         for id in ids {
             if let Some(i) = self.themes.iter().position(|t| t.id == id) {
@@ -451,7 +467,7 @@ impl AppState {
     pub fn sync_custom_preset(&mut self) {
         let custom = Preset::custom(&self.settings.custom_modules);
         match self.presets.iter_mut().find(|p| p.id == "custom") {
-            Some(slot) => *slot = custom,
+            Some(slot) => slot.sections = custom.sections,
             None => self.presets.push(custom),
         }
     }

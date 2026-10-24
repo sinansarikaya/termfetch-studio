@@ -3,6 +3,11 @@ use crate::app::state::Screen;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Action {
     Quit,
+    FocusPreview,
+    FilterThemes,
+    SearchThemes,
+    Text(char),
+    Erase,
     Back,
     /// `Tab`: next focus region.
     ToggleFocus,
@@ -26,14 +31,19 @@ pub enum Action {
     Activate,
     /// Space: toggle (Module Builder).
     Toggle,
-    MoveItem { up: bool },
+    MoveItem {
+        up: bool,
+    },
     Apply,
     ToggleDemo,
     CycleLogoSize,
     RunFastfetch,
     Refresh,
     Delete,
-    Click { col: u16, row: u16 },
+    Click {
+        col: u16,
+        row: u16,
+    },
     ScrollUp,
     ScrollDown,
     Resize,
