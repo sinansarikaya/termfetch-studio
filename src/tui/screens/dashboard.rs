@@ -128,7 +128,6 @@ fn render_quick(f: &mut Frame, area: Rect, state: &mut AppState, pal: &Palette, 
         let block = card(pal, sel).style(Style::new().bg(bg).fg(pal.fg)).border_style(Style::new().fg(if sel { pal.primary } else { pal.border }).bg(pal.surface));
         let t = block.inner(rect);
         block.render(rect, f.buffer_mut());
-        let t = Rect { x: t.x + 1, width: t.width.saturating_sub(1), ..t };
         let tw = usize::from(t.width);
         let badge = Span::styled(format!(" {} ", i + 1), Style::new().fg(pal.fg).bg(pal.surface).add_modifier(Modifier::BOLD));
         let icon = Span::styled(qa.icon, Style::new().fg(colors[i]).bg(bg).add_modifier(Modifier::BOLD));

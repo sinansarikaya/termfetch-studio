@@ -22,9 +22,19 @@ use ratatui::{
 /// (sidebar, preview); the center stage gets the rest.
 fn columns(w: u16) -> (u16, u16) {
     match w {
-        w if w >= 140 => (if w >= 160 { 30 } else { 26 }, (w * 34 / 100).clamp(50, 72)),
-        w if w >= 110 => (24, 44),
-        w if w >= 72 => (24, 0),
+        // Very wide / standard developer terminals (180+ cols):
+        // Sidebar 24 is plenty. Preview gets 80-96 cols so wide Fastfetch logos
+        // (Pikachu 24-28 cells + padding 4) and full hardware specs (46+ cells) never truncate,
+        // while center stage gets at least 76 cols so Dashboard Quick Actions fit without truncation.
+        w if w >= 180 => (24, (w * 44 / 100).clamp(80, 96)),
+        // Wide terminals (150-179 cols):
+        w if w >= 150 => (24, (w * 46 / 100).clamp(74, 80)),
+        // Medium terminals (125-149 cols):
+        w if w >= 125 => (22, (w * 44 / 100).clamp(62, 72)),
+        // Compact terminals (100-124 cols):
+        w if w >= 100 => (22, 52),
+        // Narrow terminals (72-99 cols): sidebar + center only, preview collapsed.
+        w if w >= 72 => (22, 0),
         _ => (0, 0),
     }
 }
