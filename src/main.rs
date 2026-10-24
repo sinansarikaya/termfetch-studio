@@ -433,5 +433,22 @@ fn main() -> Result<()> {
         let color = if *kind == StatusKind::Ok { 32 } else { 31 };
         eprintln!("\x1b[{color}m{msg}\x1b[0m");
     }
+    if res.is_ok() {
+        fastfetch_on_exit(&state);
+    }
     res
+}
+
+/// Show the freshly saved theme/logo straight away in the shell the user returns to.
+fn fastfetch_on_exit(state: &AppState) {
+    let cfg = state.paths.studio_config();
+    if !state.saved.run_fastfetch_on_exit || !cfg.exists() || state.fastfetch_version.is_none() {
+        return;
+    }
+    let _ = io::stdout().flush();
+    match runner::run_live(&cfg) {
+        Ok(s) if !s.success() => eprintln!("\x1b[31mfastfetch exited with {s}\x1b[0m"),
+        Err(e) => eprintln!("\x1b[31m{e:#}\x1b[0m"),
+        Ok(_) => {}
+    }
 }

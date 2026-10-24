@@ -112,6 +112,8 @@ pub struct Settings {
     pub custom_modules: Vec<ModuleKind>,
     /// Send OSC 10/11 so the host terminal adopts the theme fg/bg on apply.
     pub apply_terminal_colors: bool,
+    /// Run fastfetch with the saved config right after quitting the TUI.
+    pub run_fastfetch_on_exit: bool,
 }
 
 impl Default for Settings {
@@ -127,6 +129,7 @@ impl Default for Settings {
             group_colors: GroupColors::default(),
             custom_modules: DEFAULT_CUSTOM_MODULES.to_vec(),
             apply_terminal_colors: true,
+            run_fastfetch_on_exit: true,
         }
     }
 }

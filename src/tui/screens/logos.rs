@@ -1,9 +1,10 @@
 use crate::app::state::AppState;
+use crate::tui::palette::Palette;
 use crate::domain::logo::{LogoGroup, LogoKind};
 use crate::tui::widgets::list::{panel, render_rows, Row};
 use ratatui::{
     layout::{Constraint, Layout, Rect},
-    style::{Color, Modifier, Style},
+    style::{Modifier, Style},
     text::{Line, Span},
     widgets::{Paragraph, Wrap},
     Frame,
@@ -12,7 +13,8 @@ use ratatui::{
 pub fn render_logos(f: &mut Frame, area: Rect, state: &mut AppState) {
     let [list_area, info_area] = Layout::vertical([Constraint::Min(8), Constraint::Length(6)]).areas(area);
     let selected = state.logo_idx();
-    let primary = state.current_theme().primary_color();
+    let pal = Palette::from_theme(state.current_theme());
+    let primary = pal.primary;
     let mut rows = Vec::new();
     let mut last: Option<LogoGroup> = None;
     for (i, l) in state.logos.iter().enumerate() {
@@ -21,24 +23,24 @@ pub fn render_logos(f: &mut Frame, area: Rect, state: &mut AppState) {
             rows.push(Row::Header(l.group.as_str().to_string()));
         }
         let (badge, color) = match l.kind {
-            LogoKind::Ascii => ("ASCII", Color::Cyan),
-            LogoKind::PresetImage => ("PNG", Color::Green),
-            LogoKind::CustomImage => ("CUSTOM", Color::Magenta),
+            LogoKind::Ascii => ("ASCII", pal.info),
+            LogoKind::PresetImage => ("PNG", pal.ok),
+            LogoKind::CustomImage => ("CUSTOM", pal.special),
         };
         let status = match l.file_path.as_deref() {
-            Some(p) if l.is_image() && state.pool.get(p).is_some() => Span::styled(" ●", Style::new().fg(Color::Green)),
-            Some(p) if l.is_image() && state.pool.is_pending(p) => Span::styled(" ◌", Style::new().fg(Color::Yellow)),
-            Some(_) if l.is_image() => Span::styled(" ✗", Style::new().fg(Color::Red)),
+            Some(p) if l.is_image() && state.pool.get(p).is_some() => Span::styled(" ●", Style::new().fg(pal.ok)),
+            Some(p) if l.is_image() && state.pool.is_pending(p) => Span::styled(" ◌", Style::new().fg(pal.warn)),
+            Some(_) if l.is_image() => Span::styled(" ✗", Style::new().fg(pal.error)),
             _ => Span::raw(""),
         };
-        let name_style = if i == selected { Style::new().fg(primary).add_modifier(Modifier::BOLD) } else { Style::new().fg(Color::White) };
+        let name_style = if i == selected { Style::new().fg(primary).add_modifier(Modifier::BOLD) } else { Style::new().fg(pal.fg) };
         let mut spans = vec![
             Span::styled(format!("{badge:<7}"), Style::new().fg(color)),
             Span::styled(l.name.clone(), name_style),
             status,
         ];
         if l.id == state.saved.logo {
-            spans.push(Span::styled("  ✓", Style::new().fg(Color::Green)));
+            spans.push(Span::styled("  ✓", Style::new().fg(pal.ok)));
         }
         rows.push(Row::Item(Line::from(spans), i));
     }
@@ -50,9 +52,9 @@ pub fn render_logos(f: &mut Frame, area: Rect, state: &mut AppState) {
     let size = state.settings.logo_size;
     let (mw, mh) = size.max_cells();
     let mut lines = vec![Line::from(vec![
-        Span::styled("Size ", Style::new().fg(Color::Gray)),
+        Span::styled("Size ", Style::new().fg(pal.muted)),
         Span::styled(format!("{} ", size.label()), Style::new().fg(primary).add_modifier(Modifier::BOLD)),
-        Span::styled(format!("(max {mw}x{mh} cells, aspect-locked) · s to change"), Style::new().fg(Color::DarkGray)),
+        Span::styled(format!("(max {mw}x{mh} cells, aspect-locked) · s to change"), Style::new().fg(pal.dim)),
     ])];
     if let Some(p) = logo.file_path.as_deref().filter(|_| logo.is_image()) {
         let detail = match state.pool.get(p) {
@@ -63,9 +65,9 @@ pub fn render_logos(f: &mut Frame, area: Rect, state: &mut AppState) {
                 None => format!("Decoding {p}…"),
             },
         };
-        lines.push(Line::from(Span::styled(detail, Style::new().fg(Color::DarkGray))));
+        lines.push(Line::from(Span::styled(detail, Style::new().fg(pal.dim))));
     } else {
-        lines.push(Line::from(Span::styled("ASCII art, written to the config dir and coloured with the theme primary", Style::new().fg(Color::DarkGray))));
+        lines.push(Line::from(Span::styled("ASCII art, written to the config dir and coloured with the theme primary", Style::new().fg(pal.dim))));
     }
     f.render_widget(Paragraph::new(lines).wrap(Wrap { trim: true }).block(panel("Details", state)), info_area);
 }

@@ -320,9 +320,9 @@ fn toggle_demo(state: &mut AppState) {
             state.saved = saved;
             let what = if on { "ON - privacy-safe mock specs" } else { "OFF - real system specs" };
             let tail = if regenerate { " (fastfetch config regenerated)" } else { "" };
-            state.set_status(if on { StatusKind::Ok } else { StatusKind::Warn }, format!("Demo mode {what}{tail}"));
+            state.set_status(if on { StatusKind::Ok } else { StatusKind::Warn }, format!("Preview mode {what}{tail}"));
         }
-        Err(e) => state.set_status(StatusKind::Error, format!("Could not save demo mode: {e:#}")),
+        Err(e) => state.set_status(StatusKind::Error, format!("Could not save preview mode: {e:#}")),
     }
     if !on {
         state.start_real_probe();

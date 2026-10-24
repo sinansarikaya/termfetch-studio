@@ -1,8 +1,9 @@
 use crate::app::state::AppState;
+use crate::tui::palette::Palette;
 use crate::tui::widgets::list::{panel, render_rows, Row};
 use ratatui::{
     layout::{Constraint, Layout, Rect},
-    style::{Color, Modifier, Style},
+    style::{Modifier, Style},
     text::{Line, Span},
     widgets::{Paragraph, Wrap},
     Frame,
@@ -10,7 +11,8 @@ use ratatui::{
 
 pub fn render_backup(f: &mut Frame, area: Rect, state: &mut AppState) {
     let [list_area, info_area] = Layout::vertical([Constraint::Min(6), Constraint::Length(6)]).areas(area);
-    let primary = state.current_theme().primary_color();
+    let pal = Palette::from_theme(state.current_theme());
+    let primary = pal.primary;
     let mut rows = vec![Row::Item(
         Line::from(Span::styled("＋ Create new backup", Style::new().fg(primary).add_modifier(Modifier::BOLD))),
         0,
@@ -20,12 +22,12 @@ pub fn render_backup(f: &mut Frame, area: Rect, state: &mut AppState) {
         rows.push(Row::Header("none yet".into()));
     }
     for (i, b) in state.backups.iter().enumerate() {
-        let tag = if b.name.contains("pre-restore") { Span::styled("  auto", Style::new().fg(Color::Yellow)) } else { Span::raw("") };
+        let tag = if b.name.contains("pre-restore") { Span::styled("  auto", Style::new().fg(pal.warn)) } else { Span::raw("") };
         rows.push(Row::Item(
             Line::from(vec![
-                Span::styled("󰁯 ", Style::new().fg(Color::Cyan)),
-                Span::styled(b.name.clone(), Style::new().fg(Color::White)),
-                Span::styled(format!("  {} files", b.files.len()), Style::new().fg(Color::DarkGray)),
+                Span::styled("󰁯 ", Style::new().fg(pal.info)),
+                Span::styled(b.name.clone(), Style::new().fg(pal.fg)),
+                Span::styled(format!("  {} files", b.files.len()), Style::new().fg(pal.dim)),
                 tag,
             ]),
             i + 1,
@@ -40,7 +42,7 @@ pub fn render_backup(f: &mut Frame, area: Rect, state: &mut AppState) {
         None => format!("Saves settings.json and both fastfetch configs into {}", state.paths.backups_dir().display()),
     };
     f.render_widget(
-        Paragraph::new(Span::styled(detail, Style::new().fg(Color::Gray))).wrap(Wrap { trim: true }).block(panel("Info", state)),
+        Paragraph::new(Span::styled(detail, Style::new().fg(pal.muted))).wrap(Wrap { trim: true }).block(panel("Info", state)),
         info_area,
     );
 }

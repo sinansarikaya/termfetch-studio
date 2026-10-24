@@ -1,7 +1,8 @@
 use crate::app::state::{AppState, Focus, Screen};
+use crate::tui::palette::Palette;
 use ratatui::{
     layout::Rect,
-    style::{Color, Modifier, Style},
+    style::{Modifier, Style},
     text::{Line, Span},
     widgets::{Block, BorderType, Borders, Paragraph},
     Frame,
@@ -9,9 +10,8 @@ use ratatui::{
 
 pub fn render_sidebar(f: &mut Frame, area: Rect, state: &mut AppState) {
     state.sidebar_area = area;
-    let theme = state.current_theme();
-    let primary = theme.primary_color();
-    let on_primary = theme.background_color();
+    let pal = Palette::from_theme(state.current_theme());
+    let primary = pal.primary;
     let focused = state.focus == Focus::Sidebar;
 
     let width = usize::from(area.width.saturating_sub(2));
@@ -24,22 +24,22 @@ pub fn render_sidebar(f: &mut Frame, area: Rect, state: &mut AppState) {
             let pad = width.saturating_sub(unicode_width::UnicodeWidthStr::width(label.as_str()) + num.len());
             if screen == state.screen {
                 let style = if focused {
-                    Style::new().fg(on_primary).bg(primary).add_modifier(Modifier::BOLD)
+                    Palette::pill(primary).add_modifier(Modifier::BOLD)
                 } else {
-                    Style::new().fg(primary).bg(Color::Rgb(40, 42, 54)).add_modifier(Modifier::BOLD)
+                    Style::new().fg(primary).bg(pal.sel_bg).add_modifier(Modifier::BOLD)
                 };
                 Line::from(vec![Span::styled(label, style), Span::styled(" ".repeat(pad), style), Span::styled(num, style)])
             } else {
                 Line::from(vec![
-                    Span::styled(label, Style::new().fg(Color::Gray)),
+                    Span::styled(label, Style::new().fg(pal.fg)),
                     Span::raw(" ".repeat(pad)),
-                    Span::styled(num, Style::new().fg(Color::DarkGray)),
+                    Span::styled(num, Style::new().fg(pal.dim)),
                 ])
             }
         })
         .collect();
 
-    let border = if focused { Style::new().fg(primary) } else { Style::new().fg(Color::DarkGray) };
+    let border = if focused { Style::new().fg(primary) } else { Style::new().fg(pal.border) };
     let block = Block::new()
         .borders(Borders::ALL)
         .border_type(BorderType::Rounded)

@@ -77,7 +77,7 @@ impl Screen {
     /// Context key hints for the status bar.
     pub fn hints(self) -> &'static str {
         match self {
-            Self::Dashboard => "Enter apply · d demo · p fastfetch · 1-8 jump",
+            Self::Dashboard => "Enter apply · d preview · p fastfetch · 1-8 jump",
             Self::Themes | Self::Presets => "↑↓ browse · Enter apply · p fastfetch",
             Self::Logos => "↑↓ browse · s size · Enter apply · p fastfetch",
             Self::Modules => "Space toggle · J/K move · a apply",
