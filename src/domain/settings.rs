@@ -2,7 +2,7 @@
 
 use crate::adapters::fsutil::atomic_write;
 use crate::domain::color::{ColorValue, SemanticGroup};
-use crate::domain::preset::{ModuleKind, DEFAULT_CUSTOM_MODULES};
+use crate::domain::preset::{DEFAULT_CUSTOM_MODULES, ModuleKind};
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
@@ -147,8 +147,9 @@ impl Settings {
     /// Missing file -> defaults. A corrupt file is reported, not silently replaced.
     pub fn load(path: &Path) -> Result<Self> {
         match std::fs::read_to_string(path) {
-            Ok(text) => serde_json::from_str(&text)
-                .with_context(|| format!("parsing {}", path.display())),
+            Ok(text) => {
+                serde_json::from_str(&text).with_context(|| format!("parsing {}", path.display()))
+            }
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(Self::default()),
             Err(e) => Err(e).with_context(|| format!("reading {}", path.display())),
         }
@@ -186,10 +187,12 @@ mod tests {
     fn roundtrip_and_partial_files() {
         let dir = std::env::temp_dir().join(format!("tfs-settings-{}", std::process::id()));
         let p = dir.join("settings.json");
-        let mut s = Settings::default();
-        s.demo_mode = false;
+        let mut s = Settings {
+            demo_mode: false,
+            custom_modules: vec![ModuleKind::Cpu, ModuleKind::Gpu],
+            ..Default::default()
+        };
         s.group_colors.network = ColorValue::Hex("#ff8c00".into());
-        s.custom_modules = vec![ModuleKind::Cpu, ModuleKind::Gpu];
         s.save(&p).unwrap();
         assert_eq!(Settings::load(&p).unwrap(), s);
 
@@ -204,8 +207,15 @@ mod tests {
         }
         assert_eq!(r.recent_themes.len(), RECENT_THEMES_MAX);
         assert_eq!(&r.recent_themes[..3], ["i", "h", "g"]);
-        assert!(!r.recent_themes.iter().any(|t| t == "b"), "oldest entries drop off");
-        assert_eq!(r.recent_themes.iter().filter(|t| *t == "a").count(), 1, "deduplicated");
+        assert!(
+            !r.recent_themes.iter().any(|t| t == "b"),
+            "oldest entries drop off"
+        );
+        assert_eq!(
+            r.recent_themes.iter().filter(|t| *t == "a").count(),
+            1,
+            "deduplicated"
+        );
 
         std::fs::write(&p, "{not json").unwrap();
         assert!(Settings::load(&p).is_err());

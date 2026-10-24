@@ -8,11 +8,11 @@ use std::path::{Path, PathBuf};
 
 use crate::adapters::fsutil::{atomic_write, timestamp_utc};
 use crate::domain::logo::{LogoItem, LogoKind};
-use crate::domain::preset::{ModuleKind, Preset, DEMO_DATA};
+use crate::domain::preset::{DEMO_DATA, ModuleKind, Preset};
 use crate::domain::settings::Settings;
 use crate::domain::style;
 use crate::domain::theme::Theme;
-use crate::imaging::{config_logo_cells, image_dimensions, TermGeometry};
+use crate::imaging::{TermGeometry, config_logo_cells, image_dimensions};
 use crate::paths::Paths;
 
 pub const MARKER: &str = "TermFetch Studio";
@@ -120,9 +120,15 @@ pub fn dots_format(theme: &Theme, settings: &Settings) -> String {
 
 fn title_format(theme: &Theme, settings: &Settings) -> String {
     let t = style::title_color(theme).sgr();
-    let at = format!("\u{1b}[{}m@\u{1b}[0m", style::text_color(theme, settings).sgr());
+    let at = format!(
+        "\u{1b}[{}m@\u{1b}[0m",
+        style::text_color(theme, settings).sgr()
+    );
     let (user, host) = if settings.demo_mode {
-        DEMO_DATA.user_host.split_once('@').unwrap_or((DEMO_DATA.user_host, ""))
+        DEMO_DATA
+            .user_host
+            .split_once('@')
+            .unwrap_or((DEMO_DATA.user_host, ""))
     } else {
         ("{user-name}", "{host-name}")
     };
@@ -130,7 +136,12 @@ fn title_format(theme: &Theme, settings: &Settings) -> String {
 }
 
 /// Pure config construction; no I/O.
-pub fn build_config(theme: &Theme, preset: &Preset, logo: &LogoSpec, settings: &Settings) -> FastfetchConfig {
+pub fn build_config(
+    theme: &Theme,
+    preset: &Preset,
+    logo: &LogoSpec,
+    settings: &Settings,
+) -> FastfetchConfig {
     let padding = Padding {
         top: LOGO_PADDING_TOP,
         right: LOGO_PADDING_RIGHT,
@@ -154,7 +165,10 @@ pub fn build_config(theme: &Theme, preset: &Preset, logo: &LogoSpec, settings: &
             source: Some(source.clone()),
             width: None,
             height: None,
-            color: Some(BTreeMap::from([("1".to_string(), style::logo_color(theme).fastfetch_value())])),
+            color: Some(BTreeMap::from([(
+                "1".to_string(),
+                style::logo_color(theme).fastfetch_value(),
+            )])),
             padding,
         },
         LogoSpec::Auto => LogoConfig {
@@ -220,7 +234,12 @@ pub fn build_config(theme: &Theme, preset: &Preset, logo: &LogoSpec, settings: &
 }
 
 /// Serialise as JSONC with a provenance header (4-space indent).
-pub fn to_jsonc(cfg: &FastfetchConfig, theme: &Theme, preset: &Preset, settings: &Settings) -> Result<String> {
+pub fn to_jsonc(
+    cfg: &FastfetchConfig,
+    theme: &Theme,
+    preset: &Preset,
+    settings: &Settings,
+) -> Result<String> {
     let mut buf = Vec::new();
     let fmt = serde_json::ser::PrettyFormatter::with_indent(b"    ");
     let mut ser = serde_json::Serializer::with_formatter(&mut buf, fmt);
@@ -274,7 +293,12 @@ fn copy_into(dir: &Path, src: &Path, name: &str) -> Result<PathBuf> {
 /// Prepare logo assets on disk and decide how fastfetch should draw them.
 /// Images are copied into the config dir so the config keeps working even if
 /// the asset directory moves.
-pub fn resolve_logo_spec(logo: &LogoItem, settings: &Settings, paths: &Paths, geo: &TermGeometry) -> Result<LogoSpec> {
+pub fn resolve_logo_spec(
+    logo: &LogoItem,
+    settings: &Settings,
+    paths: &Paths,
+    geo: &TermGeometry,
+) -> Result<LogoSpec> {
     match logo.kind {
         LogoKind::PresetImage | LogoKind::CustomImage => {
             let Some(src) = logo.existing_image().map(PathBuf::from) else {
@@ -285,7 +309,10 @@ pub fn resolve_logo_spec(logo: &LogoItem, settings: &Settings, paths: &Paths, ge
             let source = if logo.kind == LogoKind::CustomImage {
                 src
             } else {
-                let name = src.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| format!("{}.png", logo.id));
+                let name = src
+                    .file_name()
+                    .map(|n| n.to_string_lossy().into_owned())
+                    .unwrap_or_else(|| format!("{}.png", logo.id));
                 copy_into(&paths.images_dir(), &src, &name)?
             };
             Ok(LogoSpec::Image {
@@ -310,7 +337,12 @@ pub fn resolve_logo_spec(logo: &LogoItem, settings: &Settings, paths: &Paths, ge
 
 /// The logo spec [`resolve_logo_spec`] would produce, without touching the disk
 /// (used to show the generated config inside the TUI).
-pub fn planned_logo_spec(logo: &LogoItem, settings: &Settings, paths: &Paths, geo: &TermGeometry) -> LogoSpec {
+pub fn planned_logo_spec(
+    logo: &LogoItem,
+    settings: &Settings,
+    paths: &Paths,
+    geo: &TermGeometry,
+) -> LogoSpec {
     match logo.kind {
         LogoKind::PresetImage | LogoKind::CustomImage => {
             let Some(src) = logo.existing_image().map(PathBuf::from) else {
@@ -321,23 +353,56 @@ pub fn planned_logo_spec(logo: &LogoItem, settings: &Settings, paths: &Paths, ge
             let source = if logo.kind == LogoKind::CustomImage {
                 src
             } else {
-                let name = src.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| format!("{}.png", logo.id));
+                let name = src
+                    .file_name()
+                    .map(|n| n.to_string_lossy().into_owned())
+                    .unwrap_or_else(|| format!("{}.png", logo.id));
                 paths.images_dir().join(name)
             };
-            LogoSpec::Image { protocol: detect_image_protocol().into(), source: source.to_string_lossy().into_owned(), width, height }
+            LogoSpec::Image {
+                protocol: detect_image_protocol().into(),
+                source: source.to_string_lossy().into_owned(),
+                width,
+                height,
+            }
         }
         LogoKind::Ascii if logo.art.trim().is_empty() => LogoSpec::Auto,
-        LogoKind::Ascii => LogoSpec::Text { source: paths.logos_dir().join(format!("{}.txt", logo.id)).to_string_lossy().into_owned() },
+        LogoKind::Ascii => LogoSpec::Text {
+            source: paths
+                .logos_dir()
+                .join(format!("{}.txt", logo.id))
+                .to_string_lossy()
+                .into_owned(),
+        },
     }
 }
 
 /// Generated config text for display only; writes nothing.
-pub fn render_dry(theme: &Theme, preset: &Preset, logo: &LogoItem, settings: &Settings, paths: &Paths, geo: &TermGeometry) -> Result<String> {
-    let cfg = build_config(theme, preset, &planned_logo_spec(logo, settings, paths, geo), settings);
+pub fn render_dry(
+    theme: &Theme,
+    preset: &Preset,
+    logo: &LogoItem,
+    settings: &Settings,
+    paths: &Paths,
+    geo: &TermGeometry,
+) -> Result<String> {
+    let cfg = build_config(
+        theme,
+        preset,
+        &planned_logo_spec(logo, settings, paths, geo),
+        settings,
+    );
     to_jsonc(&cfg, theme, preset, settings)
 }
 
-pub fn render(theme: &Theme, preset: &Preset, logo: &LogoItem, settings: &Settings, paths: &Paths, geo: &TermGeometry) -> Result<String> {
+pub fn render(
+    theme: &Theme,
+    preset: &Preset,
+    logo: &LogoItem,
+    settings: &Settings,
+    paths: &Paths,
+    geo: &TermGeometry,
+) -> Result<String> {
     let spec = resolve_logo_spec(logo, settings, paths, geo)?;
     let cfg = build_config(theme, preset, &spec, settings);
     to_jsonc(&cfg, theme, preset, settings)
@@ -351,7 +416,10 @@ fn preserve_foreign_config(path: &Path, paths: &Paths) -> Result<Option<PathBuf>
     if existing.contains(MARKER) {
         return Ok(None);
     }
-    let dest = paths.backups_dir().join(format!("original-fastfetch-config_{}.jsonc", timestamp_utc()));
+    let dest = paths.backups_dir().join(format!(
+        "original-fastfetch-config_{}.jsonc",
+        timestamp_utc()
+    ));
     atomic_write(&dest, existing.as_bytes())?;
     Ok(Some(dest))
 }
@@ -366,13 +434,27 @@ pub fn write_targets(paths: &Paths, content: &str) -> Result<Vec<PathBuf>> {
     Ok(targets.to_vec())
 }
 
-pub fn apply(theme: &Theme, preset: &Preset, logo: &LogoItem, settings: &Settings, paths: &Paths, geo: &TermGeometry) -> Result<Vec<PathBuf>> {
+pub fn apply(
+    theme: &Theme,
+    preset: &Preset,
+    logo: &LogoItem,
+    settings: &Settings,
+    paths: &Paths,
+    geo: &TermGeometry,
+) -> Result<Vec<PathBuf>> {
     let content = render(theme, preset, logo, settings, paths, geo)?;
     write_targets(paths, &content)
 }
 
 /// Scratch config for the live `p` preview.
-pub fn write_preview(theme: &Theme, preset: &Preset, logo: &LogoItem, settings: &Settings, paths: &Paths, geo: &TermGeometry) -> Result<PathBuf> {
+pub fn write_preview(
+    theme: &Theme,
+    preset: &Preset,
+    logo: &LogoItem,
+    settings: &Settings,
+    paths: &Paths,
+    geo: &TermGeometry,
+) -> Result<PathBuf> {
     let content = render(theme, preset, logo, settings, paths, geo)?;
     let p = paths.preview_config();
     atomic_write(&p, content.as_bytes())?;

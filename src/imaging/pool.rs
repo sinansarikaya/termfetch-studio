@@ -78,23 +78,25 @@ impl ImagePool {
     }
 
     pub fn with_default_workers() -> Self {
-        let n = thread::available_parallelism().map(|n| n.get()).unwrap_or(2);
+        let n = thread::available_parallelism()
+            .map(|n| n.get())
+            .unwrap_or(2);
         Self::new(n.clamp(2, 6))
     }
 
     fn known(&self, path: &str) -> bool {
-        self.decoded.contains_key(path) || self.failed.contains_key(path) || self.pending.contains(path)
+        self.decoded.contains_key(path)
+            || self.failed.contains_key(path)
+            || self.pending.contains(path)
     }
 
     /// Queue `path`; `urgent` jumps the queue (the currently selected logo).
     pub fn request(&mut self, path: &str, urgent: bool) {
         let mut jobs = self.queue.jobs.lock().unwrap_or_else(|e| e.into_inner());
         if self.known(path) {
-            if urgent {
-                if let Some(pos) = jobs.iter().position(|p| p == path) {
-                    let job = jobs.remove(pos).expect("position is valid");
-                    jobs.push_front(job);
-                }
+            if urgent && let Some(pos) = jobs.iter().position(|p| p == path) {
+                let job = jobs.remove(pos).expect("position is valid");
+                jobs.push_front(job);
             }
             return;
         }

@@ -12,7 +12,10 @@ fn app(name: &str) -> (AppState, std::path::PathBuf) {
     let root = std::env::temp_dir().join(format!("tfs-tui-{name}-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&root);
     let geo = TermGeometry::from_window(180, 45, 1800, 900);
-    (AppState::new(Paths::with_root(&root), Settings::default(), geo), root)
+    (
+        AppState::new(Paths::with_root(&root), Settings::default(), geo),
+        root,
+    )
 }
 
 /// Text of the emulated terminal inside the live preview box.
@@ -123,7 +126,11 @@ fn dashboard_keyboard_flow_and_options_dropdown() {
     reduce(&mut state, Action::Up);
     reduce(&mut state, Action::Up);
     reduce(&mut state, Action::Number(1));
-    assert_eq!(state.screen, Screen::Themes, "quick action 1 opens the theme editor");
+    assert_eq!(
+        state.screen,
+        Screen::Themes,
+        "quick action 1 opens the theme editor"
+    );
     reduce(&mut state, Action::Goto(Screen::Dashboard));
     reduce(&mut state, Action::ToggleFocus);
     assert_eq!(state.focus, Focus::Options);
@@ -142,7 +149,10 @@ fn dashboard_keyboard_flow_and_options_dropdown() {
     reduce(&mut state, Action::Right);
     assert_eq!(state.preview_output, PreviewOutput::Config);
     t.draw(|f| render_ui(f, &mut state)).unwrap();
-    assert!(dump(&t).contains("\"modules\""), "config output shows the JSONC");
+    assert!(
+        dump(&t).contains("\"modules\""),
+        "config output shows the JSONC"
+    );
     // Apply button writes both configs and records the recent theme.
     state.options_cursor = 4;
     reduce(&mut state, Action::Activate);
@@ -166,7 +176,11 @@ fn image_logos_render_from_decode_pool_without_blocking() {
         reduce(&mut state, Action::Tick);
         std::thread::sleep(Duration::from_millis(10));
     }
-    assert!(state.pool.decoded_count() >= 14, "decoded {}", state.pool.decoded_count());
+    assert!(
+        state.pool.decoded_count() >= 14,
+        "decoded {}",
+        state.pool.decoded_count()
+    );
 
     // Scrolling through every logo, frames must be cheap once decoded.
     let mut t = Terminal::new(TestBackend::new(180, 45)).unwrap();
@@ -191,7 +205,10 @@ fn image_logos_render_from_decode_pool_without_blocking() {
         println!("{out}");
     }
     let preview = preview_text(&t, state.preview_body);
-    assert!(preview.contains('▀'), "half-block image expected in preview");
+    assert!(
+        preview.contains('▀'),
+        "half-block image expected in preview"
+    );
     assert!(preview.contains("cyberdeck"));
     let _ = std::fs::remove_dir_all(root);
 }
@@ -226,8 +243,14 @@ fn kitty_mode_uploads_full_resolution_and_draws_placeholders() {
         std::thread::sleep(Duration::from_millis(10));
     }
     let preview = preview_text(&t, state.preview_body);
-    assert!(preview.contains(PLACEHOLDER), "placeholder cells expected once uploaded");
-    assert!(!preview.contains('▀'), "half blocks must be replaced by the real image");
+    assert!(
+        preview.contains(PLACEHOLDER),
+        "placeholder cells expected once uploaded"
+    );
+    assert!(
+        !preview.contains('▀'),
+        "half blocks must be replaced by the real image"
+    );
     assert!(uploads.iter().any(|s| s.starts_with("\x1b_Ga=T,U=1,f=100")));
     let _ = std::fs::remove_dir_all(root);
 }
@@ -240,7 +263,11 @@ fn focus_preview_expands_and_restores_with_keyboard_and_mouse() {
     t.draw(|f| render_ui(f, &mut state)).unwrap();
     let normal = state.preview_body;
     assert!((73..=85).contains(&normal.width));
-    let (button, _) = state.hits.iter().find(|(_, h)| *h == Hit::FocusPreview).unwrap();
+    let (button, _) = state
+        .hits
+        .iter()
+        .find(|(_, h)| *h == Hit::FocusPreview)
+        .unwrap();
     let (col, row) = (button.x, button.y);
     reduce(&mut state, Action::Click { col, row });
     t.draw(|f| render_ui(f, &mut state)).unwrap();
@@ -299,14 +326,19 @@ fn preset_copy_rename_and_confirmed_delete_persist() {
     }
     reduce(&mut state, Action::Activate);
     assert_eq!(state.presets.len(), count);
-    assert_eq!(termfetch_studio_v2::domain::preset::load_presets(&state.paths.config_dir).len(), count);
+    assert_eq!(
+        termfetch_studio_v2::domain::preset::load_presets(&state.paths.config_dir).len(),
+        count
+    );
     let _ = std::fs::remove_dir_all(root);
 }
 
 #[test]
 fn thumbnails_are_deterministic_crisp_and_theme_specific() {
     use ratatui::{buffer::Buffer, layout::Rect};
-    use termfetch_studio_v2::{domain::theme::get_builtin_themes, tui::widgets::ui::draw_thumbnail};
+    use termfetch_studio_v2::{
+        domain::theme::get_builtin_themes, tui::widgets::ui::draw_thumbnail,
+    };
     let area = Rect::new(0, 0, 64, 16);
     let mut scenes = Vec::new();
     for theme in get_builtin_themes() {
@@ -345,9 +377,20 @@ fn all_quick_actions_have_click_targets_at_standard_and_compact_sizes() {
             state.screen = Screen::Dashboard;
             state.focus = Focus::Content;
             t.draw(|f| render_ui(f, &mut state)).unwrap();
-            let rect = state.hits.iter().find(|(_, hit)| *hit == Hit::Quick(i)).unwrap().0;
+            let rect = state
+                .hits
+                .iter()
+                .find(|(_, hit)| *hit == Hit::Quick(i))
+                .unwrap()
+                .0;
             assert!(rect.width > 8 && rect.height >= 3);
-            reduce(&mut state, Action::Click { col: rect.x, row: rect.y });
+            reduce(
+                &mut state,
+                Action::Click {
+                    col: rect.x,
+                    row: rect.y,
+                },
+            );
             let clicked = state.screen;
             state.screen = Screen::Dashboard;
             state.focus = Focus::Content;
@@ -368,7 +411,10 @@ fn builtin_presets_can_be_renamed_and_deleted_with_confirmation() {
     state.input = "Renamed built-in".into();
     reduce(&mut state, Action::Activate);
     let loaded = termfetch_studio_v2::domain::preset::load_presets(&state.paths.config_dir);
-    assert_eq!(loaded.iter().find(|p| p.id == id).unwrap().name, "Renamed built-in");
+    assert_eq!(
+        loaded.iter().find(|p| p.id == id).unwrap().name,
+        "Renamed built-in"
+    );
     reduce(&mut state, Action::Delete);
     state.input = "yes".into();
     reduce(&mut state, Action::Activate);

@@ -147,7 +147,11 @@ impl ColorValue {
         values.extend(PALETTE.iter().filter_map(|(v, _)| Self::parse(v)));
         let idx = values.iter().position(|v| v == self).unwrap_or(0);
         let n = values.len();
-        let next = if forward { (idx + 1) % n } else { (idx + n - 1) % n };
+        let next = if forward {
+            (idx + 1) % n
+        } else {
+            (idx + n - 1) % n
+        };
         values[next].clone()
     }
 
@@ -223,14 +227,20 @@ mod tests {
         for (v, _) in PALETTE {
             assert!(ColorValue::parse(v).is_some(), "{v}");
         }
-        assert_eq!(ColorValue::parse("#ABCDEF"), Some(ColorValue::Hex("#abcdef".into())));
+        assert_eq!(
+            ColorValue::parse("#ABCDEF"),
+            Some(ColorValue::Hex("#abcdef".into()))
+        );
         assert_eq!(ColorValue::parse("12"), None);
         assert_eq!(ColorValue::parse("zzz"), None);
     }
 
     #[test]
     fn cycle_wraps_and_includes_inherit_for_groups() {
-        assert_eq!(ColorValue::Theme.cycle(false, false), ColorValue::Hex("#c0c0c0".into()));
+        assert_eq!(
+            ColorValue::Theme.cycle(false, false),
+            ColorValue::Hex("#c0c0c0".into())
+        );
         assert_eq!(ColorValue::Theme.cycle(false, true), ColorValue::Inherit);
         assert_eq!(ColorValue::Inherit.cycle(true, true), ColorValue::Theme);
     }

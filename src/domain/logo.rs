@@ -46,7 +46,9 @@ impl LogoItem {
 
     /// Image file on disk, if this is an image logo whose file exists.
     pub fn existing_image(&self) -> Option<&str> {
-        self.file_path.as_deref().filter(|p| self.is_image() && std::path::Path::new(p).is_file())
+        self.file_path
+            .as_deref()
+            .filter(|p| self.is_image() && std::path::Path::new(p).is_file())
     }
 }
 
@@ -289,7 +291,9 @@ pub fn builtin_logos(paths: &Paths) -> Vec<LogoItem> {
     let preset_dir = paths.preset_logos_dir();
 
     for (file, label) in preset_images {
-        let file_path = preset_dir.as_ref().map(|dir| dir.join(file).to_string_lossy().into_owned());
+        let file_path = preset_dir
+            .as_ref()
+            .map(|dir| dir.join(file).to_string_lossy().into_owned());
 
         logos.push(LogoItem {
             id: file.trim_end_matches(".png").into(),
@@ -310,7 +314,10 @@ pub fn builtin_logos(paths: &Paths) -> Vec<LogoItem> {
         name: "Custom Image (custom.png)".into(),
         group: LogoGroup::Custom,
         kind: LogoKind::CustomImage,
-        art: format!("  [Custom User Image]\n  Place your image at\n  {}", custom_path.display()),
+        art: format!(
+            "  [Custom User Image]\n  Place your image at\n  {}",
+            custom_path.display()
+        ),
         file_path: Some(custom_path.to_string_lossy().into_owned()),
     });
 
@@ -319,13 +326,29 @@ pub fn builtin_logos(paths: &Paths) -> Vec<LogoItem> {
         .flatten()
         .filter_map(Result::ok)
         .map(|e| e.path())
-        .filter(|p| matches!(p.extension().and_then(|s| s.to_str()), Some("txt" | "ascii")))
+        .filter(|p| {
+            matches!(
+                p.extension().and_then(|s| s.to_str()),
+                Some("txt" | "ascii")
+            )
+        })
         .collect();
     files.sort();
     for path in files {
         if let Ok(art) = std::fs::read_to_string(&path) {
-            let name = path.file_stem().unwrap_or_default().to_string_lossy().into_owned();
-            logos.push(LogoItem { id: format!("custom-ascii-{name}"), name, group: LogoGroup::CustomAscii, kind: LogoKind::Ascii, art, file_path: None });
+            let name = path
+                .file_stem()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .into_owned();
+            logos.push(LogoItem {
+                id: format!("custom-ascii-{name}"),
+                name,
+                group: LogoGroup::CustomAscii,
+                kind: LogoKind::Ascii,
+                art,
+                file_path: None,
+            });
         }
     }
     logos

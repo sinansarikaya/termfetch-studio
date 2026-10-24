@@ -18,7 +18,11 @@ pub const UI: f64 = 3.0;
 
 fn channel(c: u8) -> f64 {
     let c = f64::from(c) / 255.0;
-    if c <= 0.04045 { c / 12.92 } else { ((c + 0.055) / 1.055).powf(2.4) }
+    if c <= 0.04045 {
+        c / 12.92
+    } else {
+        ((c + 0.055) / 1.055).powf(2.4)
+    }
 }
 
 /// Relative luminance in `0.0..=1.0`.
@@ -39,7 +43,11 @@ pub fn is_light(bg: Rgb) -> bool {
 
 /// Linear blend: `t = 0` gives `a`, `t = 1` gives `b`.
 pub fn mix(a: Rgb, b: Rgb, t: f64) -> Rgb {
-    let l = |x: u8, y: u8| (f64::from(x) + (f64::from(y) - f64::from(x)) * t).round().clamp(0.0, 255.0) as u8;
+    let l = |x: u8, y: u8| {
+        (f64::from(x) + (f64::from(y) - f64::from(x)) * t)
+            .round()
+            .clamp(0.0, 255.0) as u8
+    };
     (l(a.0, b.0), l(a.1, b.1), l(a.2, b.2))
 }
 
@@ -54,7 +62,11 @@ pub fn ensure(fg: Rgb, bg: Rgb, min: f64) -> Rgb {
     let (mut lo, mut hi) = (0.0, 1.0);
     for _ in 0..20 {
         let mid = (lo + hi) / 2.0;
-        if contrast(mix(fg, target, mid), bg) >= min { hi = mid } else { lo = mid }
+        if contrast(mix(fg, target, mid), bg) >= min {
+            hi = mid
+        } else {
+            lo = mid
+        }
     }
     mix(fg, target, hi)
 }
@@ -89,13 +101,30 @@ mod tests {
 
     #[test]
     fn ensure_reaches_target_on_both_polarities() {
-        for bg in [(0xfd, 0xf6, 0xe3), (0xff, 0xff, 0xff), (0x1e, 0x1e, 0x2e), (0, 0, 0)] {
-            for fg in [(255, 255, 255), (200, 200, 200), (0xb5, 0x89, 0x00), (0, 0, 0), (0x26, 0x8b, 0xd2)] {
+        for bg in [
+            (0xfd, 0xf6, 0xe3),
+            (0xff, 0xff, 0xff),
+            (0x1e, 0x1e, 0x2e),
+            (0, 0, 0),
+        ] {
+            for fg in [
+                (255, 255, 255),
+                (200, 200, 200),
+                (0xb5, 0x89, 0x00),
+                (0, 0, 0),
+                (0x26, 0x8b, 0xd2),
+            ] {
                 let out = ensure(fg, bg, AAA);
-                assert!(contrast(out, bg) >= AAA - 0.01, "{fg:?} on {bg:?} -> {out:?}");
+                assert!(
+                    contrast(out, bg) >= AAA - 0.01,
+                    "{fg:?} on {bg:?} -> {out:?}"
+                );
             }
         }
         // Already readable colours are untouched.
-        assert_eq!(ensure((0x07, 0x36, 0x42), (0xfd, 0xf6, 0xe3), AA), (0x07, 0x36, 0x42));
+        assert_eq!(
+            ensure((0x07, 0x36, 0x42), (0xfd, 0xf6, 0xe3), AA),
+            (0x07, 0x36, 0x42)
+        );
     }
 }

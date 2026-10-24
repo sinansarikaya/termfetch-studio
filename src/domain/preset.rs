@@ -95,7 +95,9 @@ impl ModuleKind {
     }
 
     pub fn from_type(s: &str) -> Option<Self> {
-        Self::ALL.into_iter().find(|m| m.fastfetch_type().eq_ignore_ascii_case(s.trim()))
+        Self::ALL
+            .into_iter()
+            .find(|m| m.fastfetch_type().eq_ignore_ascii_case(s.trim()))
     }
 
     pub fn icon(self) -> &'static str {
@@ -158,12 +160,55 @@ impl ModuleKind {
         }
     }
 
+    pub fn description(self) -> &'static str {
+        match self {
+            Self::Os => "Distribution name, release version and system architecture",
+            Self::Kernel => "Operating system kernel version and build architecture",
+            Self::Packages => "Total installed packages across all detected package managers",
+            Self::Shell => "Active login or interactive shell name and version",
+            Self::Wm => "Current window manager or compositor (e.g. Hyprland, Sway, i3)",
+            Self::De => "Desktop environment (e.g. GNOME, KDE Plasma, XFCE)",
+            Self::WmTheme => "Active window decoration and border theme",
+            Self::Icons => "Current desktop icon theme",
+            Self::Cursor => "System mouse cursor theme and configured size",
+            Self::Terminal => "Terminal emulator name and release version",
+            Self::TerminalFont => "Active font family and size used in the terminal",
+            Self::Host => "Motherboard model, system product name or chassis",
+            Self::Cpu => "Processor model, core and thread counts, and clock frequencies",
+            Self::Gpu => "Graphics card model, driver version and dedicated VRAM",
+            Self::Memory => "System RAM usage, total installed capacity and percentage",
+            Self::Swap => "Virtual swap partition usage and allocated capacity",
+            Self::Disk => "Root filesystem storage usage, free space and disk size",
+            Self::Battery => "Battery charge level, charging status and health",
+            Self::Display => "Connected monitors, display resolutions and refresh rates",
+            Self::LocalIp => "Private IPv4/IPv6 address assigned to the primary interface",
+            Self::PublicIp => "Public egress IP address and network gateway",
+            Self::Wifi => "Connected wireless network SSID, protocol and signal strength",
+            Self::DateTime => "Current local date, time and timezone offset",
+            Self::Uptime => "Time elapsed since system startup in hours and minutes",
+            Self::Media => "Currently playing media track title, artist and music player",
+        }
+    }
+
     /// Semantic colour group (original `module_color_group`).
     pub fn group(self) -> SemanticGroup {
         match self {
             Self::Os | Self::Kernel | Self::Packages | Self::Shell => SemanticGroup::Os,
-            Self::Wm | Self::De | Self::WmTheme | Self::Icons | Self::Cursor | Self::Terminal | Self::TerminalFont => SemanticGroup::Desktop,
-            Self::Host | Self::Cpu | Self::Gpu | Self::Memory | Self::Swap | Self::Disk | Self::Battery | Self::Display => SemanticGroup::Hardware,
+            Self::Wm
+            | Self::De
+            | Self::WmTheme
+            | Self::Icons
+            | Self::Cursor
+            | Self::Terminal
+            | Self::TerminalFont => SemanticGroup::Desktop,
+            Self::Host
+            | Self::Cpu
+            | Self::Gpu
+            | Self::Memory
+            | Self::Swap
+            | Self::Disk
+            | Self::Battery
+            | Self::Display => SemanticGroup::Hardware,
             Self::LocalIp | Self::PublicIp | Self::Wifi => SemanticGroup::Network,
             Self::DateTime | Self::Uptime | Self::Media => SemanticGroup::Time,
         }
@@ -231,11 +276,22 @@ impl Preset {
                 _ => sections.push(vec![m]),
             }
         }
-        Self { id: "custom".into(), name: "Custom Modules".into(), description: "Your own module selection and order from the Module Builder".into(), sections, color_dots: true }
+        Self {
+            id: "custom".into(),
+            name: "Custom Modules".into(),
+            description: "Your own module selection and order from the Module Builder".into(),
+            sections,
+            color_dots: true,
+        }
     }
 }
 
-pub const DEFAULT_CUSTOM_MODULES: [ModuleKind; 4] = [ModuleKind::Os, ModuleKind::Kernel, ModuleKind::Shell, ModuleKind::Uptime];
+pub const DEFAULT_CUSTOM_MODULES: [ModuleKind; 4] = [
+    ModuleKind::Os,
+    ModuleKind::Kernel,
+    ModuleKind::Shell,
+    ModuleKind::Uptime,
+];
 
 pub fn get_builtin_presets() -> Vec<Preset> {
     use ModuleKind::*;
@@ -264,21 +320,34 @@ pub fn get_builtin_presets() -> Vec<Preset> {
             id: "focused".into(),
             name: "Focused".into(),
             description: "Daily glance: system, terminal and core hardware".into(),
-            sections: vec![vec![Os, Kernel, Packages, Uptime], vec![Terminal, Shell], vec![Cpu, Memory, Disk]],
+            sections: vec![
+                vec![Os, Kernel, Packages, Uptime],
+                vec![Terminal, Shell],
+                vec![Cpu, Memory, Disk],
+            ],
             color_dots: true,
         },
         Preset {
             id: "developer".into(),
             name: "Developer".into(),
             description: "Toolchain view: system, terminal/WM, hardware and network".into(),
-            sections: vec![vec![Os, Kernel, Packages, Shell], vec![Terminal, TerminalFont, De, Wm], vec![Cpu, Gpu, Memory, Swap, Disk], vec![LocalIp, PublicIp]],
+            sections: vec![
+                vec![Os, Kernel, Packages, Shell],
+                vec![Terminal, TerminalFont, De, Wm],
+                vec![Cpu, Gpu, Memory, Swap, Disk],
+                vec![LocalIp, PublicIp],
+            ],
             color_dots: true,
         },
         Preset {
             id: "gaming".into(),
             name: "Gaming".into(),
             description: "Rig showcase: GPU, CPU, display, battery and Wi-Fi".into(),
-            sections: vec![vec![Os, Kernel, Uptime], vec![Cpu, Gpu, Memory, Swap, Disk, Display, Battery], vec![LocalIp, Wifi]],
+            sections: vec![
+                vec![Os, Kernel, Uptime],
+                vec![Cpu, Gpu, Memory, Swap, Disk, Display, Battery],
+                vec![LocalIp, Wifi],
+            ],
             color_dots: true,
         },
         Preset::custom(&DEFAULT_CUSTOM_MODULES),
@@ -322,10 +391,10 @@ struct PresetLibrary {
 pub fn load_presets(config: &std::path::Path) -> Vec<Preset> {
     let mut presets = get_builtin_presets();
     if let Ok(bytes) = std::fs::read(config.join("presets.json")) {
-        if let Ok(library) = serde_json::from_slice::<PresetLibrary>(&bytes) {
-            if !library.presets.is_empty() {
-                return library.presets;
-            }
+        if let Ok(library) = serde_json::from_slice::<PresetLibrary>(&bytes)
+            && !library.presets.is_empty()
+        {
+            return library.presets;
         }
         if let Ok(custom) = serde_json::from_slice::<Vec<Preset>>(&bytes) {
             for p in custom {

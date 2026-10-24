@@ -30,7 +30,10 @@ pub fn module_colors(theme: &Theme, settings: &Settings, group: SemanticGroup) -
         },
         over => {
             let c = concrete(over, group_hex);
-            ModuleColors { key: c.clone(), output: c }
+            ModuleColors {
+                key: c.clone(),
+                output: c,
+            }
         }
     }
 }
@@ -54,6 +57,10 @@ pub fn dot_colors(theme: &Theme, settings: &Settings) -> Vec<ColorValue> {
         ColorValue::Hex(theme.secondary.clone()),
         ColorValue::Hex(theme.accent.clone()),
     ];
-    v.extend(SemanticGroup::ALL.iter().map(|&g| module_colors(theme, settings, g).key));
+    v.extend(
+        SemanticGroup::ALL
+            .iter()
+            .map(|&g| module_colors(theme, settings, g).key),
+    );
     v
 }

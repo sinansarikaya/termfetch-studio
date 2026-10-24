@@ -3,11 +3,11 @@
 use crate::app::state::{AppState, ClickMap, Focus};
 use crate::tui::widgets::ui::{card, fill, line_at};
 use ratatui::{
+    Frame,
     layout::Rect,
     style::{Modifier, Style},
     text::{Line, Span},
     widgets::{Block, List, ListItem},
-    Frame,
 };
 
 pub enum Row<'a> {
@@ -20,7 +20,13 @@ pub fn panel<'a>(title: impl Into<String>, state: &AppState) -> Block<'a> {
     let pal = state.palette();
     card(&pal, state.focus == Focus::Content).title(Line::from(vec![
         Span::styled(" ", Style::new().bg(pal.bg)),
-        Span::styled(format!("{} ", title.into()), Style::new().fg(pal.primary).bg(pal.bg).add_modifier(Modifier::BOLD)),
+        Span::styled(
+            format!("{} ", title.into()),
+            Style::new()
+                .fg(pal.primary)
+                .bg(pal.bg)
+                .add_modifier(Modifier::BOLD),
+        ),
     ]))
 }
 
@@ -29,20 +35,57 @@ pub fn panel<'a>(title: impl Into<String>, state: &AppState) -> Block<'a> {
 pub fn screen_frame(f: &mut Frame, area: Rect, state: &AppState) -> Rect {
     let pal = state.palette();
     fill(f.buffer_mut(), area, Style::new().bg(pal.bg).fg(pal.fg));
-    let area = Rect { x: area.x + 1, width: area.width.saturating_sub(2), ..area };
+    let area = Rect {
+        x: area.x + 1,
+        width: area.width.saturating_sub(2),
+        ..area
+    };
     if area.height < 10 {
         return area;
     }
     let s = state.screen;
-    line_at(f.buffer_mut(), area, 0, Line::from(vec![
-        Span::styled(format!("{}  ", s.icon()), Style::new().fg(pal.primary).bg(pal.bg)),
-        Span::styled(s.title(), Style::new().fg(pal.fg).bg(pal.bg).add_modifier(Modifier::BOLD)),
-    ]));
-    line_at(f.buffer_mut(), area, 1, Line::from(Span::styled(s.subtitle(), Style::new().fg(pal.muted).bg(pal.bg))));
-    Rect { y: area.y + 3, height: area.height - 3, ..area }
+    line_at(
+        f.buffer_mut(),
+        area,
+        0,
+        Line::from(vec![
+            Span::styled(
+                format!("{}  ", s.icon()),
+                Style::new().fg(pal.primary).bg(pal.bg),
+            ),
+            Span::styled(
+                s.title(),
+                Style::new()
+                    .fg(pal.fg)
+                    .bg(pal.bg)
+                    .add_modifier(Modifier::BOLD),
+            ),
+        ]),
+    );
+    line_at(
+        f.buffer_mut(),
+        area,
+        1,
+        Line::from(Span::styled(
+            s.subtitle(),
+            Style::new().fg(pal.muted).bg(pal.bg),
+        )),
+    );
+    Rect {
+        y: area.y + 3,
+        height: area.height - 3,
+        ..area
+    }
 }
 
-pub fn render_rows(f: &mut Frame, area: Rect, state: &mut AppState, block: Block, rows: Vec<Row>, selected: usize) {
+pub fn render_rows(
+    f: &mut Frame,
+    area: Rect,
+    state: &mut AppState,
+    block: Block,
+    rows: Vec<Row>,
+    selected: usize,
+) {
     let pal = state.palette();
     let (highlight_bg, primary) = (pal.sel_bg, pal.primary);
     let mut map = Vec::with_capacity(rows.len());
@@ -78,5 +121,9 @@ pub fn render_rows(f: &mut Frame, area: Rect, state: &mut AppState, block: Block
     ls.select(Some(sel_row));
     f.render_stateful_widget(list, area, ls);
     // Map rows past the 1-column highlight gutter too: the whole row is clickable.
-    state.click = ClickMap { area: inner, offset: ls.offset(), rows: map };
+    state.click = ClickMap {
+        area: inner,
+        offset: ls.offset(),
+        rows: map,
+    };
 }

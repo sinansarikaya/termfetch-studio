@@ -54,11 +54,27 @@ pub enum Screen {
 }
 
 impl Screen {
-    pub const ALL: [Screen; 8] = [Screen::Dashboard, Screen::Themes, Screen::Presets, Screen::Logos, Screen::Modules, Screen::Settings, Screen::Backup, Screen::Doctor];
+    pub const ALL: [Screen; 8] = [
+        Screen::Dashboard,
+        Screen::Themes,
+        Screen::Presets,
+        Screen::Logos,
+        Screen::Modules,
+        Screen::Settings,
+        Screen::Backup,
+        Screen::Doctor,
+    ];
 
     /// Entries of the main navigation; Backup and Doctor live under Settings
     /// (Dashboard → Tools & Utilities, or keys 7 / 8).
-    pub const NAV: [Screen; 6] = [Screen::Dashboard, Screen::Themes, Screen::Presets, Screen::Logos, Screen::Modules, Screen::Settings];
+    pub const NAV: [Screen; 6] = [
+        Screen::Dashboard,
+        Screen::Themes,
+        Screen::Presets,
+        Screen::Logos,
+        Screen::Modules,
+        Screen::Settings,
+    ];
 
     pub fn index(self) -> usize {
         Self::ALL.iter().position(|&s| s == self).unwrap_or(0)
@@ -109,7 +125,12 @@ impl Screen {
         match self {
             Self::Dashboard => &[("1-4", "Quick Action")],
             Self::Themes => &[("c", "Category"), ("/", "Search"), ("a", "Apply")],
-            Self::Presets => &[("Enter", "Use"), ("d", "Copy"), ("r", "Rename"), ("x", "Delete")],
+            Self::Presets => &[
+                ("Enter", "Use"),
+                ("d", "Copy"),
+                ("r", "Rename"),
+                ("x", "Delete"),
+            ],
             Self::Logos => &[("s", "Size"), ("a", "Apply")],
             Self::Modules => &[("Space", "Toggle"), ("J/K", "Reorder")],
             Self::Settings => &[("←→", "Change")],
@@ -230,6 +251,8 @@ pub struct AppState {
     pub settings: Settings,
     /// Last persisted settings; differs from `settings` while there are unsaved edits.
     pub saved: Settings,
+    pub undo_stack: Vec<Settings>,
+    pub redo_stack: Vec<Settings>,
     pub themes: Vec<Theme>,
     pub presets: Vec<Preset>,
     pub logos: Vec<LogoItem>,
@@ -297,7 +320,10 @@ impl AppState {
                     5 => "Pop Culture & Gaming",
                     _ => "",
                 };
-                (category.is_empty() || t.category.as_str() == category) && t.name.to_lowercase().contains(&self.theme_search.to_lowercase())
+                (category.is_empty() || t.category.as_str() == category)
+                    && t.name
+                        .to_lowercase()
+                        .contains(&self.theme_search.to_lowercase())
             })
             .map(|(i, _)| i)
             .collect()
@@ -309,6 +335,8 @@ impl AppState {
             backups: list_backups(&paths),
             saved: settings.clone(),
             settings,
+            undo_stack: Vec::new(),
+            redo_stack: Vec::new(),
             themes: get_builtin_themes(),
             presets: crate::domain::preset::load_presets(&paths.config_dir),
             logos,
@@ -347,7 +375,11 @@ impl AppState {
             kitty: None,
             geo,
             doctor: Vec::new(),
-            status: (StatusKind::Info, "Welcome to TermFetch Studio. Tab switches focus, Enter applies, p runs fastfetch.".into()),
+            status: (
+                StatusKind::Info,
+                "Welcome to TermFetch Studio. Tab switches focus, Enter applies, p runs fastfetch."
+                    .into(),
+            ),
             running: true,
             exit_message: None,
             dirty: true,
@@ -359,7 +391,11 @@ impl AppState {
         }
         app.clock = app.sysinfo.clock();
         // Decode every image logo up front so browsing the gallery never waits.
-        let images: Vec<String> = app.logos.iter().filter_map(|l| l.existing_image().map(str::to_string)).collect();
+        let images: Vec<String> = app
+            .logos
+            .iter()
+            .filter_map(|l| l.existing_image().map(str::to_string))
+            .collect();
         if let Some(sel) = app.current_logo().existing_image().map(str::to_string) {
             app.pool.request(&sel, true);
         }
@@ -380,20 +416,32 @@ impl AppState {
 
     /// Chrome palette for the current settings.
     pub fn palette(&self) -> crate::tui::palette::Palette {
-        crate::tui::palette::Palette::for_settings(self.settings.ui_follow_theme, self.current_theme())
+        crate::tui::palette::Palette::for_settings(
+            self.settings.ui_follow_theme,
+            self.current_theme(),
+        )
     }
 
     /// Theme indices for the Dashboard's Recent Themes row: the applied theme,
     /// the recently applied ones, then a few favourites to fill the row.
     pub fn recent_theme_indices(&self) -> Vec<usize> {
-        const FAVOURITES: [&str; 6] = ["monokai-pro", "tokyo-night", "catppuccin-mocha", "nord", "dracula", "rose-pine"];
-        let ids = std::iter::once(self.saved.theme.as_str()).chain(self.saved.recent_themes.iter().map(String::as_str)).chain(FAVOURITES);
+        const FAVOURITES: [&str; 6] = [
+            "monokai-pro",
+            "tokyo-night",
+            "catppuccin-mocha",
+            "nord",
+            "dracula",
+            "rose-pine",
+        ];
+        let ids = std::iter::once(self.saved.theme.as_str())
+            .chain(self.saved.recent_themes.iter().map(String::as_str))
+            .chain(FAVOURITES);
         let mut out: Vec<usize> = Vec::new();
         for id in ids {
-            if let Some(i) = self.themes.iter().position(|t| t.id == id) {
-                if !out.contains(&i) {
-                    out.push(i);
-                }
+            if let Some(i) = self.themes.iter().position(|t| t.id == id)
+                && !out.contains(&i)
+            {
+                out.push(i);
             }
             if out.len() == crate::domain::settings::RECENT_THEMES_MAX {
                 break;
@@ -419,7 +467,10 @@ impl AppState {
             0 => self.theme_idx(),
             1 => self.preset_idx(),
             2 => self.logo_idx(),
-            3 => PreviewOutput::ALL.iter().position(|&o| o == self.preview_output).unwrap_or(0),
+            3 => PreviewOutput::ALL
+                .iter()
+                .position(|&o| o == self.preview_output)
+                .unwrap_or(0),
             _ => 0,
         }
     }
@@ -436,15 +487,24 @@ impl AppState {
     }
 
     pub fn theme_idx(&self) -> usize {
-        self.themes.iter().position(|t| t.id == self.settings.theme).unwrap_or(0)
+        self.themes
+            .iter()
+            .position(|t| t.id == self.settings.theme)
+            .unwrap_or(0)
     }
 
     pub fn preset_idx(&self) -> usize {
-        self.presets.iter().position(|p| p.id == self.settings.preset).unwrap_or(0)
+        self.presets
+            .iter()
+            .position(|p| p.id == self.settings.preset)
+            .unwrap_or(0)
     }
 
     pub fn logo_idx(&self) -> usize {
-        self.logos.iter().position(|l| l.id == self.settings.logo).unwrap_or(0)
+        self.logos
+            .iter()
+            .position(|l| l.id == self.settings.logo)
+            .unwrap_or(0)
     }
 
     pub fn current_theme(&self) -> &Theme {
@@ -463,6 +523,36 @@ impl AppState {
         self.settings != self.saved
     }
 
+    pub fn is_modified(&self) -> bool {
+        self.has_explicit_modifications()
+    }
+
+    pub fn has_explicit_modifications(&self) -> bool {
+        self.settings.icon_color != self.saved.icon_color
+            || self.settings.text_color != self.saved.text_color
+            || self.settings.group_colors != self.saved.group_colors
+            || self.settings.custom_modules != self.saved.custom_modules
+            || self.settings.apply_terminal_colors != self.saved.apply_terminal_colors
+            || self.settings.demo_mode != self.saved.demo_mode
+            || self.settings.logo_size != self.saved.logo_size
+            || self.settings.run_fastfetch_on_exit != self.saved.run_fastfetch_on_exit
+            || self.settings.ui_follow_theme != self.saved.ui_follow_theme
+    }
+
+    pub fn is_previewing_theme(&self) -> bool {
+        self.settings.theme != self.saved.theme
+    }
+
+    pub fn push_undo(&mut self) {
+        if self.undo_stack.last() != Some(&self.settings) {
+            self.undo_stack.push(self.settings.clone());
+            if self.undo_stack.len() > 50 {
+                self.undo_stack.remove(0);
+            }
+            self.redo_stack.clear();
+        }
+    }
+
     /// Rebuild the "custom" preset entry from the Module Builder selection.
     pub fn sync_custom_preset(&mut self) {
         let custom = Preset::custom(&self.settings.custom_modules);
@@ -476,7 +566,12 @@ impl AppState {
     pub fn module_rows(&self) -> Vec<(ModuleKind, bool)> {
         let enabled = &self.settings.custom_modules;
         let mut rows: Vec<(ModuleKind, bool)> = enabled.iter().map(|&m| (m, true)).collect();
-        rows.extend(ModuleKind::ALL.iter().filter(|m| !enabled.contains(m)).map(|&m| (m, false)));
+        rows.extend(
+            ModuleKind::ALL
+                .iter()
+                .filter(|m| !enabled.contains(m))
+                .map(|&m| (m, false)),
+        );
         rows
     }
 

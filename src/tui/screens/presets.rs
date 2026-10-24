@@ -10,7 +10,9 @@ use ratatui::{
 
 pub fn render_presets(f: &mut Frame, area: Rect, state: &mut AppState) {
     let area = screen_frame(f, area, state);
-    let [list_area, info_area] = Layout::vertical([Constraint::Min(8), Constraint::Length((area.height / 2).clamp(9, 16))]).areas(area);
+    let list_h = (state.presets.len() as u16 + 2).clamp(8, 10);
+    let [list_area, info_area] =
+        Layout::vertical([Constraint::Length(list_h), Constraint::Min(8)]).areas(area);
     let selected = state.preset_idx();
     let pal = state.palette();
     let primary = pal.primary;
@@ -20,8 +22,18 @@ pub fn render_presets(f: &mut Frame, area: Rect, state: &mut AppState) {
         .enumerate()
         .map(|(i, p)| {
             let mut spans = vec![
-                Span::styled(format!("{:<16}", p.name), if i == selected { Style::new().fg(primary).add_modifier(Modifier::BOLD) } else { Style::new().fg(pal.fg) }),
-                Span::styled(format!("{:>2} modules", p.module_count()), Style::new().fg(pal.dim)),
+                Span::styled(
+                    format!("{:<16}", p.name),
+                    if i == selected {
+                        Style::new().fg(primary).add_modifier(Modifier::BOLD)
+                    } else {
+                        Style::new().fg(pal.fg)
+                    },
+                ),
+                Span::styled(
+                    format!("{:>2} modules", p.module_count()),
+                    Style::new().fg(pal.dim),
+                ),
             ];
             if p.id == state.saved.preset {
                 spans.push(Span::styled("  ✓ applied", Style::new().fg(pal.ok)));
@@ -34,19 +46,52 @@ pub fn render_presets(f: &mut Frame, area: Rect, state: &mut AppState) {
 
     let p = state.current_preset();
     let theme = state.current_theme();
-    let mut lines = vec![Line::from(Span::styled(p.description.clone(), Style::new().fg(pal.muted))), Line::default()];
-    for section in &p.sections {
-        let mut spans = Vec::new();
+    let mut lines = vec![
+        Line::from(vec![
+            Span::styled(
+                "Description: ",
+                Style::new().fg(pal.dim).add_modifier(Modifier::BOLD),
+            ),
+            Span::styled(p.description.clone(), Style::new().fg(pal.muted)),
+        ]),
+        Line::default(),
+        Line::from(Span::styled(
+            "Categorized Modules:",
+            Style::new().fg(pal.dim).add_modifier(Modifier::BOLD),
+        )),
+    ];
+    for (s_idx, section) in p.sections.iter().enumerate() {
+        let mut spans = vec![Span::styled(
+            format!("  Group {}: ", s_idx + 1),
+            Style::new().fg(pal.dim),
+        )];
         for m in section {
-            let c = pal.visible(crate::domain::theme::Theme::parse_color(m.group().theme_hex(theme)));
+            let c = pal.visible(crate::domain::theme::Theme::parse_color(
+                m.group().theme_hex(theme),
+            ));
             spans.push(Span::styled(format!("{} ", m.icon()), Style::new().fg(c)));
-            spans.push(Span::styled(format!("{}  ", m.label()), Style::new().fg(pal.fg)));
+            spans.push(Span::styled(
+                format!("{}  ", m.label()),
+                Style::new().fg(pal.fg),
+            ));
         }
         lines.push(Line::from(spans));
     }
+    lines.push(Line::default());
     if p.id == "custom" {
-        lines.push(Line::from(Span::styled("Edit this preset in Module Builder (5)", Style::new().fg(pal.dim))));
+        lines.push(Line::from(Span::styled(
+            "Tip: Edit modules in Module Builder (5) · Space toggles, Shift+↑/↓ reorders",
+            Style::new().fg(pal.dim),
+        )));
+    } else {
+        lines.push(Line::from(Span::styled(
+            "Commands: Enter use/apply · d duplicate · r rename · x delete with confirmation",
+            Style::new().fg(pal.dim),
+        )));
     }
-    let info = Paragraph::new(lines).wrap(Wrap { trim: true }).block(panel(format!("{} · {} modules", p.name, p.module_count()), state));
+    let info = Paragraph::new(lines).wrap(Wrap { trim: true }).block(panel(
+        format!("{} · {} modules", p.name, p.module_count()),
+        state,
+    ));
     f.render_widget(info, info_area);
 }

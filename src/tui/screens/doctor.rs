@@ -1,11 +1,11 @@
 use crate::adapters::doctor::Level;
 use crate::app::state::AppState;
-use crate::tui::widgets::list::{panel, render_rows, screen_frame, Row};
+use crate::tui::widgets::list::{Row, panel, render_rows, screen_frame};
 use ratatui::{
+    Frame,
     layout::Rect,
     style::{Modifier, Style},
     text::{Line, Span},
-    Frame,
 };
 
 pub fn render_doctor(f: &mut Frame, area: Rect, state: &mut AppState) {
@@ -24,7 +24,10 @@ pub fn render_doctor(f: &mut Frame, area: Rect, state: &mut AppState) {
             };
             Row::Item(
                 Line::from(vec![
-                    Span::styled(format!("{} ", c.level.symbol()), Style::new().fg(color).add_modifier(Modifier::BOLD)),
+                    Span::styled(
+                        format!("{} ", c.level.symbol()),
+                        Style::new().fg(color).add_modifier(Modifier::BOLD),
+                    ),
                     Span::styled(format!("{:<17}", c.name), Style::new().fg(pal.fg)),
                     Span::styled(c.detail.clone(), Style::new().fg(pal.muted)),
                 ]),

@@ -23,7 +23,8 @@ pub fn atomic_write(path: &Path, bytes: &[u8]) -> Result<()> {
     let tmp = parent.join(format!(".{file_name}.tmp-{}-{nanos}", std::process::id()));
 
     let result = (|| -> Result<()> {
-        let mut f = fs::File::create(&tmp).with_context(|| format!("creating {}", tmp.display()))?;
+        let mut f =
+            fs::File::create(&tmp).with_context(|| format!("creating {}", tmp.display()))?;
         f.write_all(bytes)?;
         f.sync_all()?;
         fs::rename(&tmp, path).with_context(|| format!("renaming into {}", path.display()))?;

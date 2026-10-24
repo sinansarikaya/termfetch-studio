@@ -1,13 +1,16 @@
 use crate::app::state::{AppState, PreviewOutput, Screen};
 use crate::imaging::kitty::ImageKey;
 use crate::tui::screens::{
-    backup::render_backup, dashboard::render_dashboard, doctor::render_doctor, logos::render_logos, modules::render_modules, presets::render_presets, settings::render_settings,
+    backup::render_backup, dashboard::render_dashboard, doctor::render_doctor, logos::render_logos,
+    modules::render_modules, presets::render_presets, settings::render_settings,
     themes::render_themes,
 };
 use crate::tui::widgets::footer::render_footer;
 use crate::tui::widgets::header::render_header;
 use crate::tui::widgets::options::{options_height, render_options};
-use crate::tui::widgets::preview::{ImageState, LogoRaster, PreviewModel, draw_preview_chrome, draw_preview_scrolled, inner_area};
+use crate::tui::widgets::preview::{
+    ImageState, LogoRaster, PreviewModel, draw_preview_chrome, draw_preview_scrolled, inner_area,
+};
 use crate::tui::widgets::sidebar::render_sidebar;
 use crate::tui::widgets::ui::{card, fill, key_badge, line_at};
 use ratatui::{
@@ -46,7 +49,12 @@ pub fn render_ui(f: &mut Frame, state: &mut AppState) {
     state.hits.clear();
     state.preview_body = Rect::default();
     let bars = if full.height >= 24 { 3 } else { 1 };
-    let [top, body, bottom] = Layout::vertical([Constraint::Length(bars), Constraint::Min(4), Constraint::Length(bars)]).areas(full);
+    let [top, body, bottom] = Layout::vertical([
+        Constraint::Length(bars),
+        Constraint::Min(4),
+        Constraint::Length(bars),
+    ])
+    .areas(full);
     render_header(f, top, state);
 
     if state.preview_focus {
@@ -56,15 +64,34 @@ pub fn render_ui(f: &mut Frame, state: &mut AppState) {
         return;
     }
     let (side_w, preview_w) = columns(body.width);
-    let [side, center, preview] = Layout::horizontal([Constraint::Length(side_w), Constraint::Min(20), Constraint::Length(preview_w)]).areas(body);
+    let [side, center, preview] = Layout::horizontal([
+        Constraint::Length(side_w),
+        Constraint::Min(20),
+        Constraint::Length(preview_w),
+    ])
+    .areas(body);
     if side_w > 0 {
         render_sidebar(f, side, state);
     }
-    render_screen(f, Rect { y: center.y + 1, height: center.height.saturating_sub(1), ..center }, state);
+    render_screen(
+        f,
+        Rect {
+            y: center.y + 1,
+            height: center.height.saturating_sub(1),
+            ..center
+        },
+        state,
+    );
     if preview_w > 0 {
-        let col = Rect { x: preview.x + 1, width: preview.width.saturating_sub(2), y: preview.y + 1, height: preview.height.saturating_sub(1) };
+        let col = Rect {
+            x: preview.x + 1,
+            width: preview.width.saturating_sub(2),
+            y: preview.y + 1,
+            height: preview.height.saturating_sub(1),
+        };
         let opt_h = options_height(col.height);
-        let [pv, opts] = Layout::vertical([Constraint::Min(4), Constraint::Length(opt_h)]).areas(col);
+        let [pv, opts] =
+            Layout::vertical([Constraint::Min(4), Constraint::Length(opt_h)]).areas(col);
         render_preview_pane(f, pv, state);
         if opt_h > 0 {
             render_options(f, opts, state);
@@ -122,7 +149,11 @@ fn preview_model(state: &AppState, image: ImageState) -> PreviewModel<'_> {
 /// Kitty rendition of `path` shown in `cells` at the terminal's cell pixel size.
 fn kitty_key(state: &AppState, path: &str, cells: (u16, u16)) -> ImageKey {
     let cell = state.geo.cell;
-    ImageKey { path: path.to_string(), cells, px: (u32::from(cells.0) * cell.w, u32::from(cells.1) * cell.h) }
+    ImageKey {
+        path: path.to_string(),
+        cells,
+        px: (u32::from(cells.0) * cell.w, u32::from(cells.1) * cell.h),
+    }
 }
 
 /// Pre-upload every decoded image logo at the size the preview would show it,
@@ -144,13 +175,28 @@ fn kitty_prefetch(state: &mut AppState, avail: (u16, u16)) {
 }
 
 fn render_preview_pane(f: &mut Frame, area: Rect, state: &mut AppState) {
-    let control = Rect { x: area.right().saturating_sub(7), y: area.y, width: 6.min(area.width), height: 1 };
-    state.hits.push((control, crate::app::state::Hit::FocusPreview));
+    let control = Rect {
+        x: area.right().saturating_sub(7),
+        y: area.y,
+        width: 6.min(area.width),
+        height: 1,
+    };
+    state
+        .hits
+        .push((control, crate::app::state::Hit::FocusPreview));
     state.preview_body = Block::new().borders(Borders::ALL).inner(area);
     if state.preview_output == PreviewOutput::Config {
         render_config_output(f, area, state);
         let pal = state.palette();
-        line_at(f.buffer_mut(), control, 0, Line::from(Span::styled("[⛶] f", Style::new().fg(pal.primary).bg(pal.surface))));
+        line_at(
+            f.buffer_mut(),
+            control,
+            0,
+            Line::from(Span::styled(
+                "[⛶] f",
+                Style::new().fg(pal.primary).bg(pal.surface),
+            )),
+        );
         return;
     }
     let image = image_state(state);
@@ -181,49 +227,118 @@ fn render_preview_pane(f: &mut Frame, area: Rect, state: &mut AppState) {
     };
     let pal = state.palette();
     let model = preview_model(state, image);
-    draw_preview_scrolled(f.buffer_mut(), area, &model, raster, Some(&pal), if state.preview_focus { state.preview_scroll } else { 0 });
-    line_at(f.buffer_mut(), control, 0, Line::from(Span::styled("[⛶] f", Style::new().fg(pal.primary).bg(pal.surface))));
+    draw_preview_scrolled(
+        f.buffer_mut(),
+        area,
+        &model,
+        raster,
+        Some(&pal),
+        if state.preview_focus {
+            state.preview_scroll
+        } else {
+            0
+        },
+    );
+    line_at(
+        f.buffer_mut(),
+        control,
+        0,
+        Line::from(Span::styled(
+            "[⛶] f",
+            Style::new().fg(pal.primary).bg(pal.surface),
+        )),
+    );
 }
 
 /// The config `Enter`/`a` would write, shown in the preview box.
 fn render_config_output(f: &mut Frame, area: Rect, state: &mut AppState) {
     let pal = state.palette();
-    let stale = state.config_cache.as_ref().is_none_or(|(s, _)| *s != state.settings);
+    let stale = state
+        .config_cache
+        .as_ref()
+        .is_none_or(|(s, _)| *s != state.settings);
     if stale {
-        let (t, p, l) = (state.current_theme(), state.current_preset(), state.current_logo());
-        let text = crate::adapters::fastfetch::config::render_dry(t, p, l, &state.settings, &state.paths, &state.geo).unwrap_or_else(|e| format!("// cannot render config: {e:#}"));
+        let (t, p, l) = (
+            state.current_theme(),
+            state.current_preset(),
+            state.current_logo(),
+        );
+        let text = crate::adapters::fastfetch::config::render_dry(
+            t,
+            p,
+            l,
+            &state.settings,
+            &state.paths,
+            &state.geo,
+        )
+        .unwrap_or_else(|e| format!("// cannot render config: {e:#}"));
         state.config_cache = Some((state.settings.clone(), text));
     }
-    let body = draw_preview_chrome(f.buffer_mut(), area, &pal, &state.current_preset().name, state.settings.demo_mode, false);
-    fill(f.buffer_mut(), body, Style::new().bg(pal.surface).fg(pal.fg));
-    let text = state.config_cache.as_ref().map(|(_, t)| t.as_str()).unwrap_or_default();
-    let body = Rect { x: body.x + 1, width: body.width.saturating_sub(1), ..body };
+    let body = draw_preview_chrome(
+        f.buffer_mut(),
+        area,
+        &pal,
+        &state.current_preset().name,
+        state.settings.demo_mode,
+        false,
+    );
+    fill(
+        f.buffer_mut(),
+        body,
+        Style::new().bg(pal.surface).fg(pal.fg),
+    );
+    let text = state
+        .config_cache
+        .as_ref()
+        .map(|(_, t)| t.as_str())
+        .unwrap_or_default();
+    let body = Rect {
+        x: body.x + 1,
+        width: body.width.saturating_sub(1),
+        ..body
+    };
     for (i, l) in text.lines().take(usize::from(body.height)).enumerate() {
         let line = match l.split_once(':') {
-            Some((k, v)) if k.trim_start().starts_with('"') => {
-                Line::from(vec![Span::styled(format!("{k}:"), Style::new().fg(pal.link)), Span::styled(v.to_string(), Style::new().fg(pal.fg))])
+            Some((k, v)) if k.trim_start().starts_with('"') => Line::from(vec![
+                Span::styled(format!("{k}:"), Style::new().fg(pal.link)),
+                Span::styled(v.to_string(), Style::new().fg(pal.fg)),
+            ]),
+            _ if l.trim_start().starts_with("//") => {
+                Line::from(Span::styled(l.to_string(), Style::new().fg(pal.dim)))
             }
-            _ if l.trim_start().starts_with("//") => Line::from(Span::styled(l.to_string(), Style::new().fg(pal.dim))),
             _ => Line::from(Span::styled(l.to_string(), Style::new().fg(pal.muted))),
         };
         line_at(f.buffer_mut(), body, i as u16, line);
     }
 }
 
-const HELP: [(&str, &str); 16] = [
-    ("Tab / Shift+Tab", "next / previous section (menu → stage → options)"),
+const HELP: [(&str, &str); 17] = [
+    (
+        "Tab / Shift+Tab",
+        "next / previous section (menu → stage → options)",
+    ),
     ("↑↓ ←→  hjkl", "move; the live preview follows instantly"),
     ("Enter", "select: open, apply or toggle the focused item"),
     ("a / A", "apply theme to system (both fastfetch configs)"),
-    ("1-8", "jump to a screen (Dashboard stage: 1-4 quick actions)"),
+    (
+        "1-8",
+        "jump to a screen (Dashboard stage: 1-4 quick actions)",
+    ),
     ("p", "run the real fastfetch with the current selection"),
-    ("d / r / x", "Presets: duplicate / rename / confirm deletion"),
+    (
+        "d / r / x",
+        "Presets: duplicate / rename / confirm deletion",
+    ),
     ("s", "cycle logo size"),
-    ("f / Esc", "expand preview / return; ↑↓ scroll full system values"),
+    (
+        "f / Esc",
+        "expand preview / return; ↑↓ scroll full system values",
+    ),
     ("c / /", "Themes: category / search"),
     ("Space  J/K", "Modules: toggle / reorder"),
     ("x / r", "Backup: delete · Doctor: re-run"),
     ("o", "cycle preview output (terminal / config)"),
+    ("u / U", "undo / redo changes (Ctrl+Z / Ctrl+Y)"),
     ("Mouse", "click cards, fields and menu; wheel scrolls"),
     ("? / Esc", "toggle this help · Esc goes back"),
     ("q", "quit (unsaved changes are applied first)"),
@@ -234,16 +349,40 @@ fn render_help(f: &mut Frame, state: &AppState) {
     let screen = f.area();
     let w = 70.min(screen.width.saturating_sub(4));
     let h = (HELP.len() as u16 + 4).min(screen.height.saturating_sub(2));
-    let area = Rect { x: screen.x + (screen.width - w) / 2, y: screen.y + (screen.height - h) / 2, width: w, height: h };
+    let area = Rect {
+        x: screen.x + (screen.width - w) / 2,
+        y: screen.y + (screen.height - h) / 2,
+        width: w,
+        height: h,
+    };
     fill(f.buffer_mut(), area, Style::new().bg(pal.surface));
-    let block = card(&pal, true).title(Line::from(Span::styled(" ? Keyboard shortcuts ", Style::new().fg(pal.primary).bg(pal.bg).add_modifier(Modifier::BOLD))));
+    let block = card(&pal, true).title(Line::from(Span::styled(
+        " ? Keyboard shortcuts ",
+        Style::new()
+            .fg(pal.primary)
+            .bg(pal.bg)
+            .add_modifier(Modifier::BOLD),
+    )));
     let inner = block.inner(area);
     block.render(area, f.buffer_mut());
-    let inner = Rect { x: inner.x + 1, y: inner.y + 1, width: inner.width.saturating_sub(2), height: inner.height.saturating_sub(1) };
+    let inner = Rect {
+        x: inner.x + 1,
+        y: inner.y + 1,
+        width: inner.width.saturating_sub(2),
+        height: inner.height.saturating_sub(1),
+    };
     for (i, (k, d)) in HELP.iter().enumerate() {
         let mut badge = key_badge(&pal, k);
         badge.content = format!(" {k:<15} ").into();
-        line_at(f.buffer_mut(), inner, i as u16, Line::from(vec![badge, Span::styled(format!("  {d}"), Style::new().fg(pal.muted))]));
+        line_at(
+            f.buffer_mut(),
+            inner,
+            i as u16,
+            Line::from(vec![
+                badge,
+                Span::styled(format!("  {d}"), Style::new().fg(pal.muted)),
+            ]),
+        );
     }
 }
 
@@ -255,7 +394,12 @@ fn render_dialog(f: &mut Frame, state: &AppState) {
     let full = f.area();
     let w = full.width.saturating_sub(4).min(64);
     let h = full.height.min(6);
-    let area = Rect::new(full.x + (full.width - w) / 2, full.y + (full.height - h) / 2, w, h);
+    let area = Rect::new(
+        full.x + (full.width - w) / 2,
+        full.y + (full.height - h) / 2,
+        w,
+        h,
+    );
     fill(f.buffer_mut(), area, Style::new().bg(pal.surface));
     let title = match kind {
         "search" => "Search themes",
@@ -265,6 +409,22 @@ fn render_dialog(f: &mut Frame, state: &AppState) {
     let block = card(&pal, true).title(format!(" {title} "));
     let inner = block.inner(area);
     block.render(area, f.buffer_mut());
-    line_at(f.buffer_mut(), inner, 0, Line::from(Span::styled(format!("> {}▏", state.input), Style::new().fg(pal.fg))));
-    line_at(f.buffer_mut(), inner, 2, Line::from(Span::styled("Enter confirm · Esc cancel", Style::new().fg(pal.muted))));
+    line_at(
+        f.buffer_mut(),
+        inner,
+        0,
+        Line::from(Span::styled(
+            format!("> {}▏", state.input),
+            Style::new().fg(pal.fg),
+        )),
+    );
+    line_at(
+        f.buffer_mut(),
+        inner,
+        2,
+        Line::from(Span::styled(
+            "Enter confirm · Esc cancel",
+            Style::new().fg(pal.muted),
+        )),
+    );
 }

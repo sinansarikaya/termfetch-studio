@@ -3,7 +3,7 @@
 
 use crate::adapters::fsutil::{atomic_write, timestamp_utc};
 use crate::paths::Paths;
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use std::fs;
 use std::path::PathBuf;
 
@@ -59,7 +59,11 @@ fn create_named(paths: &Paths, label: &str) -> Result<BackupEntry> {
         bail!("nothing to back up yet (no settings or fastfetch config found)");
     }
     Ok(BackupEntry {
-        name: dir.file_name().unwrap_or_default().to_string_lossy().into_owned(),
+        name: dir
+            .file_name()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .into_owned(),
         path: dir,
         files,
     })
@@ -84,7 +88,11 @@ pub fn list_backups(paths: &Paths) -> Vec<BackupEntry> {
                 .filter(|f| e.path().join(f).is_file())
                 .map(|f| (*f).to_string())
                 .collect();
-            Some(BackupEntry { name, path: e.path(), files })
+            Some(BackupEntry {
+                name,
+                path: e.path(),
+                files,
+            })
         })
         .collect();
     out.sort_by(|a, b| b.name.cmp(&a.name));

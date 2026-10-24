@@ -3,7 +3,8 @@ use crate::adapters::doctor;
 use crate::adapters::fastfetch::config;
 use crate::app::actions::Action;
 use crate::app::state::{
-    AppState, DashCursor, DashRow, Dropdown, Effect, Focus, Hit, OPTION_APPLY, OPTION_ROWS, PreviewOutput, QUICK_ACTIONS, SETTINGS_ROWS, Screen, StatusKind, TOOLS,
+    AppState, DashCursor, DashRow, Dropdown, Effect, Focus, Hit, OPTION_APPLY, OPTION_ROWS,
+    PreviewOutput, QUICK_ACTIONS, SETTINGS_ROWS, Screen, StatusKind, TOOLS,
 };
 use crate::domain::color::SemanticGroup;
 use crate::domain::settings::Settings;
@@ -17,7 +18,11 @@ fn step(idx: usize, len: usize, delta: isize, wrap: bool) -> usize {
     }
     let n = len as isize;
     let next = idx as isize + delta;
-    if wrap && delta.abs() == 1 { next.rem_euclid(n) as usize } else { next.clamp(0, n - 1) as usize }
+    if wrap && delta.abs() == 1 {
+        next.rem_euclid(n) as usize
+    } else {
+        next.clamp(0, n - 1) as usize
+    }
 }
 
 pub fn reduce(state: &mut AppState, action: Action) {
@@ -63,11 +68,15 @@ pub fn reduce(state: &mut AppState, action: Action) {
     if state.preview_focus {
         match action {
             Action::Up | Action::ScrollUp | Action::PageUp => {
-                state.preview_scroll = state.preview_scroll.saturating_sub(if action == Action::PageUp { 10 } else { 1 });
+                state.preview_scroll = state
+                    .preview_scroll
+                    .saturating_sub(if action == Action::PageUp { 10 } else { 1 });
                 return;
             }
             Action::Down | Action::ScrollDown | Action::PageDown => {
-                state.preview_scroll = state.preview_scroll.saturating_add(if action == Action::PageDown { 10 } else { 1 });
+                state.preview_scroll = state
+                    .preview_scroll
+                    .saturating_add(if action == Action::PageDown { 10 } else { 1 });
                 return;
             }
             Action::Home => {
@@ -79,7 +88,10 @@ pub fn reduce(state: &mut AppState, action: Action) {
     }
     // Overlays swallow input first.
     if state.help_open && !matches!(action, Action::Tick | Action::Resize | Action::Quit) {
-        if matches!(action, Action::ToggleHelp | Action::Back | Action::Activate | Action::Click { .. }) {
+        if matches!(
+            action,
+            Action::ToggleHelp | Action::Back | Action::Activate | Action::Click { .. }
+        ) {
             state.help_open = false;
         }
         return;
@@ -117,8 +129,14 @@ pub fn reduce(state: &mut AppState, action: Action) {
         Action::Goto(screen) => goto(state, screen),
         Action::Number(n) => {
             let n = usize::from(n);
-            if state.screen == Screen::Dashboard && state.focus == Focus::Content && (1..=QUICK_ACTIONS).contains(&n) {
-                state.dash = DashCursor { row: DashRow::Quick, col: n - 1 };
+            if state.screen == Screen::Dashboard
+                && state.focus == Focus::Content
+                && (1..=QUICK_ACTIONS).contains(&n)
+            {
+                state.dash = DashCursor {
+                    row: DashRow::Quick,
+                    col: n - 1,
+                };
                 quick_action(state, n - 1);
             } else if let Some(&screen) = Screen::ALL.get(n.wrapping_sub(1)) {
                 goto(state, screen);
@@ -176,7 +194,10 @@ pub fn reduce(state: &mut AppState, action: Action) {
             Screen::Doctor => run_doctor(state),
             Screen::Backup => {
                 state.refresh_backups();
-                state.set_status(StatusKind::Info, format!("{} backups found", state.backups.len()));
+                state.set_status(
+                    StatusKind::Info,
+                    format!("{} backups found", state.backups.len()),
+                );
             }
             Screen::Logos => {
                 let logo = state.current_logo().clone();
@@ -184,7 +205,9 @@ pub fn reduce(state: &mut AppState, action: Action) {
                     state.pool.invalidate(p);
                     state.pool.request(p, true);
                     if let Some(k) = state.kitty.as_mut() {
-                        state.effects.extend(k.invalidate(p).into_iter().map(Effect::WriteTerminal));
+                        state
+                            .effects
+                            .extend(k.invalidate(p).into_iter().map(Effect::WriteTerminal));
                     }
                 }
             }
@@ -202,6 +225,26 @@ pub fn reduce(state: &mut AppState, action: Action) {
                 delete_backup(state);
             }
         }
+        Action::Undo => {
+            if let Some(prev) = state.undo_stack.pop() {
+                state.redo_stack.push(state.settings.clone());
+                state.settings = prev;
+                state.sync_custom_preset();
+                state.set_status(StatusKind::Info, "↺ Undid last change");
+            } else {
+                state.set_status(StatusKind::Info, "Nothing to undo");
+            }
+        }
+        Action::Redo => {
+            if let Some(next) = state.redo_stack.pop() {
+                state.undo_stack.push(state.settings.clone());
+                state.settings = next;
+                state.sync_custom_preset();
+                state.set_status(StatusKind::Info, "↻ Redid change");
+            } else {
+                state.set_status(StatusKind::Info, "Nothing to redo");
+            }
+        }
         Action::Click { col, row } => click(state, col, row),
         Action::ScrollUp => navigate(state, -1),
         Action::ScrollDown => navigate(state, 1),
@@ -217,7 +260,11 @@ fn options_visible(state: &AppState) -> bool {
 }
 
 fn cycle_focus(state: &mut AppState, forward: bool) {
-    let mut next = if forward { state.focus.next() } else { state.focus.prev() };
+    let mut next = if forward {
+        state.focus.next()
+    } else {
+        state.focus.prev()
+    };
     if next == Focus::Options && !options_visible(state) {
         next = if forward { next.next() } else { next.prev() };
     }
@@ -233,11 +280,18 @@ fn run_fastfetch(state: &mut AppState) {
 }
 
 fn cycle_logo_size(state: &mut AppState, forward: bool) {
+    state.push_undo();
     let s = state.settings.logo_size;
     state.settings.logo_size = if forward { s.next() } else { s.next().next() };
     let size = state.settings.logo_size;
     let (w, h) = size.max_cells();
-    state.set_status(StatusKind::Info, format!("Logo size: {} (max {w}x{h} cells) - Enter to apply", size.label()));
+    state.set_status(
+        StatusKind::Info,
+        format!(
+            "Logo size: {} (max {w}x{h} cells) - Enter to apply",
+            size.label()
+        ),
+    );
 }
 
 /// Keys while a Preview Options dropdown is open. Returns whether the action was consumed.
@@ -277,14 +331,20 @@ fn set_option(state: &mut AppState, field: usize, i: usize) {
             if let Some(t) = state.themes.get(i) {
                 state.settings.theme = t.id.clone();
                 let name = t.name.clone();
-                state.set_status(StatusKind::Info, format!("Previewing theme {name} - A to apply"));
+                state.set_status(
+                    StatusKind::Info,
+                    format!("Previewing theme {name} - A to apply"),
+                );
             }
         }
         1 => {
             if let Some(p) = state.presets.get(i) {
                 state.settings.preset = p.id.clone();
                 let name = p.name.clone();
-                state.set_status(StatusKind::Info, format!("Previewing preset {name} - A to apply"));
+                state.set_status(
+                    StatusKind::Info,
+                    format!("Previewing preset {name} - A to apply"),
+                );
             }
         }
         2 if i < state.logos.len() => select_logo(state, i),
@@ -327,7 +387,10 @@ fn navigate(state: &mut AppState, delta: isize) {
             let cols = state.grid_cols.max(1) as isize;
             let list = state.filtered_themes();
             if !list.is_empty() {
-                let pos = list.iter().position(|&i| i == state.theme_idx()).unwrap_or(0);
+                let pos = list
+                    .iter()
+                    .position(|&i| i == state.theme_idx())
+                    .unwrap_or(0);
                 let i = step(pos, list.len(), delta.saturating_mul(cols), false);
                 set_option(state, 0, list[i]);
             }
@@ -343,9 +406,15 @@ fn navigate(state: &mut AppState, delta: isize) {
         Screen::Modules => {
             state.module_cursor = step(state.module_cursor, state.module_rows().len(), delta, true);
         }
-        Screen::Settings => state.color_cursor = step(state.color_cursor, SETTINGS_ROWS, delta, true),
-        Screen::Backup => state.backup_cursor = step(state.backup_cursor, state.backups.len() + 1, delta, true),
-        Screen::Doctor => state.doctor_cursor = step(state.doctor_cursor, state.doctor.len(), delta, false),
+        Screen::Settings => {
+            state.color_cursor = step(state.color_cursor, SETTINGS_ROWS, delta, true)
+        }
+        Screen::Backup => {
+            state.backup_cursor = step(state.backup_cursor, state.backups.len() + 1, delta, true)
+        }
+        Screen::Doctor => {
+            state.doctor_cursor = step(state.doctor_cursor, state.doctor.len(), delta, false)
+        }
         Screen::Dashboard => dash_vertical(state, delta),
     }
 }
@@ -354,10 +423,30 @@ fn dash_vertical(state: &mut AppState, delta: isize) {
     let recent = state.recent_theme_indices().len();
     let d = &mut state.dash;
     match (d.row, delta.signum()) {
-        (DashRow::Quick, 1) => *d = DashCursor { row: DashRow::Recent, col: d.col.min(recent.saturating_sub(1)) },
-        (DashRow::Recent, 1) => *d = DashCursor { row: DashRow::Tools, col: 0 },
-        (DashRow::Recent, -1) => *d = DashCursor { row: DashRow::Quick, col: d.col.min(QUICK_ACTIONS - 1) },
-        (DashRow::Tools, -1) if d.col == 0 => *d = DashCursor { row: DashRow::Recent, col: state.recent_offset.min(recent.saturating_sub(1)) },
+        (DashRow::Quick, 1) => {
+            *d = DashCursor {
+                row: DashRow::Recent,
+                col: d.col.min(recent.saturating_sub(1)),
+            }
+        }
+        (DashRow::Recent, 1) => {
+            *d = DashCursor {
+                row: DashRow::Tools,
+                col: 0,
+            }
+        }
+        (DashRow::Recent, -1) => {
+            *d = DashCursor {
+                row: DashRow::Quick,
+                col: d.col.min(QUICK_ACTIONS - 1),
+            }
+        }
+        (DashRow::Tools, -1) if d.col == 0 => {
+            *d = DashCursor {
+                row: DashRow::Recent,
+                col: state.recent_offset.min(recent.saturating_sub(1)),
+            }
+        }
         (DashRow::Tools, s) => d.col = (d.col as isize + s).clamp(0, TOOLS as isize - 1) as usize,
         _ => {}
     }
@@ -390,7 +479,10 @@ fn horizontal(state: &mut AppState, forward: bool) {
             if list.is_empty() {
                 return;
             }
-            let i = list.iter().position(|&i| i == state.theme_idx()).unwrap_or(0);
+            let i = list
+                .iter()
+                .position(|&i| i == state.theme_idx())
+                .unwrap_or(0);
             if !forward && i % cols == 0 {
                 state.focus = Focus::Sidebar;
             } else {
@@ -426,7 +518,10 @@ fn select_logo(state: &mut AppState, i: usize) {
     if let Some(p) = logo.existing_image() {
         state.pool.request(p, true);
     }
-    state.set_status(StatusKind::Info, format!("Previewing logo {} - Enter to apply", logo.name));
+    state.set_status(
+        StatusKind::Info,
+        format!("Previewing logo {} - Enter to apply", logo.name),
+    );
 }
 
 fn quick_action(state: &mut AppState, i: usize) {
@@ -447,8 +542,16 @@ fn tool_action(state: &mut AppState, i: usize) {
         0 => open(state, Screen::Doctor),
         1 => {
             let c = doctor::shell_integration();
-            let hint = if c.level == doctor::Level::Ok { String::new() } else { " - add `fastfetch` to ~/.zshrc, ~/.bashrc or ~/.config/fish/config.fish".into() };
-            let kind = if c.level == doctor::Level::Ok { StatusKind::Ok } else { StatusKind::Info };
+            let hint = if c.level == doctor::Level::Ok {
+                String::new()
+            } else {
+                " - add `fastfetch` to ~/.zshrc, ~/.bashrc or ~/.config/fish/config.fish".into()
+            };
+            let kind = if c.level == doctor::Level::Ok {
+                StatusKind::Ok
+            } else {
+                StatusKind::Info
+            };
             state.set_status(kind, format!("Shell integration: {}{hint}", c.detail));
         }
         2 => open(state, Screen::Backup),
@@ -468,7 +571,10 @@ fn apply_recent(state: &mut AppState, pos: usize) {
     state.settings.theme = state.themes[ti].id.clone();
     if apply(state) {
         // The applied theme moves to the front of the row.
-        state.dash = DashCursor { row: DashRow::Recent, col: 0 };
+        state.dash = DashCursor {
+            row: DashRow::Recent,
+            col: 0,
+        };
         state.recent_offset = 0;
     }
 }
@@ -484,7 +590,10 @@ fn activate(state: &mut AppState) {
                 apply(state);
             } else {
                 let field = state.options_cursor;
-                state.dropdown = Some(Dropdown { field, original: state.option_index(field) });
+                state.dropdown = Some(Dropdown {
+                    field,
+                    original: state.option_index(field),
+                });
             }
             return;
         }
@@ -499,8 +608,12 @@ fn activate(state: &mut AppState) {
         Screen::Modules => toggle_module(state),
         Screen::Settings => match state.color_cursor {
             7 => {
+                state.push_undo();
                 state.settings.reset_colors();
-                state.set_status(StatusKind::Info, "Colours reset to theme defaults - a to apply");
+                state.set_status(
+                    StatusKind::Info,
+                    "Colours reset to theme defaults - a to apply",
+                );
             }
             _ => cycle_setting(state, true),
         },
@@ -528,13 +641,26 @@ fn toggle_module(state: &mut AppState) {
             state.set_status(StatusKind::Warn, "Keep at least one module enabled");
             return;
         }
+        state.push_undo();
         state.settings.custom_modules.retain(|&x| x != m);
     } else {
+        state.push_undo();
         state.settings.custom_modules.push(m);
     }
     // Keep the cursor on the toggled module.
-    state.module_cursor = state.module_rows().iter().position(|&(x, _)| x == m).unwrap_or(0);
-    after_module_edit(state, format!("{} {}", if enabled { "Disabled" } else { "Enabled" }, m.label()));
+    state.module_cursor = state
+        .module_rows()
+        .iter()
+        .position(|&(x, _)| x == m)
+        .unwrap_or(0);
+    after_module_edit(
+        state,
+        format!(
+            "{} {}",
+            if enabled { "Disabled" } else { "Enabled" },
+            m.label()
+        ),
+    );
 }
 
 fn move_module(state: &mut AppState, up: bool) {
@@ -543,25 +669,36 @@ fn move_module(state: &mut AppState, up: bool) {
         state.set_status(StatusKind::Warn, "Only enabled modules can be reordered");
         return;
     };
-    let list = &mut state.settings.custom_modules;
-    let Some(i) = list.iter().position(|&x| x == m) else {
+    let Some(i) = state.settings.custom_modules.iter().position(|&x| x == m) else {
         return;
     };
-    let j = if up { i.checked_sub(1) } else { (i + 1 < list.len()).then_some(i + 1) };
+    let j = if up {
+        i.checked_sub(1)
+    } else {
+        (i + 1 < state.settings.custom_modules.len()).then_some(i + 1)
+    };
     if let Some(j) = j {
-        list.swap(i, j);
+        state.push_undo();
+        state.settings.custom_modules.swap(i, j);
         state.module_cursor = j;
-        after_module_edit(state, format!("Moved {} {}", m.label(), if up { "up" } else { "down" }));
+        after_module_edit(
+            state,
+            format!("Moved {} {}", m.label(), if up { "up" } else { "down" }),
+        );
     }
 }
 
 fn after_module_edit(state: &mut AppState, msg: String) {
     state.settings.preset = "custom".into();
     state.sync_custom_preset();
-    state.set_status(StatusKind::Info, format!("{msg} - Custom preset selected, a to apply"));
+    state.set_status(
+        StatusKind::Info,
+        format!("{msg} - Custom preset selected, a to apply"),
+    );
 }
 
 fn cycle_setting(state: &mut AppState, forward: bool) {
+    state.push_undo();
     let s = &mut state.settings;
     match state.color_cursor {
         0 => s.icon_color = s.icon_color.cycle(forward, false),
@@ -584,9 +721,24 @@ fn cycle_setting(state: &mut AppState, forward: bool) {
 
 /// Persist settings and write both fastfetch configs.
 fn write_all(state: &mut AppState, settings: &Settings) -> anyhow::Result<Vec<std::path::PathBuf>> {
-    let theme = state.themes.iter().find(|t| t.id == settings.theme).unwrap_or(&state.themes[0]).clone();
-    let preset = state.presets.iter().find(|p| p.id == settings.preset).unwrap_or(&state.presets[0]).clone();
-    let logo = state.logos.iter().find(|l| l.id == settings.logo).unwrap_or(&state.logos[0]).clone();
+    let theme = state
+        .themes
+        .iter()
+        .find(|t| t.id == settings.theme)
+        .unwrap_or(&state.themes[0])
+        .clone();
+    let preset = state
+        .presets
+        .iter()
+        .find(|p| p.id == settings.preset)
+        .unwrap_or(&state.presets[0])
+        .clone();
+    let logo = state
+        .logos
+        .iter()
+        .find(|l| l.id == settings.logo)
+        .unwrap_or(&state.logos[0])
+        .clone();
     settings.save(&state.paths.settings_file())?;
     config::apply(&theme, &preset, &logo, settings, &state.paths, &state.geo)
 }
@@ -595,9 +747,26 @@ fn write_all(state: &mut AppState, settings: &Settings) -> anyhow::Result<Vec<st
 /// settings.json and both fastfetch configs so the next `fastfetch` shows them.
 fn quit(state: &mut AppState) {
     if state.unsaved() {
+        // If the user only previewed a theme or preset without applying it,
+        // and made no other modifications, do not overwrite their system configs!
+        if (state.is_previewing_theme()
+            || state.settings.preset != state.saved.preset
+            || state.settings.logo != state.saved.logo)
+            && !state.has_explicit_modifications()
+        {
+            state.settings.theme = state.saved.theme.clone();
+            state.settings.preset = state.saved.preset.clone();
+            state.settings.logo = state.saved.logo.clone();
+            state.running = false;
+            return;
+        }
         let ok = apply(state);
         let (kind, msg) = state.status.clone();
-        let msg = if ok { msg.replacen("✓ Applied", "✓ Saved on exit:", 1) } else { format!("Changes were NOT saved - {msg}") };
+        let msg = if ok {
+            msg.replacen("✓ Applied", "✓ Saved on exit:", 1)
+        } else {
+            format!("Changes were NOT saved - {msg}")
+        };
         state.exit_message = Some((kind, msg));
     }
     state.running = false;
@@ -605,19 +774,32 @@ fn quit(state: &mut AppState) {
 
 /// Returns whether the settings were written.
 fn apply(state: &mut AppState) -> bool {
+    let _ = crate::adapters::backup::create_backup(&state.paths);
     let theme = state.settings.theme.clone();
     state.settings.remember_theme(&theme);
     let settings = state.settings.clone();
     match write_all(state, &settings) {
         Ok(targets) => {
             state.saved = settings;
+            state.undo_stack.clear();
+            state.redo_stack.clear();
             if state.saved.apply_terminal_colors {
                 let osc = state.current_theme().osc_sequences();
                 state.effects.push(Effect::WriteTerminal(osc));
             }
-            let list = targets.iter().map(|p| p.display().to_string()).collect::<Vec<_>>().join(" + ");
-            let (theme, preset) = (state.current_theme().name.clone(), state.current_preset().name.clone());
-            state.set_status(StatusKind::Ok, format!("✓ Applied {theme} · {preset} → {list}"));
+            let list = targets
+                .iter()
+                .map(|p| p.display().to_string())
+                .collect::<Vec<_>>()
+                .join(" + ");
+            let (theme, preset) = (
+                state.current_theme().name.clone(),
+                state.current_preset().name.clone(),
+            );
+            state.set_status(
+                StatusKind::Ok,
+                format!("✓ Applied {theme} · {preset} → {list}"),
+            );
             true
         }
         Err(e) => {
@@ -636,15 +818,33 @@ fn toggle_demo(state: &mut AppState) {
     let mut saved = state.saved.clone();
     saved.demo_mode = on;
     let regenerate = state.paths.studio_config().exists();
-    let result = if regenerate { write_all(state, &saved).map(|_| ()) } else { saved.save(&state.paths.settings_file()) };
+    let result = if regenerate {
+        write_all(state, &saved).map(|_| ())
+    } else {
+        saved.save(&state.paths.settings_file())
+    };
     match result {
         Ok(()) => {
             state.saved = saved;
-            let what = if on { "ON - privacy-safe mock specs" } else { "OFF - real system specs" };
-            let tail = if regenerate { " (fastfetch config regenerated)" } else { "" };
-            state.set_status(if on { StatusKind::Ok } else { StatusKind::Warn }, format!("Preview mode {what}{tail}"));
+            let what = if on {
+                "ON - privacy-safe mock specs"
+            } else {
+                "OFF - real system specs"
+            };
+            let tail = if regenerate {
+                " (fastfetch config regenerated)"
+            } else {
+                ""
+            };
+            state.set_status(
+                if on { StatusKind::Ok } else { StatusKind::Warn },
+                format!("Preview mode {what}{tail}"),
+            );
         }
-        Err(e) => state.set_status(StatusKind::Error, format!("Could not save preview mode: {e:#}")),
+        Err(e) => state.set_status(
+            StatusKind::Error,
+            format!("Could not save preview mode: {e:#}"),
+        ),
     }
     if !on {
         state.start_real_probe();
@@ -655,7 +855,14 @@ fn create_backup(state: &mut AppState) {
     match backup::create_backup(&state.paths) {
         Ok(entry) => {
             state.refresh_backups();
-            state.set_status(StatusKind::Ok, format!("✓ Backup {} created ({} files)", entry.name, entry.files.len()));
+            state.set_status(
+                StatusKind::Ok,
+                format!(
+                    "✓ Backup {} created ({} files)",
+                    entry.name,
+                    entry.files.len()
+                ),
+            );
         }
         Err(e) => state.set_status(StatusKind::Error, format!("Backup failed: {e:#}")),
     }
@@ -672,7 +879,13 @@ fn restore_backup(state: &mut AppState) {
             state.saved = restored;
             state.sync_custom_preset();
             state.refresh_backups();
-            state.set_status(StatusKind::Ok, format!("✓ Restored {n} files from {} (previous state saved as pre-restore backup)", entry.name));
+            state.set_status(
+                StatusKind::Ok,
+                format!(
+                    "✓ Restored {n} files from {} (previous state saved as pre-restore backup)",
+                    entry.name
+                ),
+            );
         }
         Err(e) => state.set_status(StatusKind::Error, format!("Restore failed: {e:#}")),
     }
@@ -697,8 +910,16 @@ fn delete_backup(state: &mut AppState) {
 fn run_doctor(state: &mut AppState) {
     state.doctor = doctor::run_checks(&state.paths);
     state.doctor_cursor = 0;
-    let fails = state.doctor.iter().filter(|c| c.level == doctor::Level::Fail).count();
-    let warns = state.doctor.iter().filter(|c| c.level == doctor::Level::Warn).count();
+    let fails = state
+        .doctor
+        .iter()
+        .filter(|c| c.level == doctor::Level::Fail)
+        .count();
+    let warns = state
+        .doctor
+        .iter()
+        .filter(|c| c.level == doctor::Level::Warn)
+        .count();
     let kind = if fails > 0 {
         StatusKind::Error
     } else if warns > 0 {
@@ -706,12 +927,25 @@ fn run_doctor(state: &mut AppState) {
     } else {
         StatusKind::Ok
     };
-    state.set_status(kind, format!("Doctor: {} checks, {fails} failed, {warns} warnings", state.doctor.len()));
+    state.set_status(
+        kind,
+        format!(
+            "Doctor: {} checks, {fails} failed, {warns} warnings",
+            state.doctor.len()
+        ),
+    );
 }
 
 fn click(state: &mut AppState, col: u16, row: u16) {
-    let inside = |r: &ratatui::layout::Rect| col >= r.x && col < r.x + r.width && row >= r.y && row < r.y + r.height;
-    let hit = state.hits.iter().rev().find(|(r, _)| inside(r)).map(|&(_, h)| h);
+    let inside = |r: &ratatui::layout::Rect| {
+        col >= r.x && col < r.x + r.width && row >= r.y && row < r.y + r.height
+    };
+    let hit = state
+        .hits
+        .iter()
+        .rev()
+        .find(|(r, _)| inside(r))
+        .map(|&(_, h)| h);
     if let Some(dd) = state.dropdown.clone() {
         if let Some(Hit::DropItem(i)) = hit {
             set_option(state, dd.field, i);
@@ -727,23 +961,36 @@ fn click(state: &mut AppState, col: u16, row: u16) {
             }
             Hit::Quick(i) => {
                 state.focus = Focus::Content;
-                state.dash = DashCursor { row: DashRow::Quick, col: i };
+                state.dash = DashCursor {
+                    row: DashRow::Quick,
+                    col: i,
+                };
                 quick_action(state, i);
             }
             Hit::Recent(i) => {
                 state.focus = Focus::Content;
-                state.dash = DashCursor { row: DashRow::Recent, col: i };
+                state.dash = DashCursor {
+                    row: DashRow::Recent,
+                    col: i,
+                };
                 apply_recent(state, i);
             }
             Hit::RecentScroll => {
                 let len = state.recent_theme_indices().len();
                 let n = state.recent_visible.max(1);
-                state.recent_offset = if state.recent_offset + n >= len { 0 } else { state.recent_offset + 1 };
+                state.recent_offset = if state.recent_offset + n >= len {
+                    0
+                } else {
+                    state.recent_offset + 1
+                };
             }
             Hit::ViewAll => open(state, Screen::Themes),
             Hit::Tool(i) => {
                 state.focus = Focus::Content;
-                state.dash = DashCursor { row: DashRow::Tools, col: i };
+                state.dash = DashCursor {
+                    row: DashRow::Tools,
+                    col: i,
+                };
                 tool_action(state, i);
             }
             Hit::Option(i) => {
@@ -793,22 +1040,47 @@ fn tick(state: &mut AppState) {
     if let Some(k) = state.kitty.as_mut() {
         let uploads = k.poll();
         if !uploads.is_empty() {
-            state.effects.extend(uploads.into_iter().map(Effect::WriteTerminal));
+            state
+                .effects
+                .extend(uploads.into_iter().map(Effect::WriteTerminal));
             state.dirty = true;
         }
     }
     let done = state.pool.poll();
-    if let Some(sel) = state.current_logo().existing_image() {
-        if done.iter().any(|p| p == sel) {
-            state.dirty = true;
-        }
+    if let Some(sel) = state.current_logo().existing_image()
+        && done.iter().any(|p| p == sel)
+    {
+        state.dirty = true;
     }
-    if let Some(rx) = &state.real_rx {
-        if let Ok(info) = rx.try_recv() {
-            state.real_info = Some(info);
-            state.real_rx = None;
-            state.dirty = true;
-        }
+    if let Some(rx) = &state.real_rx
+        && let Ok(info) = rx.try_recv()
+    {
+        state.real_info = Some(info);
+        state.real_rx = None;
+        state.dirty = true;
+    }
+}
+
+fn select_filtered(state: &mut AppState) {
+    let list = state.filtered_themes();
+    if !list.contains(&state.theme_idx())
+        && let Some(&i) = list.first()
+    {
+        set_option(state, 0, i);
+    }
+}
+fn persist_presets(state: &mut AppState) {
+    let custom = serde_json::json!({"presets": &state.presets});
+    let result = serde_json::to_vec_pretty(&custom)
+        .map_err(anyhow::Error::from)
+        .and_then(|bytes| {
+            crate::adapters::fsutil::atomic_write(
+                &state.paths.config_dir.join("presets.json"),
+                &bytes,
+            )
+        });
+    if let Err(e) = result {
+        state.set_status(StatusKind::Error, format!("Cannot save presets: {e}"));
     }
 }
 
@@ -818,14 +1090,21 @@ mod tests {
     use crate::paths::Paths;
 
     fn app() -> (AppState, std::path::PathBuf) {
-        let root = std::env::temp_dir().join(format!("tfs-reducer-{}-{}", std::process::id(), rand_suffix()));
+        let root = std::env::temp_dir().join(format!(
+            "tfs-reducer-{}-{}",
+            std::process::id(),
+            rand_suffix()
+        ));
         let paths = Paths::with_root(&root);
         let geo = TermGeometry::from_window(160, 48, 1600, 960);
         (AppState::new(paths, Settings::default(), geo), root)
     }
 
     fn rand_suffix() -> u128 {
-        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
     }
 
     #[test]
@@ -861,7 +1140,11 @@ mod tests {
         let studio = std::fs::read_to_string(s.paths.studio_config()).unwrap();
         let fastfetch = std::fs::read_to_string(&s.paths.fastfetch_config).unwrap();
         assert_eq!(studio, fastfetch);
-        assert!(matches!(&s.exit_message, Some((StatusKind::Ok, m)) if m.contains("Saved on exit")), "{:?}", s.exit_message);
+        assert!(
+            matches!(&s.exit_message, Some((StatusKind::Ok, m)) if m.contains("Saved on exit")),
+            "{:?}",
+            s.exit_message
+        );
         let _ = std::fs::remove_dir_all(root);
     }
 
@@ -915,10 +1198,16 @@ mod tests {
         reduce(&mut s, Action::Goto(Screen::Settings));
         s.focus = Focus::Content;
         reduce(&mut s, Action::Right);
-        assert_ne!(s.settings.icon_color, crate::domain::color::ColorValue::Theme);
+        assert_ne!(
+            s.settings.icon_color,
+            crate::domain::color::ColorValue::Theme
+        );
         s.color_cursor = 7;
         reduce(&mut s, Action::Activate);
-        assert_eq!(s.settings.icon_color, crate::domain::color::ColorValue::Theme);
+        assert_eq!(
+            s.settings.icon_color,
+            crate::domain::color::ColorValue::Theme
+        );
         let _ = std::fs::remove_dir_all(root);
     }
 
@@ -936,28 +1225,15 @@ mod tests {
         reduce(&mut s, Action::Apply);
         s.screen = Screen::Backup;
         s.refresh_backups();
-        s.backup_cursor = s.backups.iter().position(|b| !b.name.contains("pre-restore")).unwrap() + 1;
+        s.backup_cursor = s
+            .backups
+            .iter()
+            .position(|b| !b.name.contains("pre-restore"))
+            .unwrap()
+            + 1;
         reduce(&mut s, Action::Activate);
         assert_eq!(s.settings.theme, original_theme, "{:?}", s.status);
         assert!(s.backups.iter().any(|b| b.name.contains("pre-restore")));
         let _ = std::fs::remove_dir_all(root);
-    }
-}
-
-fn select_filtered(state: &mut AppState) {
-    let list = state.filtered_themes();
-    if !list.contains(&state.theme_idx()) {
-        if let Some(&i) = list.first() {
-            set_option(state, 0, i);
-        }
-    }
-}
-fn persist_presets(state: &mut AppState) {
-    let custom = serde_json::json!({"presets": &state.presets});
-    let result = serde_json::to_vec_pretty(&custom)
-        .map_err(anyhow::Error::from)
-        .and_then(|bytes| crate::adapters::fsutil::atomic_write(&state.paths.config_dir.join("presets.json"), &bytes));
-    if let Err(e) = result {
-        state.set_status(StatusKind::Error, format!("Cannot save presets: {e}"));
     }
 }

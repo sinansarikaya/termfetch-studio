@@ -40,8 +40,12 @@ fn parse_offset(s: &str) -> Option<i64> {
 
 impl SysInfo {
     pub fn detect() -> Self {
-        let release = ["/etc/os-release", "/usr/lib/os-release"].iter().find_map(|p| std::fs::read_to_string(p).ok()).unwrap_or_default();
-        let distro = os_release_value(&release, "NAME").unwrap_or_else(|| std::env::consts::OS.to_string());
+        let release = ["/etc/os-release", "/usr/lib/os-release"]
+            .iter()
+            .find_map(|p| std::fs::read_to_string(p).ok())
+            .unwrap_or_default();
+        let distro =
+            os_release_value(&release, "NAME").unwrap_or_else(|| std::env::consts::OS.to_string());
         let mut distro_ids: Vec<String> = os_release_value(&release, "ID").into_iter().collect();
         if let Some(like) = os_release_value(&release, "ID_LIKE") {
             distro_ids.extend(like.split_whitespace().map(str::to_string));
@@ -53,7 +57,11 @@ impl SysInfo {
             .ok()
             .and_then(|o| parse_offset(&String::from_utf8_lossy(&o.stdout)))
             .unwrap_or(0);
-        Self { distro, distro_ids, utc_offset }
+        Self {
+            distro,
+            distro_ids,
+            utc_offset,
+        }
     }
 
     /// Nerd Font glyph for the distribution.
@@ -76,7 +84,10 @@ impl SysInfo {
 
     /// Local wall-clock time as `HH:MM`.
     pub fn clock(&self) -> String {
-        let now = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs() as i64).unwrap_or(0);
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_secs() as i64)
+            .unwrap_or(0);
         let secs = (now + self.utc_offset).rem_euclid(86_400);
         format!("{:02}:{:02}", secs / 3600, secs % 3600 / 60)
     }
@@ -89,12 +100,19 @@ mod tests {
     #[test]
     fn parses_os_release_and_offsets() {
         let text = "NAME=\"CachyOS Linux\"\nID=cachyos\nID_LIKE=arch\n";
-        assert_eq!(os_release_value(text, "NAME").as_deref(), Some("CachyOS Linux"));
+        assert_eq!(
+            os_release_value(text, "NAME").as_deref(),
+            Some("CachyOS Linux")
+        );
         assert_eq!(os_release_value(text, "ID_LIKE").as_deref(), Some("arch"));
         assert_eq!(parse_offset("+0300\n"), Some(10_800));
         assert_eq!(parse_offset("-0530"), Some(-19_800));
         assert_eq!(parse_offset("garbage"), None);
-        let info = SysInfo { distro: "CachyOS".into(), distro_ids: vec!["cachyos".into(), "arch".into()], utc_offset: 0 };
+        let info = SysInfo {
+            distro: "CachyOS".into(),
+            distro_ids: vec!["cachyos".into(), "arch".into()],
+            utc_offset: 0,
+        };
         assert_eq!(info.distro_icon(), "\u{f08c7}");
         assert_eq!(info.clock().len(), 5);
     }

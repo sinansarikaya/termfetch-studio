@@ -5,16 +5,18 @@ use crate::app::state::AppState;
 use crate::domain::preset::DEMO_DATA;
 use crate::tui::widgets::ui::{fill, line_at, width};
 use ratatui::{
+    Frame,
     layout::Rect,
     style::{Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Widget},
-    Frame,
 };
 
 /// `fastfetch 2.70.0 (x86_64)` → `2.70.0`.
 fn short_version(v: &str) -> &str {
-    v.split_whitespace().find(|t| t.chars().next().is_some_and(|c| c.is_ascii_digit())).unwrap_or(v)
+    v.split_whitespace()
+        .find(|t| t.chars().next().is_some_and(|c| c.is_ascii_digit()))
+        .unwrap_or(v)
 }
 
 pub fn render_header(f: &mut Frame, area: Rect, state: &AppState) {
@@ -23,8 +25,16 @@ pub fn render_header(f: &mut Frame, area: Rect, state: &AppState) {
     fill(buf, area, Style::new().bg(pal.bg).fg(pal.fg));
     // Roomy layout: one content row with a separator line below.
     let row = if area.height >= 3 {
-        Block::new().borders(Borders::BOTTOM).border_style(Style::new().fg(pal.border).bg(pal.bg)).render(area, buf);
-        Rect { x: area.x + 1, y: area.y + 1, width: area.width.saturating_sub(2), height: 1 }
+        Block::new()
+            .borders(Borders::BOTTOM)
+            .border_style(Style::new().fg(pal.border).bg(pal.bg))
+            .render(area, buf);
+        Rect {
+            x: area.x + 1,
+            y: area.y + 1,
+            width: area.width.saturating_sub(2),
+            height: 1,
+        }
     } else {
         area
     };
@@ -42,26 +52,66 @@ pub fn render_header(f: &mut Frame, area: Rect, state: &AppState) {
     match &state.fastfetch_version {
         Some(v) => {
             right.push(Span::styled("● ", Style::new().fg(pal.ok).bg(pal.bg)));
-            right.push(Span::styled(format!("Fastfetch: OK ({})", short_version(v)), Style::new().fg(pal.ok).bg(pal.bg)));
+            right.push(Span::styled(
+                format!("Fastfetch: OK ({})", short_version(v)),
+                Style::new().fg(pal.ok).bg(pal.bg),
+            ));
         }
         None => {
             right.push(Span::styled("● ", Style::new().fg(pal.error).bg(pal.bg)));
-            right.push(Span::styled("Fastfetch: missing", Style::new().fg(pal.error).bg(pal.bg)));
+            right.push(Span::styled(
+                "Fastfetch: missing",
+                Style::new().fg(pal.error).bg(pal.bg),
+            ));
         }
     }
-    let distro = if state.settings.demo_mode { DEMO_DATA.os.trim_end_matches(" x86_64").to_string() } else { state.sysinfo.distro.clone() };
-    right.push(Span::styled("  │  ", Style::new().fg(pal.border).bg(pal.bg)));
-    right.push(Span::styled(format!("{} ", state.sysinfo.distro_icon()), Style::new().fg(pal.info).bg(pal.bg)));
+    let distro = if state.settings.demo_mode {
+        DEMO_DATA.os.trim_end_matches(" x86_64").to_string()
+    } else {
+        state.sysinfo.distro.clone()
+    };
+    right.push(Span::styled(
+        "  │  ",
+        Style::new().fg(pal.border).bg(pal.bg),
+    ));
+    right.push(Span::styled(
+        format!("{} ", state.sysinfo.distro_icon()),
+        Style::new().fg(pal.info).bg(pal.bg),
+    ));
     right.push(Span::styled(distro, Style::new().fg(pal.fg).bg(pal.bg)));
-    right.push(Span::styled("  │  ", Style::new().fg(pal.border).bg(pal.bg)));
-    right.push(Span::styled("\u{f0954} ", Style::new().fg(pal.muted).bg(pal.bg)));
-    right.push(Span::styled(state.clock.clone(), Style::new().fg(pal.fg).bg(pal.bg).add_modifier(Modifier::BOLD)));
+    right.push(Span::styled(
+        "  │  ",
+        Style::new().fg(pal.border).bg(pal.bg),
+    ));
+    right.push(Span::styled(
+        "\u{f0954} ",
+        Style::new().fg(pal.muted).bg(pal.bg),
+    ));
+    right.push(Span::styled(
+        state.clock.clone(),
+        Style::new()
+            .fg(pal.fg)
+            .bg(pal.bg)
+            .add_modifier(Modifier::BOLD),
+    ));
     right.push(Span::styled(" ", bg));
     let right_w: u16 = right.iter().map(|s| width(&s.content)).sum();
 
     let mut left = vec![
-        Span::styled(" >_ ", Style::new().fg(pal.primary).bg(pal.raised).add_modifier(Modifier::BOLD)),
-        Span::styled(" TermFetch Studio ", Style::new().fg(pal.fg).bg(pal.bg).add_modifier(Modifier::BOLD)),
+        Span::styled(
+            " >_ ",
+            Style::new()
+                .fg(pal.primary)
+                .bg(pal.raised)
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(
+            " TermFetch Studio ",
+            Style::new()
+                .fg(pal.fg)
+                .bg(pal.bg)
+                .add_modifier(Modifier::BOLD),
+        ),
         Span::styled(" v2.0 ", Style::new().fg(pal.muted).bg(pal.raised)),
     ];
     let left_w: u16 = left.iter().map(|s| width(&s.content)).sum();
@@ -70,7 +120,7 @@ pub fn render_header(f: &mut Frame, area: Rect, state: &AppState) {
         left.push(Span::styled(tagline, Style::new().fg(pal.link).bg(pal.bg)));
     }
     line_at(buf, row, 0, Line::from(left));
-    if left_w + right_w + 1 <= row.width {
+    if left_w + right_w < row.width {
         line_at(buf, row, 0, Line::from(right).right_aligned());
     }
 }
