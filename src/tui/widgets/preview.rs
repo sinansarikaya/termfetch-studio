@@ -2,20 +2,20 @@
 //! `padding.top = 2` / `padding.right = 4`, module keys padded to `keyWidth`,
 //! the same separator and the same resolved colours as the generated config.
 
-use crate::adapters::fastfetch::config::{module_key, DOT, KEY_WIDTH, LOGO_PADDING_RIGHT, LOGO_PADDING_TOP, SEPARATOR};
+use crate::adapters::fastfetch::config::{DOT, KEY_WIDTH, LOGO_PADDING_RIGHT, LOGO_PADDING_TOP, SEPARATOR, module_key};
 use crate::adapters::fastfetch::runner::RealInfo;
 use crate::domain::logo::LogoItem;
-use crate::domain::preset::{Preset, DEMO_DATA};
+use crate::domain::preset::{DEMO_DATA, Preset};
 use crate::domain::settings::Settings;
 use crate::domain::style;
 use crate::domain::theme::Theme;
+use crate::imaging::{HalfblockGrid, TermGeometry, blend, config_logo_cells, fit_image_cells, kitty};
 use crate::tui::palette::Palette;
-use crate::imaging::{blend, config_logo_cells, fit_image_cells, kitty, HalfblockGrid, TermGeometry};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, BorderType, Borders, Widget};
+use ratatui::widgets::{Block, BorderType, Borders, Paragraph, Widget};
 use unicode_width::UnicodeWidthStr;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -71,13 +71,10 @@ impl PreviewModel<'_> {
         match self.image {
             ImageState::Ready(dims) => {
                 let (cw, ch) = config_logo_cells(dims, self.settings.logo_size.max_cells(), &self.geo);
-                let max_w = cw.min((avail.0 / 2).max(1));
+                let info_width = self.lines().iter().map(Line::width).max().unwrap_or(30).min(46) as u16;
+                let max_w = cw.min(avail.0.saturating_sub(info_width + LOGO_PADDING_RIGHT).max(1));
                 let max_h = ch.min(avail.1.saturating_sub(LOGO_PADDING_TOP).max(1));
-                if (max_w, max_h) == (cw, ch) {
-                    (cw, ch)
-                } else {
-                    fit_image_cells(dims.0, dims.1, self.geo.cell, max_w, max_h)
-                }
+                if (max_w, max_h) == (cw, ch) { (cw, ch) } else { fit_image_cells(dims.0, dims.1, self.geo.cell, max_w, max_h) }
             }
             ImageState::Loading | ImageState::Missing => {
                 let (w, h) = self.settings.logo_size.max_cells();
@@ -106,9 +103,7 @@ impl PreviewModel<'_> {
         let raw = if self.settings.demo_mode {
             DEMO_DATA.user_host.to_string()
         } else {
-            self.info
-                .and_then(|i| i.title.clone())
-                .unwrap_or_else(|| format!("{}@…", std::env::var("USER").unwrap_or_else(|_| "user".into())))
+            self.info.and_then(|i| i.title.clone()).unwrap_or_else(|| format!("{}@…", std::env::var("USER").unwrap_or_else(|_| "user".into())))
         };
         match raw.split_once('@') {
             Some((u, h)) => (u.to_string(), h.to_string()),
@@ -139,11 +134,7 @@ impl PreviewModel<'_> {
         let text_c = style::text_color(self.theme, self.settings).tui_color(fg);
         let (user, host) = self.title();
         let title_style = Style::new().fg(tc).bg(bg).add_modifier(Modifier::BOLD);
-        out.push(Line::from(vec![
-            Span::styled(user, title_style),
-            Span::styled("@", Style::new().fg(text_c).bg(bg)),
-            Span::styled(host, title_style),
-        ]));
+        out.push(Line::from(vec![Span::styled(user, title_style), Span::styled("@", Style::new().fg(text_c).bg(bg)), Span::styled(host, title_style)]));
         out.push(Line::default());
         if self.preset.color_dots {
             out.push(self.dots());
@@ -216,11 +207,7 @@ pub fn draw_kitty_placeholders(buf: &mut Buffer, x: u16, y: u16, clip: Rect, (w,
 /// Inner content rect (inside the border, with a one-column margin).
 pub fn inner_area(area: Rect) -> Rect {
     let inner = Block::new().borders(Borders::ALL).inner(area);
-    Rect {
-        x: inner.x + 1,
-        width: inner.width.saturating_sub(1),
-        ..inner
-    }
+    Rect { x: inner.x + 1, width: inner.width.saturating_sub(1), ..inner }
 }
 
 /// Studio chrome around the live preview: `● Live Preview · <preset>` with
@@ -238,12 +225,8 @@ pub fn draw_preview_chrome(buf: &mut Buffer, area: Rect, pal: &Palette, preset: 
             Span::styled(format!("· {preset} "), Style::new().fg(pal.muted).bg(pal.bg)),
         ]))
         .title(
-            Line::from(vec![
-                Span::styled(" \u{f0293}  ", Style::new().fg(pal.muted).bg(pal.bg)),
-                Span::styled(eye.0, Style::new().fg(eye.1).bg(pal.bg)),
-                Span::styled(" ", bg),
-            ])
-            .right_aligned(),
+            Line::from(vec![Span::styled(" \u{f0293}  ", Style::new().fg(pal.muted).bg(pal.bg)), Span::styled(eye.0, Style::new().fg(eye.1).bg(pal.bg)), Span::styled(" ", bg)])
+                .right_aligned(),
         );
     let inner = block.inner(area);
     block.render(area, buf);
@@ -254,6 +237,11 @@ pub fn draw_preview_chrome(buf: &mut Buffer, area: Rect, pal: &Palette, preset: 
 /// `model.logo_cells(..)` for image logos. With `chrome`, the pane gets the
 /// studio frame and the emulated terminal is painted inside it.
 pub fn draw_preview(buf: &mut Buffer, area: Rect, model: &PreviewModel, raster: LogoRaster, chrome: Option<&Palette>) {
+    draw_preview_scrolled(buf, area, model, raster, chrome, 0);
+}
+
+/// Wrap long system values and scroll their full content in Focus Preview.
+pub fn draw_preview_scrolled(buf: &mut Buffer, area: Rect, model: &PreviewModel, raster: LogoRaster, chrome: Option<&Palette>, scroll: u16) {
     let (bg, fg) = (model.bg(), model.fg());
     let area = area.intersection(buf.area);
     let body = match chrome {
@@ -304,13 +292,10 @@ pub fn draw_preview(buf: &mut Buffer, area: Rect, model: &PreviewModel, raster: 
         return;
     }
     let width = inner.right() - mx;
-    for (i, line) in model.lines().iter().enumerate() {
-        let y = inner.y + i as u16;
-        if y >= inner.bottom() {
-            break;
-        }
-        buf.set_line(mx, y, line, width);
-    }
+    let lines = wrap_info_lines(model.lines(), usize::from(width));
+    let wrapped_rows = lines.len();
+    let scroll = scroll.min(wrapped_rows.saturating_sub(usize::from(inner.height)).min(u16::MAX as usize) as u16);
+    Paragraph::new(lines).scroll((scroll, 0)).render(Rect::new(mx, inner.y, width, inner.height), buf);
 }
 
 /// Convert a rendered buffer to a string with ANSI SGR colours (CLI `--preview`).
@@ -363,4 +348,39 @@ pub fn buffer_to_ansi(buf: &Buffer) -> String {
         out.push_str("\x1b[0m\n");
     }
     out
+}
+
+/// Hard-wrap without dropping long, unbroken hardware identifiers or paths.
+fn wrap_info_lines(lines: Vec<Line<'static>>, width: usize) -> Vec<Line<'static>> {
+    let mut out = Vec::new();
+    for line in lines {
+        let mut row = Vec::new();
+        let mut used = 0;
+        for span in line.spans {
+            for ch in span.content.chars() {
+                let cells = unicode_width::UnicodeWidthChar::width(ch).unwrap_or(0);
+                if used + cells > width.max(1) && !row.is_empty() {
+                    out.push(Line::from(std::mem::take(&mut row)));
+                    used = 0;
+                }
+                row.push(Span::styled(ch.to_string(), span.style));
+                used += cells;
+            }
+        }
+        out.push(Line::from(row));
+    }
+    out
+}
+
+#[cfg(test)]
+mod wrapping_tests {
+    use super::*;
+    #[test]
+    fn long_identifiers_and_unicode_survive_wrapping() {
+        let input = "CPU-abcdefghijklmnopqrstuvwxyz界界";
+        let lines = wrap_info_lines(vec![Line::from(input)], 8);
+        assert!(lines.iter().all(|l| l.width() <= 8));
+        let restored: String = lines.iter().flat_map(|l| l.spans.iter()).map(|s| s.content.as_ref()).collect();
+        assert_eq!(restored, input);
+    }
 }

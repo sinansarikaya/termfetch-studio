@@ -1,21 +1,21 @@
 use crate::app::state::{AppState, PreviewOutput, Screen};
 use crate::imaging::kitty::ImageKey;
 use crate::tui::screens::{
-    backup::render_backup, dashboard::render_dashboard, doctor::render_doctor, logos::render_logos, modules::render_modules,
-    presets::render_presets, settings::render_settings, themes::render_themes,
+    backup::render_backup, dashboard::render_dashboard, doctor::render_doctor, logos::render_logos, modules::render_modules, presets::render_presets, settings::render_settings,
+    themes::render_themes,
 };
 use crate::tui::widgets::footer::render_footer;
 use crate::tui::widgets::header::render_header;
 use crate::tui::widgets::options::{options_height, render_options};
-use crate::tui::widgets::preview::{draw_preview, draw_preview_chrome, inner_area, ImageState, LogoRaster, PreviewModel};
+use crate::tui::widgets::preview::{ImageState, LogoRaster, PreviewModel, draw_preview_chrome, draw_preview_scrolled, inner_area};
 use crate::tui::widgets::sidebar::render_sidebar;
 use crate::tui::widgets::ui::{card, fill, key_badge, line_at};
 use ratatui::{
+    Frame,
     layout::{Constraint, Layout, Rect},
     style::{Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Widget},
-    Frame,
 };
 
 /// Column widths for the three-pane layout at a given terminal width:
@@ -23,16 +23,14 @@ use ratatui::{
 fn columns(w: u16) -> (u16, u16) {
     match w {
         // Very wide / standard developer terminals (180+ cols):
-        // Sidebar 24 is plenty. Preview gets 80-96 cols so wide Fastfetch logos
-        // (Pikachu 24-28 cells + padding 4) and full hardware specs (46+ cells) never truncate,
-        // while center stage gets at least 76 cols so Dashboard Quick Actions fit without truncation.
-        w if w >= 180 => (24, (w * 44 / 100).clamp(80, 96)),
+        // Preserve 44% of the full terminal for preview, including ultrawide screens.
+        w if w >= 180 => (24, w * 44 / 100),
         // Wide terminals (150-179 cols):
-        w if w >= 150 => (24, (w * 46 / 100).clamp(74, 80)),
+        w if w >= 150 => (24, w * 44 / 100),
         // Medium terminals (125-149 cols):
-        w if w >= 125 => (22, (w * 44 / 100).clamp(62, 72)),
+        w if w >= 125 => (22, w * 44 / 100),
         // Compact terminals (100-124 cols):
-        w if w >= 100 => (22, 52),
+        w if w >= 100 => (22, w * 44 / 100),
         // Narrow terminals (72-99 cols): sidebar + center only, preview collapsed.
         w if w >= 72 => (22, 0),
         _ => (0, 0),
@@ -51,9 +49,14 @@ pub fn render_ui(f: &mut Frame, state: &mut AppState) {
     let [top, body, bottom] = Layout::vertical([Constraint::Length(bars), Constraint::Min(4), Constraint::Length(bars)]).areas(full);
     render_header(f, top, state);
 
+    if state.preview_focus {
+        render_preview_pane(f, body, state);
+        render_footer(f, bottom, state);
+        render_dialog(f, state);
+        return;
+    }
     let (side_w, preview_w) = columns(body.width);
-    let [side, center, preview] =
-        Layout::horizontal([Constraint::Length(side_w), Constraint::Min(20), Constraint::Length(preview_w)]).areas(body);
+    let [side, center, preview] = Layout::horizontal([Constraint::Length(side_w), Constraint::Min(20), Constraint::Length(preview_w)]).areas(body);
     if side_w > 0 {
         render_sidebar(f, side, state);
     }
@@ -68,6 +71,7 @@ pub fn render_ui(f: &mut Frame, state: &mut AppState) {
         }
     }
     render_footer(f, bottom, state);
+    render_dialog(f, state);
     if state.help_open {
         render_help(f, state);
     }
@@ -118,11 +122,7 @@ fn preview_model(state: &AppState, image: ImageState) -> PreviewModel<'_> {
 /// Kitty rendition of `path` shown in `cells` at the terminal's cell pixel size.
 fn kitty_key(state: &AppState, path: &str, cells: (u16, u16)) -> ImageKey {
     let cell = state.geo.cell;
-    ImageKey {
-        path: path.to_string(),
-        cells,
-        px: (u32::from(cells.0) * cell.w, u32::from(cells.1) * cell.h),
-    }
+    ImageKey { path: path.to_string(), cells, px: (u32::from(cells.0) * cell.w, u32::from(cells.1) * cell.h) }
 }
 
 /// Pre-upload every decoded image logo at the size the preview would show it,
@@ -144,9 +144,13 @@ fn kitty_prefetch(state: &mut AppState, avail: (u16, u16)) {
 }
 
 fn render_preview_pane(f: &mut Frame, area: Rect, state: &mut AppState) {
+    let control = Rect { x: area.right().saturating_sub(7), y: area.y, width: 6.min(area.width), height: 1 };
+    state.hits.push((control, crate::app::state::Hit::FocusPreview));
     state.preview_body = Block::new().borders(Borders::ALL).inner(area);
     if state.preview_output == PreviewOutput::Config {
         render_config_output(f, area, state);
+        let pal = state.palette();
+        line_at(f.buffer_mut(), control, 0, Line::from(Span::styled("[⛶] f", Style::new().fg(pal.primary).bg(pal.surface))));
         return;
     }
     let image = image_state(state);
@@ -177,7 +181,8 @@ fn render_preview_pane(f: &mut Frame, area: Rect, state: &mut AppState) {
     };
     let pal = state.palette();
     let model = preview_model(state, image);
-    draw_preview(f.buffer_mut(), area, &model, raster, Some(&pal));
+    draw_preview_scrolled(f.buffer_mut(), area, &model, raster, Some(&pal), if state.preview_focus { state.preview_scroll } else { 0 });
+    line_at(f.buffer_mut(), control, 0, Line::from(Span::styled("[⛶] f", Style::new().fg(pal.primary).bg(pal.surface))));
 }
 
 /// The config `Enter`/`a` would write, shown in the preview box.
@@ -195,7 +200,9 @@ fn render_config_output(f: &mut Frame, area: Rect, state: &mut AppState) {
     let body = Rect { x: body.x + 1, width: body.width.saturating_sub(1), ..body };
     for (i, l) in text.lines().take(usize::from(body.height)).enumerate() {
         let line = match l.split_once(':') {
-            Some((k, v)) if k.trim_start().starts_with('"') => Line::from(vec![Span::styled(format!("{k}:"), Style::new().fg(pal.link)), Span::styled(v.to_string(), Style::new().fg(pal.fg))]),
+            Some((k, v)) if k.trim_start().starts_with('"') => {
+                Line::from(vec![Span::styled(format!("{k}:"), Style::new().fg(pal.link)), Span::styled(v.to_string(), Style::new().fg(pal.fg))])
+            }
             _ if l.trim_start().starts_with("//") => Line::from(Span::styled(l.to_string(), Style::new().fg(pal.dim))),
             _ => Line::from(Span::styled(l.to_string(), Style::new().fg(pal.muted))),
         };
@@ -203,15 +210,17 @@ fn render_config_output(f: &mut Frame, area: Rect, state: &mut AppState) {
     }
 }
 
-const HELP: [(&str, &str); 14] = [
+const HELP: [(&str, &str); 16] = [
     ("Tab / Shift+Tab", "next / previous section (menu → stage → options)"),
     ("↑↓ ←→  hjkl", "move; the live preview follows instantly"),
     ("Enter", "select: open, apply or toggle the focused item"),
     ("a / A", "apply theme to system (both fastfetch configs)"),
     ("1-8", "jump to a screen (Dashboard stage: 1-4 quick actions)"),
     ("p", "run the real fastfetch with the current selection"),
-    ("d", "toggle privacy preview mode (mock specs)"),
+    ("d / r / x", "Presets: duplicate / rename / confirm deletion"),
     ("s", "cycle logo size"),
+    ("f / Esc", "expand preview / return; ↑↓ scroll full system values"),
+    ("c / /", "Themes: category / search"),
     ("Space  J/K", "Modules: toggle / reorder"),
     ("x / r", "Backup: delete · Doctor: re-run"),
     ("o", "cycle preview output (terminal / config)"),
@@ -236,4 +245,26 @@ fn render_help(f: &mut Frame, state: &AppState) {
         badge.content = format!(" {k:<15} ").into();
         line_at(f.buffer_mut(), inner, i as u16, Line::from(vec![badge, Span::styled(format!("  {d}"), Style::new().fg(pal.muted))]));
     }
+}
+
+fn render_dialog(f: &mut Frame, state: &AppState) {
+    let Some(kind) = state.editor.as_deref() else {
+        return;
+    };
+    let pal = state.palette();
+    let full = f.area();
+    let w = full.width.saturating_sub(4).min(64);
+    let h = full.height.min(6);
+    let area = Rect::new(full.x + (full.width - w) / 2, full.y + (full.height - h) / 2, w, h);
+    fill(f.buffer_mut(), area, Style::new().bg(pal.surface));
+    let title = match kind {
+        "search" => "Search themes",
+        "rename" => "Rename preset",
+        _ => "Delete preset · type yes to confirm",
+    };
+    let block = card(&pal, true).title(format!(" {title} "));
+    let inner = block.inner(area);
+    block.render(area, f.buffer_mut());
+    line_at(f.buffer_mut(), inner, 0, Line::from(Span::styled(format!("> {}▏", state.input), Style::new().fg(pal.fg))));
+    line_at(f.buffer_mut(), inner, 2, Line::from(Span::styled("Enter confirm · Esc cancel", Style::new().fg(pal.muted))));
 }

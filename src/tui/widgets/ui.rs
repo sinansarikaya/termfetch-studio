@@ -1,7 +1,7 @@
 //! Small drawing primitives shared by the studio chrome: cards, key badges,
 //! palette dots and the procedural landscape thumbnails of theme cards.
 
-use crate::domain::contrast::{mix, to_rgb, Rgb};
+use crate::domain::contrast::{Rgb, mix, to_rgb};
 use crate::domain::settings::Settings;
 use crate::domain::style;
 use crate::domain::theme::Theme;
@@ -121,60 +121,282 @@ fn seed(id: &str) -> u32 {
     id.bytes().fold(2_166_136_261u32, |h, b| (h ^ u32::from(b)).wrapping_mul(16_777_619))
 }
 
-/// Ridge height (0 = top) of a mountain range at column `x` of `w`.
-fn ridge(x: f64, w: f64, base: f64, peaks: &[(f64, f64)]) -> f64 {
-    peaks.iter().fold(base, |acc, &(cx, height)| {
-        let d = ((x - cx * w) / (w * 0.32)).abs();
-        acc.min(base - height * (1.0 - d).max(0.0))
-    })
-}
-
-/// Procedural "sunset over mountains" thumbnail in the theme's colours,
-/// painted with `▀` half blocks (two pixels per cell).
+/// Fixed-resolution pixel scenes, enlarged with nearest-neighbor sampling.
+/// Each terminal cell carries two crisp pixels; no interpolated edges.
 pub fn draw_thumbnail(buf: &mut Buffer, area: Rect, theme: &Theme) {
     let area = area.intersection(buf.area);
     if area.is_empty() {
         return;
     }
-    let bg = rgb(theme.background_color(), (0x10, 0x10, 0x18));
-    let primary = rgb(theme.primary_color(), (0x89, 0xb4, 0xfa));
-    let secondary = rgb(theme.secondary_color(), primary);
-    let accent = rgb(theme.accent_color(), primary);
-    let text = rgb(theme.text_color(), (0xee, 0xee, 0xee));
-    let s = seed(&theme.id);
-    let (w, h) = (f64::from(area.width), f64::from(area.height) * 2.0);
-    let jitter = |k: u32| f64::from((s >> k) & 0xff) / 255.0;
-
-    let sky_top = mix(bg, primary, 0.18);
-    let horizon = mix(mix(secondary, accent, 0.35), bg, 0.15);
-    let sun = mix(secondary, (0xff, 0xf4, 0xe0), 0.35);
-    let (sun_x, sun_y, sun_r) = ((0.55 + 0.3 * jitter(0)) * w, h * 0.38, (h * 0.2).max(1.2));
-    let far = [(0.25 + 0.3 * jitter(8), h * 0.5), (0.75, h * 0.3)];
-    let near = [(0.1 + 0.2 * jitter(16), h * 0.22), (0.6 + 0.3 * jitter(24), h * 0.28)];
-    let far_c = mix(primary, bg, 0.35);
-    let snow = mix(text, primary, 0.25);
-    let near_c = mix(bg, primary, 0.22);
-
-    let pixel = |px: f64, py: f64| -> Rgb {
-        let far_ridge = ridge(px, w, h * 0.72, &far);
-        let near_ridge = ridge(px, w, h * 0.92, &near);
-        if py >= near_ridge {
-            return mix(near_c, bg, ((py - near_ridge) / h).min(1.0) * 0.8);
+    let bg = rgb(theme.background_color(), (16, 16, 24));
+    let p = rgb(theme.primary_color(), (137, 180, 250));
+    let a = rgb(theme.accent_color(), p);
+    let q = rgb(theme.secondary_color(), p);
+    let light = rgb(theme.text_color(), (238, 238, 238));
+    let dark = mix(bg, (5, 8, 20), 0.65);
+    let id = theme.id.as_str();
+    let hash = seed(id);
+    let pixel = |x: i32, y: i32| -> Rgb {
+        let star = (x * 37 + y * 71 + (hash % 97) as i32) % 89 == 0;
+        let moon = (x - 47).pow(2) + (y - 8).pow(2) < 25 && (x - 49).pow(2) + (y - 6).pow(2) >= 24;
+        let mut c = mix(bg, q, (y / 4) as f64 * 0.07);
+        if star && y < 17 {
+            c = light;
         }
-        if py >= far_ridge {
-            return if py - far_ridge < h * 0.07 && far_ridge < h * 0.42 { snow } else { mix(far_c, bg, ((py - far_ridge) / h) * 0.9) };
+        match id {
+            "catppuccin-mocha" | "catppuccin-latte" => {
+                c = mix(bg, q, f64::from(y / 4) * 0.06);
+                if star && y < 18 {
+                    c = light;
+                }
+                if moon {
+                    c = mix(light, q, 0.2);
+                }
+                if y > 21 + ((x as f64 / 13.0).sin() * 3.0) as i32 {
+                    c = mix(bg, q, 0.45);
+                }
+                if y > 27 + ((x as f64 / 11.0).cos() * 2.0) as i32 {
+                    c = mix(bg, a, 0.3);
+                }
+            }
+            "monochrome" => {
+                if (x - 32).pow(2) + (y - 15).pow(2) < 100 {
+                    c = mix(light, bg, 0.15);
+                }
+                if [(28, 12, 7), (36, 17, 11), (27, 20, 4)].iter().any(|&(cx, cy, r)| (x - cx).pow(2) + (y - cy).pow(2) < r) {
+                    c = mix(light, bg, 0.45);
+                }
+                if y > 28 {
+                    c = dark;
+                }
+            }
+            "one-light" => {
+                c = mix(bg, p, 0.12);
+                if y > 22 {
+                    c = if y % 3 == 0 { q } else { mix(bg, p, 0.45) };
+                }
+                if (43..48).contains(&x) && (10..27).contains(&y) {
+                    c = if y % 5 < 2 { a } else { light };
+                }
+                if (41..50).contains(&x) && (8..11).contains(&y) {
+                    c = dark;
+                }
+                if y == 9 && x > 20 && x < 43 {
+                    c = mix(light, a, 0.2);
+                }
+            }
+            "palenight" => {
+                if moon {
+                    c = light;
+                }
+                for (cx, cy) in [(16, 16), (44, 23)] {
+                    if (x - cx).abs() < 10 && y >= cy && y < cy + 6 - (x - cx).abs() / 2 {
+                        c = if y == cy { a } else { mix(bg, p, 0.4) };
+                    }
+                    if x == cx && y > cy - 6 && y < cy {
+                        c = q;
+                    }
+                }
+            }
+            "matrix" => {
+                c = (3, 12, 8);
+                if x % 5 == 0 && (y + x * 3) % 13 < 9 {
+                    c = if (y + x * 3) % 13 == 8 { (185, 255, 196) } else { mix((0, 40, 12), p, f64::from((y + x) % 7) / 7.0) };
+                }
+            }
+            "tokyo-night" | "cyberpunk" | "spiderman" => {
+                let roof = 10 + ((x / 6 * 17 + 9) % 12);
+                if y >= roof {
+                    c = dark;
+                    if x % 6 != 0 && x % 2 == 0 && y % 3 == 0 {
+                        c = if x % 4 == 0 { p } else { a };
+                    }
+                    if y == roof && x % 6 != 0 {
+                        c = q;
+                    }
+                }
+            }
+            "synthwave" | "monokai-pro" => {
+                if (x - 32).pow(2) + (y - 11).pow(2) < 64 && y % 3 != 0 {
+                    c = mix(a, q, f64::from(y) / 24.0);
+                }
+                if y >= 22 {
+                    c = dark;
+                    let depth = y - 20;
+                    if [23, 26, 30].contains(&y) || ((x - 32) * 12 / depth.max(1)) % 12 == 0 {
+                        c = p;
+                    }
+                }
+            }
+            "gruvbox-dark" | "gruvbox-light" | "solarized-light" | "ayu-light" => {
+                c = mix(bg, (238, 167, 72), f64::from(y / 5) * 0.14);
+                if (x - 46).pow(2) + (y - 9).pow(2) < 30 {
+                    c = (255, 211, 112);
+                }
+                let dune = 19 + ((x as f64 / 12.0).sin() * 3.0) as i32;
+                if y > dune {
+                    c = mix(q, (177, 99, 47), 0.45);
+                }
+                if y > 26 + ((x as f64 / 16.0).cos() * 2.0) as i32 {
+                    c = mix(bg, a, 0.35);
+                }
+                if id.starts_with("gruvbox") && y > 14 + (x / 9 % 3) * 3 && x < 28 {
+                    c = mix(q, (133, 71, 35), 0.6);
+                }
+            }
+            "everforest" | "rose-pine" => {
+                if id == "rose-pine" {
+                    c = mix(bg, (239, 172, 153), f64::from(y / 4) * 0.12);
+                }
+                for layer in 0..3 {
+                    let local = (x + layer * 5) % 16 - 8;
+                    let top = 8 + layer * 5;
+                    let crown = y >= top && y < top + 13 && local.abs() <= (y - top) / 3 + 1;
+                    let trunk = local == 0 && y >= top + 10;
+                    if crown || trunk || y >= 27 + layer {
+                        c = mix(p, dark, 0.35 + f64::from(layer) * 0.27);
+                    }
+                }
+                if id == "everforest" && (y == 21 || y == 25) {
+                    c = mix(c, light, 0.25);
+                }
+            }
+            "dracula" => {
+                if moon {
+                    c = light;
+                }
+                let tower = (18..24).contains(&x) || (39..45).contains(&x);
+                if tower && y >= 9 + (x % 3) || (24..39).contains(&x) && y >= 18 {
+                    c = dark;
+                    if y > 16 && y < 21 && (x == 21 || x == 42 || x == 31) {
+                        c = a;
+                    }
+                }
+                if tower && y >= 6 && y < 10 && (x - 21).abs().min((x - 42).abs()) <= y - 6 {
+                    c = dark;
+                }
+            }
+            "kanagawa" | "oceanic-next" => {
+                if y >= 19 - (12 - (x - 42).abs()).max(0) {
+                    c = mix(p, bg, 0.45);
+                }
+                let wave = 22 + ((x as f64 / 8.0).sin() * 5.0) as i32;
+                if y >= wave {
+                    c = if y - wave < 2 {
+                        light
+                    } else if (y + x / 3) % 5 == 0 {
+                        p
+                    } else {
+                        mix(bg, q, 0.4)
+                    };
+                }
+            }
+            "minecraft" => {
+                c = (112, 178, 224);
+                if y < 10 && (x / 10 + y / 3) % 7 == 0 {
+                    c = (230, 240, 244);
+                }
+                let ground = 18 + (x / 8 % 3) * 3;
+                if y >= ground {
+                    c = if y == ground {
+                        (91, 158, 57)
+                    } else if (x + y) % 4 == 0 {
+                        (115, 81, 49)
+                    } else {
+                        (91, 66, 42)
+                    };
+                }
+                if (12..16).contains(&x) && y >= 9 && y < 22 {
+                    c = (95, 66, 39);
+                }
+                if (6..22).contains(&x) && (5..13).contains(&y) {
+                    c = if (x + y) % 3 == 0 { (73, 132, 44) } else { (49, 106, 36) };
+                }
+            }
+            "doom" => {
+                c = mix((25, 7, 8), (180, 48, 18), f64::from(y / 4) * 0.12);
+                if y > 17 + (x * 7 % 9) {
+                    c = dark;
+                }
+                if y > 26 && (x + y) % 7 < 3 {
+                    c = if y % 2 == 0 { (255, 137, 25) } else { (218, 53, 17) };
+                }
+            }
+            "sakura" | "lavender" | "candy" => {
+                c = mix(bg, q, 0.18);
+                if (x - 16).abs() <= 1 && y > 10 || y == 13 && (8..30).contains(&x) {
+                    c = mix(bg, (95, 53, 78), 0.65);
+                }
+                if ((x - 16).pow(2) / 3 + (y - 9).pow(2) < 35 || (x - 28).pow(2) + (y - 12).pow(2) < 20) && (x + y) % 5 != 0 {
+                    c = if (x * 7 + y * 13) % 7 < 2 { mix(light, p, 0.25) } else { p };
+                }
+                if y > 26 {
+                    c = mix(q, bg, 0.4);
+                }
+                if x > 32 && (x * 7 + y * 13) % 59 == 0 {
+                    c = p;
+                }
+            }
+            "pokemon" => {
+                let ball = (x - 32).pow(2) + (y - 16).pow(2);
+                if ball < 100 {
+                    c = if y < 15 { (234, 77, 70) } else { light };
+                    if y == 15 || y == 16 {
+                        c = dark;
+                    }
+                }
+                if ball < 9 {
+                    c = dark;
+                }
+                if ball < 3 {
+                    c = light;
+                }
+            }
+            "naruto" | "valorant" => {
+                if (x - 32).pow(2) + (y - 14).pow(2) < 75 {
+                    c = a;
+                }
+                if id == "naruto" && (x - 32).pow(2) + (y - 14).pow(2) < 35 && (x + y) % 5 < 2 {
+                    c = dark;
+                }
+                if id == "valorant" && y > 9 && y < 23 && ((x - 32).abs() - (y - 9) / 2).abs() < 3 {
+                    c = light;
+                }
+                if y > 27 {
+                    c = dark;
+                }
+            }
+            _ => {
+                if moon && id != "nord" {
+                    c = light;
+                }
+                if id == "nord" {
+                    let ribbon = 6 + ((x as f64 / 9.0).sin() * 3.0) as i32;
+                    if y >= ribbon && y < ribbon + 4 {
+                        c = mix((88, 224, 179), p, f64::from(y - ribbon) / 4.0);
+                    }
+                }
+                let ridge = 24 - (13 - (x - 23).abs() / 2).max(0);
+                if y >= ridge {
+                    c = if y - ridge < 2 && ridge < 16 { mix(light, p, 0.2) } else { mix(bg, p, 0.4) };
+                }
+                let near = 29 - (8 - (x - 51).abs() / 3).max(0);
+                if y >= near {
+                    c = mix(bg, q, 0.18);
+                }
+                if id.starts_with("catppuccin") && y > 22 + ((x as f64 / 12.0).sin() * 3.0) as i32 {
+                    c = mix(bg, a, 0.35);
+                }
+            }
         }
-        let (dx, dy) = (px - sun_x, (py - sun_y) * 1.0);
-        if (dx * dx + dy * dy).sqrt() <= sun_r {
-            return sun;
-        }
-        mix(sky_top, horizon, (py / (h * 0.75)).min(1.0))
+        c
     };
-
     for cy in 0..area.height {
         for cx in 0..area.width {
-            let (px, py) = (f64::from(cx) + 0.5, f64::from(cy) * 2.0 + 0.5);
-            let (t, b) = (pixel(px, py), pixel(px, py + 1.0));
+            let x = i32::from(cx) * 64 / i32::from(area.width);
+            let y = i32::from(cy) * 64 / i32::from(area.height * 2);
+            let t = pixel(x, y);
+            let b = pixel(x, ((i32::from(cy) * 2 + 1) * 32 / i32::from(area.height * 2)).min(31));
             if let Some(cell) = buf.cell_mut((area.x + cx, area.y + cy)) {
                 cell.reset();
                 cell.set_char('▀').set_fg(Color::Rgb(t.0, t.1, t.2)).set_bg(Color::Rgb(b.0, b.1, b.2));
