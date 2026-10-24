@@ -1,7 +1,6 @@
 use crate::adapters::doctor::Level;
 use crate::app::state::AppState;
-use crate::tui::palette::Palette;
-use crate::tui::widgets::list::{panel, render_rows, Row};
+use crate::tui::widgets::list::{panel, render_rows, screen_frame, Row};
 use ratatui::{
     layout::Rect,
     style::{Modifier, Style},
@@ -10,7 +9,8 @@ use ratatui::{
 };
 
 pub fn render_doctor(f: &mut Frame, area: Rect, state: &mut AppState) {
-    let pal = Palette::from_theme(state.current_theme());
+    let area = screen_frame(f, area, state);
+    let pal = state.palette();
     let rows: Vec<Row> = state
         .doctor
         .iter()

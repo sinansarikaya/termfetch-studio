@@ -1,6 +1,5 @@
 use crate::app::state::AppState;
-use crate::tui::palette::Palette;
-use crate::tui::widgets::list::{panel, render_rows, Row};
+use crate::tui::widgets::list::{panel, render_rows, screen_frame, Row};
 use ratatui::{
     layout::{Constraint, Layout, Rect},
     style::{Modifier, Style},
@@ -10,9 +9,10 @@ use ratatui::{
 };
 
 pub fn render_presets(f: &mut Frame, area: Rect, state: &mut AppState) {
+    let area = screen_frame(f, area, state);
     let [list_area, info_area] = Layout::vertical([Constraint::Min(8), Constraint::Length(9)]).areas(area);
     let selected = state.preset_idx();
-    let pal = Palette::from_theme(state.current_theme());
+    let pal = state.palette();
     let primary = pal.primary;
     let rows: Vec<Row> = state
         .presets

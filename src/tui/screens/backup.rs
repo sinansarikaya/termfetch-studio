@@ -1,6 +1,5 @@
 use crate::app::state::AppState;
-use crate::tui::palette::Palette;
-use crate::tui::widgets::list::{panel, render_rows, Row};
+use crate::tui::widgets::list::{panel, render_rows, screen_frame, Row};
 use ratatui::{
     layout::{Constraint, Layout, Rect},
     style::{Modifier, Style},
@@ -10,8 +9,9 @@ use ratatui::{
 };
 
 pub fn render_backup(f: &mut Frame, area: Rect, state: &mut AppState) {
+    let area = screen_frame(f, area, state);
     let [list_area, info_area] = Layout::vertical([Constraint::Min(6), Constraint::Length(6)]).areas(area);
-    let pal = Palette::from_theme(state.current_theme());
+    let pal = state.palette();
     let primary = pal.primary;
     let mut rows = vec![Row::Item(
         Line::from(Span::styled("＋ Create new backup", Style::new().fg(primary).add_modifier(Modifier::BOLD))),

@@ -4,8 +4,16 @@ use crate::app::state::Screen;
 pub enum Action {
     Quit,
     Back,
+    /// `Tab`: next focus region.
     ToggleFocus,
+    /// `Shift+Tab`: previous focus region.
+    FocusPrev,
     Goto(Screen),
+    /// Digit key: quick action on the Dashboard stage, otherwise jump to a screen.
+    Number(u8),
+    ToggleHelp,
+    /// Cycle what the live preview box shows.
+    CycleOutput,
     Up,
     Down,
     PageUp,

@@ -7,6 +7,8 @@ use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
+pub const RECENT_THEMES_MAX: usize = 8;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum LogoSize {
@@ -114,6 +116,11 @@ pub struct Settings {
     pub apply_terminal_colors: bool,
     /// Run fastfetch with the saved config right after quitting the TUI.
     pub run_fastfetch_on_exit: bool,
+    /// Most recently applied themes, newest first (Dashboard "Recent Themes").
+    pub recent_themes: Vec<String>,
+    /// Paint the studio chrome in the active theme's colours instead of the
+    /// built-in indigo "Studio" look.
+    pub ui_follow_theme: bool,
 }
 
 impl Default for Settings {
@@ -130,6 +137,8 @@ impl Default for Settings {
             custom_modules: DEFAULT_CUSTOM_MODULES.to_vec(),
             apply_terminal_colors: true,
             run_fastfetch_on_exit: true,
+            recent_themes: Vec::new(),
+            ui_follow_theme: false,
         }
     }
 }
@@ -153,6 +162,13 @@ impl Settings {
         let mut json = serde_json::to_string_pretty(self)?;
         json.push('\n');
         atomic_write(path, json.as_bytes())
+    }
+
+    /// Move `theme` to the front of the recent list (deduplicated, capped).
+    pub fn remember_theme(&mut self, theme: &str) {
+        self.recent_themes.retain(|t| t != theme);
+        self.recent_themes.insert(0, theme.to_string());
+        self.recent_themes.truncate(RECENT_THEMES_MAX);
     }
 
     pub fn reset_colors(&mut self) {
@@ -181,6 +197,15 @@ mod tests {
         let partial = Settings::load(&p).unwrap();
         assert_eq!(partial.theme, "nord");
         assert!(partial.demo_mode, "missing fields fall back to defaults");
+
+        let mut r = Settings::default();
+        for t in ["a", "b", "a", "c", "d", "e", "f", "g", "h", "i"] {
+            r.remember_theme(t);
+        }
+        assert_eq!(r.recent_themes.len(), RECENT_THEMES_MAX);
+        assert_eq!(&r.recent_themes[..3], ["i", "h", "g"]);
+        assert!(!r.recent_themes.iter().any(|t| t == "b"), "oldest entries drop off");
+        assert_eq!(r.recent_themes.iter().filter(|t| *t == "a").count(), 1, "deduplicated");
 
         std::fs::write(&p, "{not json").unwrap();
         assert!(Settings::load(&p).is_err());

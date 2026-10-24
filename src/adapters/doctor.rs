@@ -68,7 +68,7 @@ fn writable(dir: &Path) -> Result<(), String> {
     Ok(())
 }
 
-fn shell_integration() -> Check {
+pub fn shell_integration() -> Check {
     let Some(home) = directories::BaseDirs::new().map(|b| b.home_dir().to_path_buf()) else {
         return check("Shell integration", Level::Info, "home directory unknown");
     };

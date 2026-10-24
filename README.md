@@ -24,12 +24,21 @@ termfetch-studio            # uses the saved demo setting
 termfetch-studio --no-demo  # start with real specs
 ```
 
-Layout: icon menu on the left (Dashboard, Themes, Presets, Logos, Module
-Builder, Colors, Backup & Restore, Doctor), the active screen in the middle and
-a wide **Live Preview** on the right, painted in the theme background. The
-preview reproduces fastfetch's layout exactly (logo padding, `keyWidth`,
-separator, resolved colours). Image logos are decoded once by a background
-worker pool, so scrolling stays well above 60 FPS.
+Layout (the "Studio" design): a header bar with brand, fastfetch status,
+distribution and local clock; a sidebar with the navigation (Dashboard, Themes,
+Presets, Logos, Modules, Settings - Backup & Restore and Doctor live under
+Settings) and context cards for the current theme, preset and config path; the
+center stage; and on the right the **Live Preview** with a **Preview Options**
+card (theme / preset / logo / output dropdowns and the *Apply Theme to System*
+button). The Dashboard shows quick actions, recently applied themes with
+procedural thumbnails, a system overview and tools. The chrome uses a fixed
+navy/indigo palette by default; *Settings → Studio chrome* switches it to follow
+the active theme. Every label is WCAG-checked on every surface in both modes.
+
+The preview, painted in the theme background, reproduces fastfetch's layout
+exactly (logo padding, `keyWidth`, separator, resolved colours); the *Output*
+option switches it to the generated JSONC. Image logos are decoded once by a
+background worker pool, so scrolling stays well above 60 FPS.
 
 In terminals with the Kitty graphics protocol (kitty, Ghostty) the preview shows
 image logos at full resolution: each logo is resized to the preview's exact
@@ -41,16 +50,19 @@ Force a mode with `TERMFETCH_STUDIO_GRAPHICS=kitty` or `=halfblock`.
 
 | Key | Action |
 |---|---|
-| `Tab`, `←`/`→` | switch between menu and content |
-| `↑`/`↓`, `j`/`k`, `PgUp`/`PgDn`, `g`/`G` | browse (preview updates instantly) |
-| `Enter` / `a` | apply: save settings and write both fastfetch configs |
+| `Tab` / `Shift+Tab` | next / previous section: menu → center stage → preview options |
+| `↑`/`↓`/`←`/`→`, `hjkl`, `PgUp`/`PgDn`, `g`/`G` | move (preview updates instantly) |
+| `Enter` | select: open a quick action / tool, apply a card, open a dropdown |
+| `a` / `A` | apply theme to system: save settings and write both fastfetch configs |
+| `1`–`8` | jump to a screen (on the Dashboard stage `1`–`4` run the quick actions) |
 | `p` | run the real fastfetch with the current, unsaved selection |
 | `d` | toggle privacy demo mode (persisted, config regenerated) |
 | `s` | cycle image logo size (small / medium / large) |
-| `Space`, `J`/`K` | Module Builder: toggle / reorder modules |
-| `←`/`→` | Colors: cycle icon, text and per-group colours |
+| `o` | cycle the preview output (terminal preview / generated config) |
+| `Space`, `J`/`K` | Modules: toggle / reorder modules |
+| `←`/`→` | Settings: cycle colours and preferences · Preview Options: cycle values |
 | `x` | Backup: delete selected backup · `r` Doctor: re-run checks |
-| `1`–`8` | jump to a screen · mouse click and wheel supported |
+| `?` | keyboard shortcuts overlay · mouse click and wheel supported everywhere |
 | `q` / `Esc` | quit; unsaved changes are saved and applied to both fastfetch configs first |
 
 ## CLI
