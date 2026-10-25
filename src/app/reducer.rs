@@ -814,7 +814,7 @@ fn apply(state: &mut AppState) -> bool {
     state.settings.remember_theme(&theme);
     let settings = state.settings.clone();
     match write_all(state, &settings) {
-        Ok(targets) => {
+        Ok(_) => {
             state.saved = settings;
             state.undo_stack.clear();
             state.redo_stack.clear();
@@ -823,19 +823,21 @@ fn apply(state: &mut AppState) -> bool {
                 state.effects.push(Effect::WriteTerminal(osc));
                 state.host_colors_applied = true;
             }
-            let list = targets
-                .iter()
-                .map(|p| p.display().to_string())
-                .collect::<Vec<_>>()
-                .join(" + ");
             let (theme, preset) = (
                 state.current_theme().name.clone(),
                 state.current_preset().name.clone(),
             );
-            state.set_status(
-                StatusKind::Ok,
-                format!("✓ Applied {theme} · {preset} → {list}"),
-            );
+            let mut msg = format!("✓ Applied {theme} · {preset}");
+            if state.shell_integration {
+                match shell::integrate() {
+                    Ok(changed) if changed.is_empty() => {
+                        msg.push_str(" · new shells show fastfetch");
+                    }
+                    Ok(_) => msg.push_str(" · shell set up - open a new shell to see it"),
+                    Err(e) => msg.push_str(&format!(" · shell setup failed: {e}")),
+                }
+            }
+            state.set_status(StatusKind::Ok, msg);
             true
         }
         Err(e) => {
