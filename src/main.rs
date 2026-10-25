@@ -21,7 +21,7 @@ use termfetch_studio_v2::adapters::install;
 use termfetch_studio_v2::adapters::setup;
 use termfetch_studio_v2::app::actions::Action;
 use termfetch_studio_v2::app::reducer::reduce;
-use termfetch_studio_v2::app::state::{AppState, Effect, StatusKind};
+use termfetch_studio_v2::app::state::{AppState, Effect, Screen, StatusKind};
 use termfetch_studio_v2::cli::{BackupCmd, Cli, Command, DemoArg, ListArg, Selection};
 use termfetch_studio_v2::domain::color::{ColorValue, PALETTE};
 use termfetch_studio_v2::domain::logo::{LogoItem, builtin_logos};
@@ -237,6 +237,7 @@ fn run_cli(cli: &Cli, paths: &Paths) -> Result<Option<i32>> {
                 );
             }
         }
+        Command::Settings => return Ok(None),
         Command::Run => {
             let cfg = paths.studio_config();
             if !cfg.exists() {
@@ -647,16 +648,20 @@ fn relaunch_in_windows_terminal() -> bool {
     if !wt.is_file() {
         return false;
     }
+    // Forward the arguments too, so `termfetch-studio settings` still opens Settings.
     std::process::Command::new(wt)
         .args(["-w", "new", "--"])
         .arg(exe)
+        .args(std::env::args_os().skip(1))
         .spawn()
         .is_ok()
 }
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
-    let interactive = cli.command.is_none() && cli.preview.is_none() && !cli.doctor;
+    let interactive = matches!(cli.command, None | Some(Command::Settings))
+        && cli.preview.is_none()
+        && !cli.doctor;
     if interactive && relaunch_in_windows_terminal() {
         return Ok(());
     }
@@ -683,6 +688,9 @@ fn main() -> Result<()> {
     let mut terminal = setup_terminal()?;
     let mut state = AppState::new(paths, settings, TermGeometry::detect());
     state.system_setup = true;
+    if matches!(cli.command, Some(Command::Settings)) {
+        reduce(&mut state, Action::Goto(Screen::Settings));
+    }
     if kitty::detect() {
         state.enable_kitty();
     } else {

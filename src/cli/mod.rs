@@ -69,6 +69,8 @@ pub enum Command {
     Preview(Selection),
     /// Run fastfetch with the generated studio config
     Run,
+    /// Open the studio on the Settings screen
+    Settings,
     /// Show or change demo mode (regenerates the config)
     Demo {
         #[arg(value_enum, default_value_t = DemoArg::Status)]

@@ -1,7 +1,7 @@
 //! Makes the system match the applied theme: the shell startup block and, when the
 //! theme's colors are applied, the Windows Terminal scheme.
 
-use crate::adapters::{cmd_autorun, shell, wt_terminal};
+use crate::adapters::{cmd_autorun, desktop, shell, wt_terminal};
 use crate::domain::theme::Theme;
 use std::path::Path;
 
@@ -13,6 +13,7 @@ pub fn integrate(config: &Path, theme: &Theme, terminal_colors: bool) -> Vec<Str
         Ok(_) => out.push("shell startup set up".into()),
         Err(e) => out.push(format!("shell startup failed: {e}")),
     }
+    let app = std::env::current_exe().ok();
     if cfg!(windows) {
         let exe = crate::adapters::fastfetch::runner::find_fastfetch();
         out.push(cmd_autorun::integrate(
@@ -20,6 +21,24 @@ pub fn integrate(config: &Path, theme: &Theme, terminal_colors: bool) -> Vec<Str
             exe.as_deref(),
             config,
         ));
+        if let Some(app) = &app {
+            for path in wt_terminal::settings_files() {
+                match wt_terminal::ensure_profile(&path, app) {
+                    Ok(true) => {
+                        out.push("Windows Terminal profile \"TermFetch Studio\" added".into())
+                    }
+                    Ok(false) => {}
+                    Err(e) => out.push(format!("Windows Terminal profile not added: {e:#}")),
+                }
+            }
+        }
+    }
+    if let (true, Some(app), Some(path)) = (cfg!(target_os = "linux"), &app, desktop::path()) {
+        match desktop::write(&path, app) {
+            Ok(true) => out.push("application menu entry added".into()),
+            Ok(false) => {}
+            Err(e) => out.push(format!("application menu entry not added: {e:#}")),
+        }
     }
     if terminal_colors {
         let colors = wt_terminal::Colors {
