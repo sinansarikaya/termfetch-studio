@@ -104,11 +104,25 @@ pub fn shell_integration() -> Check {
         "Documents/WindowsPowerShell/Microsoft.PowerShell_profile.ps1",
         ".config/powershell/Microsoft.PowerShell_profile.ps1",
     ];
-    let found: Vec<&str> = rcs
+    let mut found: Vec<String> = rcs
         .iter()
         .filter(|rc| std::fs::read_to_string(home.join(rc)).is_ok_and(|t| t.contains("fastfetch")))
-        .copied()
+        .map(|rc| (*rc).to_string())
         .collect();
+    // Documents can be redirected (OneDrive), so look for PowerShell profiles there too.
+    if let Some(docs) =
+        directories::UserDirs::new().and_then(|u| u.document_dir().map(Path::to_path_buf))
+    {
+        for rc in [
+            "PowerShell/Microsoft.PowerShell_profile.ps1",
+            "WindowsPowerShell/Microsoft.PowerShell_profile.ps1",
+        ] {
+            let path = docs.join(rc);
+            if std::fs::read_to_string(&path).is_ok_and(|t| t.contains("fastfetch")) {
+                found.push(path.display().to_string());
+            }
+        }
+    }
     if found.is_empty() {
         check(
             "Shell integration",
@@ -265,6 +279,25 @@ pub fn run_checks(paths: &Paths) -> Vec<Check> {
         ),
     ));
 
+    // What the preview actually draws with (see imaging::kitty / imaging::sixel).
+    let wt = if std::env::var_os("WT_SESSION").is_some() {
+        "WT_SESSION set"
+    } else {
+        "no WT_SESSION"
+    };
+    out.push(if crate::imaging::kitty::detect() {
+        check("Logo graphics", Level::Ok, "Kitty protocol, full resolution")
+    } else if crate::imaging::sixel::detect() {
+        check("Logo graphics", Level::Ok, format!("sixel, full resolution ({wt})"))
+    } else {
+        check(
+            "Logo graphics",
+            Level::Warn,
+            format!(
+                "half blocks, low resolution ({wt}) - set TERMFETCH_STUDIO_GRAPHICS=sixel if your terminal supports sixel"
+            ),
+        )
+    });
     let proto = detect_image_protocol();
     out.push(match proto {
         "chafa" if !has_command("chafa") => check(
