@@ -33,3 +33,18 @@ path = "src/main.rs"
 lto = "thin"
 codegen-units = 1
 strip = true
+
+# Decoding the logo catalogue is slow in unoptimized builds (CI runners time out);
+# only the image codecs are optimized, the rest of the app stays as is.
+[profile.dev.package.image]
+opt-level = 3
+[profile.dev.package.png]
+opt-level = 3
+[profile.dev.package.fdeflate]
+opt-level = 3
+[profile.dev.package.miniz_oxide]
+opt-level = 3
+[profile.dev.package.zune-core]
+opt-level = 3
+[profile.dev.package.zune-jpeg]
+opt-level = 3
