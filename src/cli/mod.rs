@@ -88,6 +88,10 @@ pub enum Command {
     },
     /// First-time setup: write the configs and add the shell startup block
     Setup,
+    /// Install TermFetch for this user (Windows)
+    Install,
+    /// Remove everything TermFetch added to this system (Windows)
+    Uninstall,
     /// Run diagnostics
     Doctor,
 }

@@ -9,10 +9,33 @@ param(
     [switch]$SkipFastfetch,
     [switch]$SkipPath,
     [switch]$SkipShortcut,
-    [switch]$SkipSetup
+    [switch]$SkipSetup,
+    [switch]$Uninstall
 )
 
 $ErrorActionPreference = 'Stop'
+
+# Undo what the installer added: PATH entry, shortcuts and the install folder.
+# The app's own changes (shell blocks, cmd prompt, Windows Terminal) are removed by `termfetch-studio uninstall`.
+if ($Uninstall) {
+    Step 'Removing TermFetch'
+    $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+    $kept = @($userPath -split ';' | Where-Object { $_ -and ($_ -ine $InstallDir) })
+    [Environment]::SetEnvironmentVariable('Path', ($kept -join ';'), 'User')
+    Done 'removed from PATH'
+    $programs = [Environment]::GetFolderPath('Programs')
+    Get-ChildItem -LiteralPath $programs -Filter 'TermFetch*.lnk' -ErrorAction SilentlyContinue | Remove-Item -Force
+    Done 'shortcuts removed'
+    # The running exe cannot delete its own folder: a detached process removes it after we exit.
+    $defaultDir = Join-Path $env:LOCALAPPDATA 'Programs\TermFetch'
+    if ($InstallDir -ieq $defaultDir -and (Test-Path (Join-Path $InstallDir 'termfetch-studio.exe'))) {
+        $cleanup = "Start-Sleep -Seconds 3; Remove-Item -LiteralPath '$InstallDir' -Recurse -Force -ErrorAction SilentlyContinue"
+        Start-Process powershell -WindowStyle Hidden -ArgumentList '-NoProfile', '-Command', $cleanup
+        Done "folder $InstallDir will be removed"
+    }
+    Write-Host "`nTermFetch is removed. Open a new terminal for the PATH change." -ForegroundColor Green
+    exit 0
+}
 
 function Step($text) { Write-Host "`n==> $text" -ForegroundColor Cyan }
 function Done($text) { Write-Host "    ok: $text" -ForegroundColor Green }
@@ -68,8 +91,12 @@ if (-not $SkipFastfetch) {
 Step "Copying to $InstallDir"
 New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
 $target = Join-Path $InstallDir 'termfetch-studio.exe'
-Copy-Item -LiteralPath $Source -Destination $target -Force
-Done $target
+if ((Resolve-Path -LiteralPath $Source).Path -ieq $target) {
+    Done 'already in place'
+} else {
+    Copy-Item -LiteralPath $Source -Destination $target -Force
+    Done $target
+}
 
 # 5. PATH (user scope, no admin rights needed).
 if (-not $SkipPath) {
