@@ -6,13 +6,123 @@ use crate::domain::preset::ModuleKind;
 use anyhow::{Context, Result};
 use serde_json::json;
 use std::collections::HashMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
 const FIELD_SEP: char = '\u{1f}';
 
+/// Locate the fastfetch executable across platforms (PATH + standard package manager locations).
+pub fn find_fastfetch() -> Option<PathBuf> {
+    if let Some(explicit) = std::env::var_os("FASTFETCH_BIN") {
+        let p = PathBuf::from(explicit);
+        if p.is_file() {
+            return Some(p);
+        }
+    }
+
+    let exe_name = if cfg!(windows) {
+        "fastfetch.exe"
+    } else {
+        "fastfetch"
+    };
+
+    // 1. Search PATH
+    if let Some(path_var) = std::env::var_os("PATH") {
+        for dir in std::env::split_paths(&path_var) {
+            let candidate = dir.join(exe_name);
+            if candidate.is_file() {
+                return Some(candidate);
+            }
+        }
+    }
+
+    // 2. Platform-specific standard package manager locations
+    #[cfg(target_os = "macos")]
+    {
+        let mac_candidates = [
+            "/opt/homebrew/bin/fastfetch",
+            "/usr/local/bin/fastfetch",
+            "/opt/local/bin/fastfetch",
+        ];
+        for path in mac_candidates {
+            let p = PathBuf::from(path);
+            if p.is_file() {
+                return Some(p);
+            }
+        }
+    }
+
+    #[cfg(windows)]
+    {
+        if let Some(local) = std::env::var_os("LOCALAPPDATA") {
+            let winget = PathBuf::from(local)
+                .join("Microsoft")
+                .join("WinGet")
+                .join("Links")
+                .join("fastfetch.exe");
+            if winget.is_file() {
+                return Some(winget);
+            }
+        }
+        if let Some(user) = std::env::var_os("USERPROFILE") {
+            let scoop = PathBuf::from(user)
+                .join("scoop")
+                .join("shims")
+                .join("fastfetch.exe");
+            if scoop.is_file() {
+                return Some(scoop);
+            }
+        }
+        let choco = PathBuf::from(r"C:\ProgramData\chocolatey\bin\fastfetch.exe");
+        if choco.is_file() {
+            return Some(choco);
+        }
+        let prog = PathBuf::from(r"C:\Program Files\Fastfetch\fastfetch.exe");
+        if prog.is_file() {
+            return Some(prog);
+        }
+    }
+
+    #[cfg(unix)]
+    {
+        let unix_candidates = [
+            "/usr/bin/fastfetch",
+            "/usr/local/bin/fastfetch",
+            "/bin/fastfetch",
+        ];
+        for path in unix_candidates {
+            let p = PathBuf::from(path);
+            if p.is_file() {
+                return Some(p);
+            }
+        }
+        if let Some(home) = std::env::var_os("HOME") {
+            let home_p = PathBuf::from(home);
+            let local_bin = home_p.join(".local/bin/fastfetch");
+            if local_bin.is_file() {
+                return Some(local_bin);
+            }
+            let nix_bin = home_p.join(".nix-profile/bin/fastfetch");
+            if nix_bin.is_file() {
+                return Some(nix_bin);
+            }
+        }
+    }
+
+    None
+}
+
+/// Create a `Command` targeting fastfetch (either resolved binary or fallback to "fastfetch").
+pub fn fastfetch_cmd() -> Command {
+    if let Some(bin) = find_fastfetch() {
+        Command::new(bin)
+    } else {
+        Command::new("fastfetch")
+    }
+}
+
 pub fn version() -> Option<String> {
-    let out = Command::new("fastfetch").arg("--version").output().ok()?;
+    let out = fastfetch_cmd().arg("--version").output().ok()?;
     out.status.success().then(|| {
         String::from_utf8_lossy(&out.stdout)
             .lines()
@@ -77,7 +187,7 @@ fn probe_config(modules: &[ModuleKind]) -> serde_json::Value {
 pub fn probe_real_info(modules: &[ModuleKind], scratch: &Path) -> Result<RealInfo> {
     let cfg = serde_json::to_vec(&probe_config(modules))?;
     atomic_write(scratch, &cfg)?;
-    let out = Command::new("fastfetch")
+    let out = fastfetch_cmd()
         .arg("-c")
         .arg(scratch)
         .arg("--pipe")
@@ -90,7 +200,7 @@ pub fn probe_real_info(modules: &[ModuleKind], scratch: &Path) -> Result<RealInf
 
 /// Run fastfetch with `config` attached to the current terminal.
 pub fn run_live(config: &Path) -> Result<std::process::ExitStatus> {
-    Command::new("fastfetch")
+    fastfetch_cmd()
         .arg("-c")
         .arg(config)
         .status()

@@ -5,7 +5,7 @@ use crate::adapters::fastfetch::runner;
 use crate::adapters::fsutil::atomic_write;
 use crate::imaging::TermGeometry;
 use crate::paths::Paths;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -96,7 +96,14 @@ pub fn shell_integration() -> Check {
     let Some(home) = directories::BaseDirs::new().map(|b| b.home_dir().to_path_buf()) else {
         return check("Shell integration", Level::Info, "home directory unknown");
     };
-    let rcs = [".bashrc", ".zshrc", ".config/fish/config.fish"];
+    let rcs = [
+        ".bashrc",
+        ".zshrc",
+        ".config/fish/config.fish",
+        "Documents/PowerShell/Microsoft.PowerShell_profile.ps1",
+        "Documents/WindowsPowerShell/Microsoft.PowerShell_profile.ps1",
+        ".config/powershell/Microsoft.PowerShell_profile.ps1",
+    ];
     let found: Vec<&str> = rcs
         .iter()
         .filter(|rc| std::fs::read_to_string(home.join(rc)).is_ok_and(|t| t.contains("fastfetch")))
@@ -118,24 +125,61 @@ pub fn shell_integration() -> Check {
 }
 
 fn nerd_font() -> Check {
-    match Command::new("fc-list").arg(":").arg("family").output() {
-        Ok(out) if out.status.success() => {
-            let list = String::from_utf8_lossy(&out.stdout).to_ascii_lowercase();
-            if list.contains("nerd font") || list.contains("nerdfont") {
-                check("Nerd Font", Level::Ok, "installed (icons render correctly)")
-            } else {
-                check(
-                    "Nerd Font",
-                    Level::Warn,
-                    "none found; module icons may show as boxes",
-                )
-            }
+    if let Ok(out) = Command::new("fc-list").arg(":").arg("family").output()
+        && out.status.success()
+    {
+        let list = String::from_utf8_lossy(&out.stdout).to_ascii_lowercase();
+        if list.contains("nerd font") || list.contains("nerdfont") {
+            return check("Nerd Font", Level::Ok, "installed (icons render correctly)");
+        } else {
+            return check(
+                "Nerd Font",
+                Level::Warn,
+                "none found; module icons may show as boxes",
+            );
         }
-        _ => check(
+    }
+
+    // Fallback font directory scan for macOS / Windows or systems without fontconfig
+    let mut font_dirs: Vec<PathBuf> = Vec::new();
+    if let Some(home) = directories::BaseDirs::new().map(|b| b.home_dir().to_path_buf()) {
+        font_dirs.push(home.join(".local/share/fonts"));
+        font_dirs.push(home.join(".fonts"));
+        #[cfg(target_os = "macos")]
+        font_dirs.push(home.join("Library/Fonts"));
+        #[cfg(windows)]
+        if let Some(local) = std::env::var_os("LOCALAPPDATA") {
+            font_dirs.push(PathBuf::from(local).join(r"Microsoft\Windows\Fonts"));
+        }
+    }
+    font_dirs.push(PathBuf::from("/usr/share/fonts"));
+    #[cfg(target_os = "macos")]
+    {
+        font_dirs.push(PathBuf::from("/Library/Fonts"));
+        font_dirs.push(PathBuf::from("/System/Library/Fonts"));
+    }
+    #[cfg(windows)]
+    {
+        font_dirs.push(PathBuf::from(r"C:\Windows\Fonts"));
+    }
+
+    let found_font = font_dirs.into_iter().any(|dir| {
+        std::fs::read_dir(dir).is_ok_and(|entries| {
+            entries.flatten().any(|e| {
+                let name = e.file_name().to_string_lossy().to_ascii_lowercase();
+                name.contains("nerd") || name.contains("nf")
+            })
+        })
+    });
+
+    if found_font {
+        check("Nerd Font", Level::Ok, "installed (font directory scan)")
+    } else {
+        check(
             "Nerd Font",
             Level::Info,
-            "fc-list unavailable; cannot verify",
-        ),
+            "fc-list unavailable; fonts could not be automatically confirmed",
+        )
     }
 }
 

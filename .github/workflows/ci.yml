@@ -1,0 +1,118 @@
+name: CI Matrix
+
+on:
+  push:
+    branches: [ "main", "feat/**" ]
+  pull_request:
+    branches: [ "main", "feat/**" ]
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  fmt:
+    name: Code Formatting
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - name: Check Formatting
+        run: cargo fmt --check
+
+  ci:
+    name: Build & Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust Toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - name: Cache Cargo Dependencies
+        uses: Swatinem/rust-cache@v2
+
+      # -------------------------------------------------------------
+      # Fastfetch Installation per OS
+      # -------------------------------------------------------------
+      - name: Install Fastfetch (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo add-apt-repository -y ppa:zhangsongcui3371/fastfetch
+          sudo apt-get update -y
+          sudo apt-get install -y fastfetch
+          fastfetch --version || true
+
+      - name: Install Fastfetch (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install fastfetch
+          fastfetch --version || true
+
+      - name: Install Fastfetch (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          try {
+            winget install --id Fastfetch-cli.Fastfetch -e --accept-source-agreements --accept-package-agreements --silent
+            $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+          } catch {
+            Write-Warning "Winget install encountered an issue, testing mock fallback."
+          }
+          fastfetch --version || Write-Host "Fastfetch not in path; mock fallback active."
+
+      # -------------------------------------------------------------
+      # Verification: Clippy, Tests, and Release Build
+      # -------------------------------------------------------------
+      - name: Lint (Clippy)
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: Test Suite (Mock & Real Fastfetch)
+        run: cargo test --all-targets -- --nocapture
+
+      - name: Build Release Binary
+        run: cargo build --release
+
+      - name: Build Musl Static Binary (Linux Universal)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update && sudo apt-get install -y musl-tools
+          rustup target add x86_64-unknown-linux-musl
+          cargo build --release --target x86_64-unknown-linux-musl
+
+      - name: Upload Release Artifact (Linux Glibc)
+        if: runner.os == 'Linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: termfetch-studio-linux-x86_64-gnu
+          path: target/release/termfetch-studio
+
+      - name: Upload Release Artifact (Linux Musl Static)
+        if: runner.os == 'Linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: termfetch-studio-linux-x86_64-musl-static
+          path: target/x86_64-unknown-linux-musl/release/termfetch-studio
+
+      - name: Upload Release Artifact (macOS)
+        if: runner.os == 'macOS'
+        uses: actions/upload-artifact@v4
+        with:
+          name: termfetch-studio-macos-universal
+          path: target/release/termfetch-studio
+
+      - name: Upload Release Artifact (Windows)
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: termfetch-studio-windows-x64
+          path: target/release/termfetch-studio.exe
