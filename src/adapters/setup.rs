@@ -24,9 +24,7 @@ pub fn integrate(config: &Path, theme: &Theme, terminal_colors: bool) -> Vec<Str
         if let Some(app) = &app {
             for path in wt_terminal::settings_files() {
                 match wt_terminal::ensure_profile(&path, app) {
-                    Ok(true) => {
-                        out.push("Windows Terminal profile \"TermFetch Studio\" added".into())
-                    }
+                    Ok(true) => out.push("Windows Terminal profile \"TermFetch\" added".into()),
                     Ok(false) => {}
                     Err(e) => out.push(format!("Windows Terminal profile not added: {e:#}")),
                 }

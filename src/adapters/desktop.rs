@@ -9,7 +9,7 @@ pub fn entry(exe: &Path) -> String {
     format!(
         "[Desktop Entry]\n\
          Type=Application\n\
-         Name=TermFetch Studio\n\
+         Name=TermFetch\n\
          Comment=Customize your terminal, your way\n\
          Exec=\"{exe}\"\n\
          Terminal=true\n\

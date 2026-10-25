@@ -1,10 +1,10 @@
-# Installs TermFetch Studio for the current user in one step:
+# Installs TermFetch for the current user in one step:
 #   Windows Terminal + fastfetch (winget, if missing), the exe on PATH,
 #   a Start Menu shortcut, and the first configuration (`termfetch-studio setup`).
 # Safe to run again. The -Skip switches exist for testing.
 param(
     [string]$Source,
-    [string]$InstallDir = (Join-Path $env:LOCALAPPDATA 'Programs\TermFetch Studio'),
+    [string]$InstallDir = (Join-Path $env:LOCALAPPDATA 'Programs\TermFetch'),
     [switch]$SkipTerminal,
     [switch]$SkipFastfetch,
     [switch]$SkipPath,
@@ -93,9 +93,12 @@ if (-not $SkipShortcut) {
     Step 'Start Menu shortcuts'
     $programs = [Environment]::GetFolderPath('Programs')
     $shell = New-Object -ComObject WScript.Shell
+    # Shortcuts from earlier versions carried the old name; remove them.
+    Get-ChildItem -LiteralPath $programs -Filter 'TermFetch Studio*.lnk' -ErrorAction SilentlyContinue |
+        Remove-Item -Force
     $shortcuts = @(
-        @{ Name = 'TermFetch Studio.lnk'; Args = ''; Desc = 'TermFetch Studio' },
-        @{ Name = 'TermFetch Studio Settings.lnk'; Args = 'settings'; Desc = 'TermFetch Studio settings' }
+        @{ Name = 'TermFetch.lnk'; Args = ''; Desc = 'TermFetch' },
+        @{ Name = 'TermFetch Settings.lnk'; Args = 'settings'; Desc = 'TermFetch settings' }
     )
     foreach ($item in $shortcuts) {
         $lnk = Join-Path $programs $item.Name
@@ -116,5 +119,5 @@ if (-not $SkipSetup) {
     if ($LASTEXITCODE -ne 0) { throw "termfetch-studio setup failed (exit $LASTEXITCODE)." }
 }
 
-Write-Host "`nTermFetch Studio is installed." -ForegroundColor Green
-Write-Host 'Open it from the Start Menu, or run `termfetch-studio` in Windows Terminal.'
+Write-Host "`nTermFetch is installed." -ForegroundColor Green
+Write-Host 'Open it from the Start Menu, or run `termfetch` in a new terminal.'
