@@ -285,17 +285,28 @@ pub fn run_checks(paths: &Paths) -> Vec<Check> {
     } else {
         "no WT_SESSION"
     };
+    let hint = if cfg!(windows) && std::env::var_os("WT_SESSION").is_none() {
+        "open termfetch in Windows Terminal for full-resolution logos (the classic console cannot show them)"
+    } else {
+        "set TERMFETCH_STUDIO_GRAPHICS=sixel if your terminal supports sixel"
+    };
     out.push(if crate::imaging::kitty::detect() {
-        check("Logo graphics", Level::Ok, "Kitty protocol, full resolution")
+        check(
+            "Logo graphics",
+            Level::Ok,
+            "Kitty protocol, full resolution",
+        )
     } else if crate::imaging::sixel::detect() {
-        check("Logo graphics", Level::Ok, format!("sixel, full resolution ({wt})"))
+        check(
+            "Logo graphics",
+            Level::Ok,
+            format!("sixel, full resolution ({wt})"),
+        )
     } else {
         check(
             "Logo graphics",
             Level::Warn,
-            format!(
-                "half blocks, low resolution ({wt}) - set TERMFETCH_STUDIO_GRAPHICS=sixel if your terminal supports sixel"
-            ),
+            format!("half blocks, low resolution ({wt}) - {hint}"),
         )
     });
     let proto = detect_image_protocol();
