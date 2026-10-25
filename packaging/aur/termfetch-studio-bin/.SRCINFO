@@ -1,0 +1,17 @@
+pkgbase = termfetch-studio-bin
+	pkgdesc = Cross-platform terminal customization and Fastfetch theme studio (precompiled binary)
+	pkgver = 2.0.0
+	pkgrel = 1
+	url = https://github.com/sinansarikaya/termfetch-studio
+	arch = x86_64
+	license = MIT
+	depends = fastfetch
+	optdepends = kitty: for Kitty Graphics protocol
+	optdepends = chafa: for terminal half-block image fallback
+	optdepends = ttf-font-nerd: for icon glyphs
+	provides = termfetch-studio
+	conflicts = termfetch-studio
+	source = https://github.com/sinansarikaya/termfetch-studio/releases/download/v2.0.0/termfetch-studio-v2.0.0-x86_64-unknown-linux-gnu.tar.gz
+	sha256sums = 6ce95895c551679e40386ffc4cbc7e7e4aadcfbe993f8acbfa5c6acb4256047c
+
+pkgname = termfetch-studio-bin

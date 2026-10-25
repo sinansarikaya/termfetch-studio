@@ -53,15 +53,19 @@ def main():
         hb_file.write_text(content, encoding="utf-8")
         print("Updated Homebrew formula.")
 
-    # 2. Update AUR PKGBUILD-bin
-    aur_bin_file = packaging_dir / "aur" / "PKGBUILD-bin"
-    if aur_bin_file.exists():
-        content = aur_bin_file.read_text(encoding="utf-8")
-        for name, sha in checksums.items():
-            if "x86_64-unknown-linux-gnu.tar.gz" in name:
-                content = re.sub(r"sha256sums=\('[^']+'\)", f"sha256sums=('{sha}')", content)
-        aur_bin_file.write_text(content, encoding="utf-8")
-        print("Updated AUR PKGBUILD-bin.")
+    # 2. Update AUR PKGBUILD-bin and termfetch-studio-bin/PKGBUILD
+    aur_files = [
+        packaging_dir / "aur" / "PKGBUILD-bin",
+        packaging_dir / "aur" / "termfetch-studio-bin" / "PKGBUILD",
+    ]
+    for aur_file in aur_files:
+        if aur_file.exists():
+            content = aur_file.read_text(encoding="utf-8")
+            for name, sha in checksums.items():
+                if "x86_64-unknown-linux-gnu.tar.gz" in name:
+                    content = re.sub(r"sha256sums=\('[^']+'\)", f"sha256sums=('{sha}')", content)
+            aur_file.write_text(content, encoding="utf-8")
+            print(f"Updated AUR {aur_file.name}.")
 
     # 3. Update WinGet installer manifest
     winget_files = list((packaging_dir / "winget").glob("**/*installer.yaml"))
