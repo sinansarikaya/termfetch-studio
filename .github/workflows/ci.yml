@@ -64,7 +64,11 @@ jobs:
         run: |
           try {
             winget install --id Fastfetch-cli.Fastfetch -e --accept-source-agreements --accept-package-agreements --silent
-            $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+            $wingetLinks = "$env:LOCALAPPDATA\Microsoft\WinGet\Links"
+            if (Test-Path $wingetLinks) {
+              $wingetLinks | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+              $env:PATH = "$wingetLinks;$env:PATH"
+            }
           } catch {
             Write-Warning "Winget install encountered an issue, testing mock fallback."
           }

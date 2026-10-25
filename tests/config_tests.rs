@@ -252,7 +252,7 @@ fn generated_config_runs_in_fastfetch_when_available() {
         let text = config::render(&themes[0], preset, &logos[0], &s, &paths, &geo).unwrap();
         let file = root.join(format!("{}.jsonc", preset.id));
         std::fs::write(&file, text).unwrap();
-        let out = std::process::Command::new("fastfetch")
+        let out = termfetch_studio_v2::adapters::fastfetch::runner::fastfetch_cmd()
             .arg("-c")
             .arg(&file)
             .arg("--pipe")
