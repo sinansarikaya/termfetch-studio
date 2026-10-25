@@ -15,10 +15,14 @@ use std::path::PathBuf;
 use std::{panic, time::Duration};
 
 use termfetch_studio_v2::adapters::backup;
+use termfetch_studio_v2::adapters::cmd_autorun;
 use termfetch_studio_v2::adapters::doctor::{self, Level};
 use termfetch_studio_v2::adapters::fastfetch::{config, runner};
 use termfetch_studio_v2::adapters::install;
+use termfetch_studio_v2::adapters::installer;
 use termfetch_studio_v2::adapters::setup;
+use termfetch_studio_v2::adapters::shell;
+use termfetch_studio_v2::adapters::wt_terminal;
 use termfetch_studio_v2::app::actions::Action;
 use termfetch_studio_v2::app::reducer::reduce;
 use termfetch_studio_v2::app::state::{AppState, Effect, Screen, StatusKind};
@@ -238,6 +242,36 @@ fn run_cli(cli: &Cli, paths: &Paths) -> Result<Option<i32>> {
             }
         }
         Command::Settings => return Ok(None),
+        Command::Install => {
+            if !cfg!(windows) {
+                bail!("`install` sets up Windows; use your package manager on this system");
+            }
+            let exe = std::env::current_exe().context("finding the running exe")?;
+            let exe = exe.display().to_string();
+            return Ok(Some(installer::run_script(&["-Source", &exe])?));
+        }
+        Command::Uninstall => {
+            if !cfg!(windows) {
+                bail!(
+                    "`uninstall` removes the Windows setup; remove the package with your package manager"
+                );
+            }
+            for p in shell::remove_all()? {
+                println!("✓ shell startup removed from {}", p.display());
+            }
+            println!("✓ {}", cmd_autorun::remove(cmd_autorun::KEY));
+            for path in wt_terminal::settings_files() {
+                match wt_terminal::remove(&path) {
+                    Ok(true) => println!(
+                        "✓ Windows Terminal profile and colors removed from {}",
+                        path.display()
+                    ),
+                    Ok(false) => {}
+                    Err(e) => println!("! Windows Terminal not cleaned: {e:#}"),
+                }
+            }
+            return Ok(Some(installer::run_script(&["-Uninstall"])?));
+        }
         Command::Run => {
             let cfg = paths.studio_config();
             if !cfg.exists() {

@@ -114,6 +114,8 @@ jobs:
           # Copy Binary & strip on unix
           if [ "${{ runner.os }}" = "Windows" ]; then
             cp "target/${{ matrix.target }}/release/${{ matrix.binary }}" "$ARCHIVE_DIR/"
+            # Windows users double-click install.cmd next to the exe.
+            cp scripts/install.cmd scripts/install-windows.ps1 "$ARCHIVE_DIR/"
           else
             cp "target/${{ matrix.target }}/release/${{ matrix.binary }}" "$ARCHIVE_DIR/"
             strip "$ARCHIVE_DIR/${{ matrix.binary }}" || true

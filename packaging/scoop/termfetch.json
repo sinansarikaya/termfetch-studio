@@ -1,0 +1,28 @@
+{
+    "version": "2.1.0",
+    "description": "Customize your terminal, your way: fastfetch themes, logos and Windows Terminal colors.",
+    "homepage": "https://github.com/sinansarikaya/termfetch-studio",
+    "license": "MIT",
+    "depends": "fastfetch",
+    "architecture": {
+        "64bit": {
+            "url": "https://github.com/sinansarikaya/termfetch-studio/releases/download/v2.1.0/termfetch-studio-v2.1.0-x86_64-pc-windows-msvc.zip",
+            "hash": "__SHA256_OF_RELEASE_ZIP__",
+            "extract_dir": "termfetch-studio-v2.1.0-x86_64-pc-windows-msvc"
+        }
+    },
+    "bin": [["termfetch-studio.exe", "termfetch"]],
+    "shortcuts": [["termfetch-studio.exe", "TermFetch"]],
+    "post_install": ["& \"$dir\termfetch-studio.exe\" setup"],
+    "checkver": {
+        "github": "https://github.com/sinansarikaya/termfetch-studio"
+    },
+    "autoupdate": {
+        "architecture": {
+            "64bit": {
+                "url": "https://github.com/sinansarikaya/termfetch-studio/releases/download/v$version/termfetch-studio-v$version-x86_64-pc-windows-msvc.zip",
+                "extract_dir": "termfetch-studio-v$version-x86_64-pc-windows-msvc"
+            }
+        }
+    }
+}

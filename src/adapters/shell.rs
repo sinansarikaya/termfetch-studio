@@ -159,6 +159,60 @@ pub fn integrate(config: &Path) -> io::Result<Vec<PathBuf>> {
     Ok(changed)
 }
 
+/// Remove the app's block from `path`. Returns whether the file changed.
+pub fn remove_block(path: &Path) -> io::Result<bool> {
+    let text = match fs::read_to_string(path) {
+        Ok(text) => text,
+        Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(false),
+        Err(e) => return Err(e),
+    };
+    let (Some(start), Some(end)) = (text.find(BEGIN), text.find(END)) else {
+        return Ok(false);
+    };
+    if end < start {
+        return Ok(false);
+    }
+    let after = end + END.len();
+    let after = text[after..]
+        .find('\n')
+        .map_or(text.len(), |i| after + i + 1);
+    fs::write(path, format!("{}{}", &text[..start], &text[after..]))?;
+    Ok(true)
+}
+
+/// Remove the app's block from every startup file it may have written to.
+pub fn remove_all() -> io::Result<Vec<PathBuf>> {
+    let dirs = directories::BaseDirs::new();
+    let home = dirs
+        .as_ref()
+        .map(|b| b.home_dir().to_path_buf())
+        .ok_or_else(|| io::Error::other("home directory unknown"))?;
+    let documents =
+        directories::UserDirs::new().and_then(|u| u.document_dir().map(Path::to_path_buf));
+    let mut candidates = vec![
+        home.join(".bashrc"),
+        home.join(".zshrc"),
+        home.join(".config").join("fish").join("config.fish"),
+    ];
+    if let Some(docs) = documents {
+        candidates.push(
+            docs.join("PowerShell")
+                .join("Microsoft.PowerShell_profile.ps1"),
+        );
+        candidates.push(
+            docs.join("WindowsPowerShell")
+                .join("Microsoft.PowerShell_profile.ps1"),
+        );
+    }
+    let mut removed = Vec::new();
+    for path in candidates {
+        if remove_block(&path)? {
+            removed.push(path);
+        }
+    }
+    Ok(removed)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -250,6 +304,17 @@ mod tests {
             fs::read_to_string(&file).unwrap(),
             format!("before\n{BEGIN}\nnew line\n{END}\nafter\n")
         );
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn remove_block_keeps_the_rest_of_the_file() {
+        let dir = temp("remove");
+        let file = dir.join("profile.ps1");
+        fs::write(&file, format!("before\n{BEGIN}\nfastfetch\n{END}\nafter\n")).unwrap();
+        assert!(remove_block(&file).unwrap());
+        assert_eq!(fs::read_to_string(&file).unwrap(), "before\nafter\n");
+        assert!(!remove_block(&file).unwrap(), "nothing left to remove");
         let _ = fs::remove_dir_all(dir);
     }
 

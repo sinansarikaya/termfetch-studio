@@ -98,6 +98,23 @@ pub fn integrate(key: &str, exe: Option<&Path>, config: &Path) -> String {
     }
 }
 
+/// Delete the AutoRun value when it is ours. Returns a short message.
+pub fn remove(key: &str) -> String {
+    match read(key) {
+        Ok(Some(v)) if v.contains(OWNER) => match Command::new("reg")
+            .args(["delete", key, "/v", "AutoRun", "/f"])
+            .status()
+        {
+            Ok(s) if s.success() => "cmd prompt removed".into(),
+            Ok(s) => format!("cmd prompt not removed: reg exited with {s}"),
+            Err(e) => format!("cmd prompt not removed: {e}"),
+        },
+        Ok(Some(_)) => "cmd: AutoRun belongs to another tool, left unchanged".into(),
+        Ok(None) => "cmd prompt: nothing to remove".into(),
+        Err(e) => format!("cmd prompt not removed: {e:#}"),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

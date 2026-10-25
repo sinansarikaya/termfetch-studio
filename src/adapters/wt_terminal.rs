@@ -156,6 +156,32 @@ pub fn ensure_profile(path: &Path, exe: &Path) -> Result<bool> {
     })
 }
 
+/// Remove the app's profile and scheme, and the default scheme if it is ours.
+/// Returns whether the file changed.
+pub fn remove(path: &Path) -> Result<bool> {
+    edit_settings(path, |obj| {
+        if let Some(list) = obj
+            .get_mut("profiles")
+            .and_then(|p| p.get_mut("list"))
+            .and_then(Value::as_array_mut)
+        {
+            list.retain(|p| p["guid"] != PROFILE_GUID);
+        }
+        if let Some(schemes) = obj.get_mut("schemes").and_then(Value::as_array_mut) {
+            schemes.retain(|s| s["name"] != SCHEME);
+        }
+        if let Some(defaults) = obj
+            .get_mut("profiles")
+            .and_then(|p| p.get_mut("defaults"))
+            .and_then(Value::as_object_mut)
+            .filter(|d| d.get("colorScheme") == Some(&json!(SCHEME)))
+        {
+            defaults.remove("colorScheme");
+        }
+        Ok(())
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -230,6 +256,21 @@ mod tests {
         assert_eq!(list[0]["name"], "Windows PowerShell");
         assert_eq!(list[1]["name"], PROFILE);
         assert_eq!(list[1]["commandline"], format!("\"{}\"", exe.display()));
+    }
+
+    #[test]
+    fn remove_takes_only_our_profile_and_scheme() {
+        let path = temp_settings(
+            "remove",
+            r#"{"profiles":{"defaults":{"colorScheme":"TermFetch Studio"},"list":[{"name":"PS","guid":"{x}"},{"name":"TermFetch","guid":"{6f1d2c9e-3b1a-4e5f-9a7c-7e0d5b2a1c44}"}]},"schemes":[{"name":"TermFetch Studio"},{"name":"Other"}]}"#,
+        );
+        assert!(remove(&path).unwrap());
+        let v: Value = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+        assert_eq!(v["profiles"]["list"].as_array().unwrap().len(), 1);
+        assert_eq!(v["profiles"]["list"][0]["name"], "PS");
+        assert_eq!(v["schemes"].as_array().unwrap().len(), 1);
+        assert_eq!(v["schemes"][0]["name"], "Other");
+        assert!(v["profiles"]["defaults"].get("colorScheme").is_none());
     }
 
     #[test]
