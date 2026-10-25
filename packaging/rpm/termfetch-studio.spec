@@ -1,9 +1,12 @@
+%global debug_package %{nil}
+
 Name:           termfetch-studio
 Version:        2.0.0
 Release:        1%{?dist}
 Summary:        Cross-platform terminal customization and Fastfetch theme studio
 License:        MIT
 URL:            https://github.com/sinansarikaya/termfetch-studio
+Source0:        %{name}-v%{version}-x86_64-unknown-linux-gnu.tar.gz
 Requires:       fastfetch
 Recommends:     chafa
 
@@ -13,18 +16,20 @@ Rust and Ratatui for browsing, previewing, and configuring Fastfetch themes,
 presets, modules, and logos in real time.
 
 %prep
-# No prep needed for prebuilt binary packaging
+%setup -q -n %{name}-v%{version}-x86_64-unknown-linux-gnu
 
 %install
-rm -rf %{buildroot}
-mkdir -p %{buildroot}/usr/bin
-mkdir -p %{buildroot}/usr/share/termfetch-studio
-install -m 755 termfetch-studio %{buildroot}/usr/bin/termfetch-studio
-cp -r assets %{buildroot}/usr/share/termfetch-studio/
-
-%clean
-rm -rf %{buildroot}
+mkdir -p %{buildroot}%{_bindir}
+mkdir -p %{buildroot}%{_datadir}/%{name}
+install -m 755 termfetch-studio %{buildroot}%{_bindir}/termfetch-studio
+cp -r assets %{buildroot}%{_datadir}/%{name}/
 
 %files
-/usr/bin/termfetch-studio
-/usr/share/termfetch-studio/assets
+%{_bindir}/termfetch-studio
+%{_datadir}/%{name}/assets
+%license LICENSE
+%doc README.md
+
+%changelog
+* Sun Oct 25 2026 Sinan Sarikaya <sinan@sinansarikaya.com> - 2.0.0-1
+- TermFetch Studio v2.0.0: Native Rust rewrite with live preview, pixel art themes and cross-platform support

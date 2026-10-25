@@ -93,6 +93,19 @@ jobs:
           rustup target add x86_64-unknown-linux-musl
           cargo build --release --target x86_64-unknown-linux-musl
 
+      - name: Build macOS Universal Binary (x86_64 & arm64)
+        if: runner.os == 'macOS'
+        run: |
+          rustup target add aarch64-apple-darwin x86_64-apple-darwin
+          cargo build --release --locked --target aarch64-apple-darwin
+          cargo build --release --locked --target x86_64-apple-darwin
+          mkdir -p target/universal
+          lipo -create -output target/universal/termfetch-studio \
+            target/aarch64-apple-darwin/release/termfetch-studio \
+            target/x86_64-apple-darwin/release/termfetch-studio
+          echo "=== macOS Universal Binary Architecture Info ==="
+          lipo -info target/universal/termfetch-studio
+
       - name: Upload Release Artifact (Linux Glibc)
         if: runner.os == 'Linux'
         uses: actions/upload-artifact@v4
@@ -107,12 +120,12 @@ jobs:
           name: termfetch-studio-linux-x86_64-musl-static
           path: target/x86_64-unknown-linux-musl/release/termfetch-studio
 
-      - name: Upload Release Artifact (macOS)
+      - name: Upload Release Artifact (macOS Universal)
         if: runner.os == 'macOS'
         uses: actions/upload-artifact@v4
         with:
           name: termfetch-studio-macos-universal
-          path: target/release/termfetch-studio
+          path: target/universal/termfetch-studio
 
       - name: Upload Release Artifact (Windows)
         if: runner.os == 'Windows'
