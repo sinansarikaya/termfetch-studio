@@ -42,12 +42,12 @@ def main():
     hb_file = packaging_dir / "homebrew" / "termfetch-studio.rb"
     if hb_file.exists():
         content = hb_file.read_text(encoding="utf-8")
-        # Match macOS universal
-        for name, sha in checksums.items():
-            if "apple-darwin" in name or "macos" in name:
-                content = re.sub(r'sha256\s+"(?:PLACEHOLDER_APPLE_DARWIN_UNIVERSAL_SHA256|[a-f0-9]{64})"', f'sha256 "{sha}"', content)
-            elif "x86_64-unknown-linux-gnu" in name:
-                content = re.sub(r'sha256\s+"(?:PLACEHOLDER_X86_64_LINUX_GNU_SHA256|[a-f0-9]{64})"', f'sha256 "{sha}"', content)
+        mac_sha = next((sha for name, sha in checksums.items() if "apple-darwin" in name or "macos" in name), None)
+        linux_sha = next((sha for name, sha in checksums.items() if "x86_64-unknown-linux-gnu.tar.gz" in name), None)
+        if mac_sha:
+            content = re.sub(r'sha256\s+"(?:PLACEHOLDER_APPLE_DARWIN_UNIVERSAL_SHA256|[a-f0-9]{64})"', f'sha256 "{mac_sha}"', content, count=1)
+        if linux_sha:
+            content = re.sub(r'sha256\s+"(?:PLACEHOLDER_X86_64_LINUX_GNU_SHA256|[a-f0-9]{64})"', f'sha256 "{linux_sha}"', content)
         hb_file.write_text(content, encoding="utf-8")
         print("Updated Homebrew formula.")
 
