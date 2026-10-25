@@ -256,6 +256,42 @@ fn kitty_mode_uploads_full_resolution_and_draws_placeholders() {
 }
 
 #[test]
+fn sixel_mode_places_the_logo_over_blank_cells() {
+    let (mut state, root) = app("sixel");
+    state.sixel.enabled = true;
+    reduce(&mut state, Action::Goto(Screen::Logos));
+    state.focus = Focus::Content;
+    let pika = state.logos.iter().position(|l| l.id == "pikachu").unwrap();
+    while state.logo_idx() != pika {
+        reduce(&mut state, Action::Down);
+    }
+    let mut t = Terminal::new(TestBackend::new(180, 45)).unwrap();
+    let start = Instant::now();
+    loop {
+        state.sixel.begin_frame();
+        t.draw(|f| render_ui(f, &mut state)).unwrap();
+        if state.sixel.is_stale() || start.elapsed() > Duration::from_secs(30) {
+            break;
+        }
+        reduce(&mut state, Action::Tick);
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    assert!(
+        state.sixel.is_stale(),
+        "the decoded logo must be wanted on screen"
+    );
+    let seq = state.sixel.place().expect("a placement sequence");
+    assert!(seq.starts_with("7[") && seq.contains("Pq") && seq.ends_with("8"));
+    assert!(!state.sixel.is_stale(), "placed image counts as shown");
+    let preview = preview_text(&t, state.preview_body);
+    assert!(
+        !preview.contains('▀'),
+        "half blocks must not be drawn when sixel is available"
+    );
+    let _ = std::fs::remove_dir_all(root);
+}
+
+#[test]
 fn focus_preview_expands_and_restores_with_keyboard_and_mouse() {
     use termfetch_studio_v2::app::state::Hit;
     let (mut state, root) = app("focus-upgrade");

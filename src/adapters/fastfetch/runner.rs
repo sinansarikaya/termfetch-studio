@@ -55,13 +55,32 @@ pub fn find_fastfetch() -> Option<PathBuf> {
     #[cfg(windows)]
     {
         if let Some(local) = std::env::var_os("LOCALAPPDATA") {
-            let winget = PathBuf::from(local)
+            let winget = PathBuf::from(&local)
                 .join("Microsoft")
                 .join("WinGet")
                 .join("Links")
                 .join("fastfetch.exe");
             if winget.is_file() {
                 return Some(winget);
+            }
+            // Portable packages get no Links shim; the binary stays in their package folder.
+            let packages = PathBuf::from(&local)
+                .join("Microsoft")
+                .join("WinGet")
+                .join("Packages");
+            if let Ok(entries) = std::fs::read_dir(packages) {
+                for entry in entries.flatten() {
+                    let name = entry.file_name();
+                    if name
+                        .to_string_lossy()
+                        .starts_with("Fastfetch-cli.Fastfetch")
+                    {
+                        let exe = entry.path().join("fastfetch.exe");
+                        if exe.is_file() {
+                            return Some(exe);
+                        }
+                    }
+                }
             }
         }
         if let Some(user) = std::env::var_os("USERPROFILE") {

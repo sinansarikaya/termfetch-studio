@@ -191,7 +191,7 @@ pub fn run_checks(paths: &Paths) -> Vec<Check> {
         None => check(
             "Fastfetch",
             Level::Fail,
-            "not found in PATH - install fastfetch to apply configs",
+            "not installed - press i to install it with this system's package manager",
         ),
     });
 

@@ -271,7 +271,11 @@ pub fn detect_image_protocol() -> &'static str {
         "kitty-direct"
     } else if program == "iterm.app" || std::env::var_os("KONSOLE_VERSION").is_some() {
         "iterm"
-    } else if term.starts_with("foot") || term.contains("mlterm") || term.contains("sixel") {
+    } else if term.starts_with("foot")
+        || term.contains("mlterm")
+        || term.contains("sixel")
+        || std::env::var_os("WT_SESSION").is_some()
+    {
         "sixel"
     } else {
         "chafa"

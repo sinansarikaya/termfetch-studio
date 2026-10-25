@@ -17,6 +17,7 @@ use std::{panic, time::Duration};
 use termfetch_studio_v2::adapters::backup;
 use termfetch_studio_v2::adapters::doctor::{self, Level};
 use termfetch_studio_v2::adapters::fastfetch::{config, runner};
+use termfetch_studio_v2::adapters::install;
 use termfetch_studio_v2::app::actions::Action;
 use termfetch_studio_v2::app::reducer::reduce;
 use termfetch_studio_v2::app::state::{AppState, Effect, StatusKind};
@@ -29,6 +30,7 @@ use termfetch_studio_v2::domain::theme::{Theme, get_builtin_themes};
 use termfetch_studio_v2::imaging::TermGeometry;
 use termfetch_studio_v2::imaging::kitty;
 use termfetch_studio_v2::imaging::pool::ImagePool;
+use termfetch_studio_v2::imaging::sixel;
 use termfetch_studio_v2::paths::Paths;
 use termfetch_studio_v2::tui::render::render_ui;
 use termfetch_studio_v2::tui::widgets::preview::{
@@ -389,12 +391,69 @@ fn key_action(key: KeyEvent) -> Option<Action> {
         KeyCode::Char('d') => Action::ToggleDemo,
         KeyCode::Char('s') => Action::CycleLogoSize,
         KeyCode::Char('p') => Action::RunFastfetch,
+        KeyCode::Char('i') => Action::Install,
         KeyCode::Char('r') if key.modifiers.contains(KeyModifiers::CONTROL) => Action::Redo,
         KeyCode::Char('r') => Action::Refresh,
         KeyCode::Char('x') | KeyCode::Delete => Action::Delete,
         KeyCode::Char(c @ '1'..='8') => Action::Number(c as u8 - b'0'),
         _ => return None,
     })
+}
+
+/// Enter the alternate screen again after the shell was handed over.
+fn resume_tui(terminal: &mut Tui) -> Result<()> {
+    enable_raw_mode()?;
+    execute!(
+        terminal.backend_mut(),
+        EnterAlternateScreen,
+        EnableMouseCapture,
+        Hide
+    )?;
+    terminal.hide_cursor()?;
+    terminal.clear()?;
+    Ok(())
+}
+
+fn wait_for_enter() {
+    let mut line = String::new();
+    let _ = io::stdin().lock().read_line(&mut line);
+}
+
+/// Run the install command in the shell so sudo, UAC or installer prompts work, then come back.
+fn install_fastfetch(terminal: &mut Tui, state: &mut AppState, plan: &install::Plan) -> Result<()> {
+    restore_terminal(terminal)?;
+    print!(
+        "[2J[H[1mInstalling fastfetch:[0m {}
+
+",
+        plan.command_line()
+    );
+    io::stdout().flush()?;
+    let status = std::process::Command::new(plan.program)
+        .args(plan.args)
+        .status();
+    print!(
+        "
+[2m  Done - press Enter to return to TermFetch Studio…[0m"
+    );
+    io::stdout().flush()?;
+    wait_for_enter();
+    resume_tui(terminal)?;
+    state.sixel.forget_shown();
+    state.refresh_fastfetch();
+    match (status, state.fastfetch_version.clone()) {
+        (_, Some(v)) => state.set_status(StatusKind::Ok, format!("✓ fastfetch installed: {v}")),
+        (Ok(s), None) => state.set_status(
+            StatusKind::Error,
+            format!("installer exited with {s}; fastfetch is still not found"),
+        ),
+        (Err(e), None) => state.set_status(
+            StatusKind::Error,
+            format!("could not start {}: {e}", plan.program),
+        ),
+    }
+    state.dirty = true;
+    Ok(())
 }
 
 /// Leave the TUI, run fastfetch with the current (possibly unsaved) choices, come back.
@@ -421,17 +480,9 @@ fn live_fastfetch(terminal: &mut Tui, state: &mut AppState) -> Result<()> {
         cfg.display()
     );
     io::stdout().flush()?;
-    let mut line = String::new();
-    let _ = io::stdin().lock().read_line(&mut line);
-    enable_raw_mode()?;
-    execute!(
-        terminal.backend_mut(),
-        EnterAlternateScreen,
-        EnableMouseCapture,
-        Hide
-    )?;
-    terminal.hide_cursor()?;
-    terminal.clear()?;
+    wait_for_enter();
+    resume_tui(terminal)?;
+    state.sixel.forget_shown();
     match status {
         Ok(s) if s.success() => state.set_status(
             StatusKind::Ok,
@@ -462,6 +513,28 @@ fn run_effects(terminal: &mut Tui, state: &mut AppState) -> Result<()> {
                     state.dirty = true;
                 }
             }
+            Effect::InstallFastfetch(plan) => {
+                if let Err(e) = install_fastfetch(terminal, state, &plan) {
+                    state.set_status(StatusKind::Error, format!("Install failed: {e:#}"));
+                    state.dirty = true;
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Draw one frame. A sixel image cannot be erased cell by cell, so when the image
+/// on screen has to change the screen is cleared, repainted and the image placed on top.
+fn draw_frame(terminal: &mut Tui, state: &mut AppState) -> Result<()> {
+    state.sixel.begin_frame();
+    terminal.draw(|f| render_ui(f, state))?;
+    if state.sixel.is_stale() {
+        terminal.clear()?;
+        state.sixel.begin_frame();
+        terminal.draw(|f| render_ui(f, state))?;
+        if let Some(seq) = state.sixel.place() {
+            write_raw(&seq)?;
         }
     }
     Ok(())
@@ -473,7 +546,7 @@ fn run_app(terminal: &mut Tui, state: &mut AppState) -> Result<()> {
         // frame that references them through placeholder cells.
         run_effects(terminal, state)?;
         if state.dirty {
-            terminal.draw(|f| render_ui(f, state))?;
+            draw_frame(terminal, state)?;
             state.dirty = false;
             if state.editor.is_none() {
                 let _ = terminal.hide_cursor();
@@ -515,6 +588,7 @@ fn run_app(terminal: &mut Tui, state: &mut AppState) -> Result<()> {
                         let _ = execute!(terminal.backend_mut(), Hide);
                         let _ = terminal.hide_cursor();
                         let _ = terminal.clear();
+                        state.sixel.forget_shown();
                         Some(Action::Resize)
                     }
                     _ => None,
@@ -564,6 +638,8 @@ fn main() -> Result<()> {
     let mut state = AppState::new(paths, settings, TermGeometry::detect());
     if kitty::detect() {
         state.enable_kitty();
+    } else {
+        state.sixel.enabled = sixel::detect();
     }
     if let Some(e) = load_err {
         state.set_status(
@@ -576,6 +652,11 @@ fn main() -> Result<()> {
         let _ = write_raw(&k.cleanup());
     }
     restore_terminal(&mut terminal)?;
+    if state.host_colors_applied {
+        // Hand the shell its own colours back: OSC 110/111 reset foreground and background.
+        print!("]110]111");
+        let _ = io::stdout().flush();
+    }
     if let Some((kind, msg)) = &state.exit_message {
         let color = if *kind == StatusKind::Ok { 32 } else { 31 };
         eprintln!("\x1b[{color}m{msg}\x1b[0m");
