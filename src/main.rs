@@ -636,6 +636,7 @@ fn main() -> Result<()> {
     set_panic_hook();
     let mut terminal = setup_terminal()?;
     let mut state = AppState::new(paths, settings, TermGeometry::detect());
+    state.shell_integration = true;
     if kitty::detect() {
         state.enable_kitty();
     } else {
