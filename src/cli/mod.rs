@@ -4,7 +4,7 @@ use clap::{Args, Parser, Subcommand, ValueEnum};
 #[command(
     name = "termfetch-studio",
     author = "Sinan Sarıkaya",
-    version = "2.0.0",
+    version,
     about = "Cross-platform terminal customization and Fastfetch theme studio"
 )]
 pub struct Cli {
