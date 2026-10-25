@@ -84,20 +84,32 @@ if (-not $SkipPath) {
     }
 }
 
-# 6. Start Menu shortcut.
+# 6. Short command: `termfetch` works in cmd and PowerShell (the folder is on PATH).
+$shim = Join-Path $InstallDir 'termfetch.cmd'
+Set-Content -LiteralPath $shim -Value '@"%~dp0termfetch-studio.exe" %*' -Encoding ASCII
+
+# 7. Start Menu shortcuts: the app, and its Settings screen.
 if (-not $SkipShortcut) {
-    Step 'Start Menu shortcut'
-    $lnk = Join-Path ([Environment]::GetFolderPath('Programs')) 'TermFetch Studio.lnk'
+    Step 'Start Menu shortcuts'
+    $programs = [Environment]::GetFolderPath('Programs')
     $shell = New-Object -ComObject WScript.Shell
-    $shortcut = $shell.CreateShortcut($lnk)
-    $shortcut.TargetPath = $target
-    $shortcut.WorkingDirectory = $env:USERPROFILE
-    $shortcut.Description = 'TermFetch Studio'
-    $shortcut.Save()
-    Done $lnk
+    $shortcuts = @(
+        @{ Name = 'TermFetch Studio.lnk'; Args = ''; Desc = 'TermFetch Studio' },
+        @{ Name = 'TermFetch Studio Settings.lnk'; Args = 'settings'; Desc = 'TermFetch Studio settings' }
+    )
+    foreach ($item in $shortcuts) {
+        $lnk = Join-Path $programs $item.Name
+        $shortcut = $shell.CreateShortcut($lnk)
+        $shortcut.TargetPath = $target
+        $shortcut.Arguments = $item.Args
+        $shortcut.WorkingDirectory = $env:USERPROFILE
+        $shortcut.Description = $item.Desc
+        $shortcut.Save()
+        Done $lnk
+    }
 }
 
-# 7. First configuration: fastfetch configs and the shell startup block.
+# 8. First configuration: fastfetch configs and the shell startup block.
 if (-not $SkipSetup) {
     Step 'Configuration'
     & $target setup

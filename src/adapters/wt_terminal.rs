@@ -4,10 +4,13 @@
 
 use crate::adapters::fsutil::atomic_write;
 use anyhow::{Context, Result, bail};
-use serde_json::{Value, json};
+use serde_json::{Map, Value, json};
 use std::path::{Path, PathBuf};
 
 pub const SCHEME: &str = "TermFetch Studio";
+pub const PROFILE: &str = "TermFetch Studio";
+/// Stable id, so re-running setup updates the same profile.
+pub const PROFILE_GUID: &str = "{6f1d2c9e-3b1a-4e5f-9a7c-7e0d5b2a1c44}";
 const BACKUP_SUFFIX: &str = ".termfetch-backup";
 
 /// The colors a scheme needs from a theme.
@@ -69,9 +72,13 @@ fn scheme(c: &Colors) -> Value {
     s
 }
 
-/// Add or update the scheme and make it the default for every profile.
-/// Returns whether the file changed. A file that is not valid JSON is left alone.
-pub fn apply_scheme(path: &Path, colors: &Colors) -> Result<bool> {
+/// Edit a Windows Terminal settings file in place. `edit` changes the parsed JSON; the
+/// file is only rewritten when the result differs. The original is kept on the first change.
+/// A file that is not a JSON object is left alone.
+fn edit_settings(
+    path: &Path,
+    edit: impl FnOnce(&mut Map<String, Value>) -> Result<()>,
+) -> Result<bool> {
     let text =
         std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
     let mut root: Value =
@@ -79,28 +86,7 @@ pub fn apply_scheme(path: &Path, colors: &Colors) -> Result<bool> {
     let Some(obj) = root.as_object_mut() else {
         bail!("Windows Terminal settings are not an object");
     };
-    let schemes = obj
-        .entry("schemes")
-        .or_insert_with(|| json!([]))
-        .as_array_mut()
-        .context("\"schemes\" is not a list")?;
-    let entry = scheme(colors);
-    match schemes.iter().position(|s| s["name"] == SCHEME) {
-        Some(i) => schemes[i] = entry,
-        None => schemes.push(entry),
-    }
-    let profiles = obj
-        .entry("profiles")
-        .or_insert_with(|| json!({}))
-        .as_object_mut()
-        .context("\"profiles\" is not an object")?;
-    profiles
-        .entry("defaults")
-        .or_insert_with(|| json!({}))
-        .as_object_mut()
-        .context("\"profiles.defaults\" is not an object")?
-        .insert("colorScheme".into(), json!(SCHEME));
-
+    edit(obj)?;
     let updated = serde_json::to_string_pretty(&root)?;
     if updated == text {
         return Ok(false);
@@ -111,6 +97,63 @@ pub fn apply_scheme(path: &Path, colors: &Colors) -> Result<bool> {
     }
     atomic_write(path, updated.as_bytes())?;
     Ok(true)
+}
+
+/// The `profiles.defaults` object, created when missing.
+fn profile_defaults(obj: &mut Map<String, Value>) -> Result<&mut Map<String, Value>> {
+    obj.entry("profiles")
+        .or_insert_with(|| json!({}))
+        .as_object_mut()
+        .context("\"profiles\" is not an object")?
+        .entry("defaults")
+        .or_insert_with(|| json!({}))
+        .as_object_mut()
+        .context("\"profiles.defaults\" is not an object")
+}
+
+/// Add or update the scheme and make it the default for every profile.
+pub fn apply_scheme(path: &Path, colors: &Colors) -> Result<bool> {
+    let entry = scheme(colors);
+    edit_settings(path, |obj| {
+        let schemes = obj
+            .entry("schemes")
+            .or_insert_with(|| json!([]))
+            .as_array_mut()
+            .context("\"schemes\" is not a list")?;
+        match schemes.iter().position(|s| s["name"] == SCHEME) {
+            Some(i) => schemes[i] = entry,
+            None => schemes.push(entry),
+        }
+        profile_defaults(obj)?.insert("colorScheme".into(), json!(SCHEME));
+        Ok(())
+    })
+}
+
+/// Add or update the "TermFetch Studio" profile, so it can be opened from the new-tab menu.
+pub fn ensure_profile(path: &Path, exe: &Path) -> Result<bool> {
+    let commandline = format!("\"{}\"", exe.display());
+    let profile = json!({
+        "name": PROFILE,
+        "guid": PROFILE_GUID,
+        "commandline": commandline,
+        "hidden": false,
+    });
+    edit_settings(path, |obj| {
+        let list = obj
+            .entry("profiles")
+            .or_insert_with(|| json!({}))
+            .as_object_mut()
+            .context("\"profiles\" is not an object")?
+            .entry("list")
+            .or_insert_with(|| json!([]))
+            .as_array_mut()
+            .context("\"profiles.list\" is not a list")?;
+        match list.iter().position(|p| p["guid"] == PROFILE_GUID) {
+            Some(i) => list[i] = profile,
+            None => list.push(profile),
+        }
+        Ok(())
+    })
 }
 
 #[cfg(test)]
@@ -169,6 +212,24 @@ mod tests {
         let schemes = v["schemes"].as_array().unwrap();
         assert_eq!(schemes.len(), 1, "scheme replaced, not duplicated");
         assert_eq!(schemes[0]["background"], "#000000");
+    }
+
+    #[test]
+    fn profile_is_added_once_and_other_profiles_stay() {
+        let path = temp_settings(
+            "profile",
+            r#"{"profiles":{"list":[{"name":"Windows PowerShell","guid":"{x}"}]}}"#,
+        );
+        let exe =
+            Path::new(r"C:\Users\x\AppData\Local\Programs\TermFetch Studio\termfetch-studio.exe");
+        assert!(ensure_profile(&path, exe).unwrap());
+        assert!(!ensure_profile(&path, exe).unwrap());
+        let v: Value = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+        let list = v["profiles"]["list"].as_array().unwrap();
+        assert_eq!(list.len(), 2, "existing profile kept, ours added once");
+        assert_eq!(list[0]["name"], "Windows PowerShell");
+        assert_eq!(list[1]["name"], PROFILE);
+        assert_eq!(list[1]["commandline"], format!("\"{}\"", exe.display()));
     }
 
     #[test]
