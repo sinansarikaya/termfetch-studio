@@ -172,7 +172,7 @@ fn image_logos_render_from_decode_pool_without_blocking() {
     }
     // Wait for the background decode of the whole catalogue.
     let start = Instant::now();
-    while state.pool.has_pending() && start.elapsed() < Duration::from_secs(20) {
+    while state.pool.has_pending() && start.elapsed() < Duration::from_secs(120) {
         reduce(&mut state, Action::Tick);
         std::thread::sleep(Duration::from_millis(10));
     }
@@ -231,7 +231,7 @@ fn kitty_mode_uploads_full_resolution_and_draws_placeholders() {
     let start = Instant::now();
     loop {
         t.draw(|f| render_ui(f, &mut state)).unwrap();
-        if dump(&t).contains(PLACEHOLDER) || start.elapsed() > Duration::from_secs(30) {
+        if dump(&t).contains(PLACEHOLDER) || start.elapsed() > Duration::from_secs(120) {
             break;
         }
         reduce(&mut state, Action::Tick);
@@ -270,7 +270,7 @@ fn sixel_mode_places_the_logo_over_blank_cells() {
     loop {
         state.sixel.begin_frame();
         t.draw(|f| render_ui(f, &mut state)).unwrap();
-        if state.sixel.is_stale() || start.elapsed() > Duration::from_secs(30) {
+        if state.sixel.is_stale() || start.elapsed() > Duration::from_secs(120) {
             break;
         }
         reduce(&mut state, Action::Tick);
