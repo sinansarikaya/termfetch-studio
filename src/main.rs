@@ -16,6 +16,7 @@ use std::{panic, time::Duration};
 
 use termfetch_studio_v2::adapters::backup;
 use termfetch_studio_v2::adapters::cmd_autorun;
+use termfetch_studio_v2::adapters::desktop;
 use termfetch_studio_v2::adapters::doctor::{self, Level};
 use termfetch_studio_v2::adapters::fastfetch::{config, runner};
 use termfetch_studio_v2::adapters::install;
@@ -129,6 +130,15 @@ fn commit(paths: &Paths, s: &Settings) -> Result<Vec<PathBuf>> {
     let (theme, preset, logo) = cat.resolve(s);
     s.save(&paths.settings_file())?;
     config::apply(theme, preset, logo, s, paths, &TermGeometry::detect())
+}
+
+/// Report a removed or kept launcher file.
+fn report_launcher(path: &std::path::Path, result: anyhow::Result<bool>) {
+    match result {
+        Ok(true) => println!("✓ launcher removed: {}", path.display()),
+        Ok(false) => {}
+        Err(e) => println!("! {e:#}"),
+    }
 }
 
 fn print_preview(paths: &Paths, s: &Settings) {
@@ -251,26 +261,30 @@ fn run_cli(cli: &Cli, paths: &Paths) -> Result<Option<i32>> {
             return Ok(Some(installer::run_script(&["-Source", &exe])?));
         }
         Command::Uninstall => {
-            if !cfg!(windows) {
-                bail!(
-                    "`uninstall` removes the Windows setup; remove the package with your package manager"
-                );
-            }
             for p in shell::remove_all()? {
                 println!("✓ shell startup removed from {}", p.display());
             }
-            println!("✓ {}", cmd_autorun::remove(cmd_autorun::KEY));
-            for path in wt_terminal::settings_files() {
-                match wt_terminal::remove(&path) {
-                    Ok(true) => println!(
-                        "✓ Windows Terminal profile and colors removed from {}",
-                        path.display()
-                    ),
-                    Ok(false) => {}
-                    Err(e) => println!("! Windows Terminal not cleaned: {e:#}"),
-                }
+            if let Some(path) = desktop::path().filter(|_| cfg!(target_os = "linux")) {
+                report_launcher(&path, desktop::remove_if_ours(&path, "[Desktop Entry]"));
             }
-            return Ok(Some(installer::run_script(&["-Uninstall"])?));
+            if let Some(path) = desktop::command_path().filter(|_| cfg!(target_os = "macos")) {
+                report_launcher(&path, desktop::remove_if_ours(&path, desktop::COMMAND_MARK));
+            }
+            if cfg!(windows) {
+                println!("✓ {}", cmd_autorun::remove(cmd_autorun::KEY));
+                for path in wt_terminal::settings_files() {
+                    match wt_terminal::remove(&path) {
+                        Ok(true) => println!(
+                            "✓ Windows Terminal profile and colors removed from {}",
+                            path.display()
+                        ),
+                        Ok(false) => {}
+                        Err(e) => println!("! Windows Terminal not cleaned: {e:#}"),
+                    }
+                }
+                return Ok(Some(installer::run_script(&["-Uninstall"])?));
+            }
+            println!("Remove the program itself with the package manager you installed it with.");
         }
         Command::Run => {
             let cfg = paths.studio_config();

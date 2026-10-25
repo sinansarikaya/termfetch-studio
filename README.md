@@ -10,7 +10,24 @@ Cross-platform terminal customization and Fastfetch theme studio — built in Ru
 
 ## Installation
 
-### 🛠️ Build from Source (Recommended for Development)
+Run `termfetch` after installing. The first start sets up everything for you: the fastfetch configs, the shell startup line, and (on Windows) the cmd prompt, Windows Terminal color scheme and profile, or (on Linux and macOS) the menu launcher. Running it again changes nothing.
+
+### 🪟 Windows
+- **From a release zip:** extract it and double-click `install.cmd`. It installs TermFetch for your user (no admin rights), adds `termfetch` to your PATH, creates Start Menu shortcuts (*TermFetch* and *TermFetch Settings*), and installs fastfetch and Windows Terminal with winget when they are missing.
+- **Already extracted or built from source:** `termfetch-studio install` does the same from the exe.
+- **Scoop** and **WinGet** packages are being prepared; see [`packaging/`](./packaging).
+
+### 🍎 macOS
+- **Homebrew** (tap in preparation): `brew install termfetch` — installs `termfetch` and fastfetch. On first start a *TermFetch.command* launcher is added to `~/Applications`.
+- **From a release tarball:** extract `termfetch-studio-v2.1.0-apple-darwin-universal.tar.gz`, put `termfetch-studio` on your PATH, and install fastfetch with `brew install fastfetch`.
+
+### 🐧 Linux
+- **Arch Linux (AUR):** `yay -S termfetch-studio-bin` (prebuilt) or `yay -S termfetch-studio` (from source).
+- **Debian / Ubuntu / Fedora / openSUSE:** the `.deb` and `.rpm` packages on the release page.
+- **Any distribution:** the static musl tarball `termfetch-studio-v2.1.0-x86_64-unknown-linux-musl.tar.gz`, or the glibc one. Put `termfetch-studio` on your PATH and install fastfetch from your package manager.
+- A *TermFetch* entry is added to your application menu on first start (with a *Settings* action).
+
+### 🛠️ Build from source
 ```bash
 git clone https://github.com/sinansarikaya/termfetch-studio.git
 cd termfetch-studio
@@ -22,48 +39,11 @@ Assets are discovered automatically at runtime (first match wins): `$TERMFETCH_S
 `<exe dir>/assets`, `<exe dir>/../share/termfetch-studio/assets`,
 `~/.local/share/termfetch-studio/assets`, `./assets`, then the source checkout.
 
-### ⚡ Direct Binary & Package Downloads (GitHub Releases)
-Prebuilt standalone binaries and system packages are published on [GitHub Releases](https://github.com/sinansarikaya/termfetch-studio/releases):
-- **Debian / Ubuntu (.deb):** `termfetch-studio_2.0.0_amd64.deb` (`sudo apt install ./termfetch-studio_2.0.0_amd64.deb`)
-- **Fedora / openSUSE (.rpm):** `termfetch-studio-2.0.0-1.x86_64.rpm` (`sudo dnf install ./termfetch-studio-2.0.0-1.x86_64.rpm`)
-- **Linux (Musl Static):** `termfetch-studio-v2.0.0-x86_64-unknown-linux-musl.tar.gz` (Zero runtime dependencies, runs on any Linux distribution)
-- **Linux (Glibc):** `termfetch-studio-v2.0.0-x86_64-unknown-linux-gnu.tar.gz`
-- **macOS (Universal):** `termfetch-studio-v2.0.0-apple-darwin-universal.tar.gz` (Native on Apple Silicon M-series and Intel x86_64)
-- **Windows (x64):** `termfetch-studio-v2.0.0-x86_64-pc-windows-msvc.zip`
+### 🗑️ Uninstall
+- `termfetch uninstall` removes what TermFetch added to your shell startup, launcher and (on Windows) cmd prompt, Windows Terminal profile and colors. Your original Windows Terminal settings are kept in `settings.json.termfetch-backup`.
+- On Windows, `termfetch-studio uninstall` also removes the install folder, the PATH entry and the Start Menu shortcuts. On Linux and macOS, remove the program with the package manager you used.
 
 ---
-
-### 📦 Package Managers *(AUR, Homebrew, WinGet)*
-
-> [!NOTE]
-> Package manager formulas, manifests, and PKGBUILDs are prepared in [`packaging/`](./packaging). Upstream submissions (AUR, Homebrew tap, WinGet) are underway following the v2.0.0 release.
-
-<details>
-<summary><b>Click to preview upcoming package manager installation commands</b></summary>
-
-#### 🚀 Arch Linux (AUR)
-```bash
-# Precompiled binary (recommended)
-yay -S termfetch-studio-bin
-# or with paru
-paru -S termfetch-studio-bin
-
-# Build from source
-yay -S termfetch-studio
-```
-
-#### 🍎 macOS (Homebrew)
-```bash
-brew tap sinansarikaya/tap
-brew install termfetch-studio
-```
-
-#### 🪟 Windows (WinGet)
-```powershell
-winget install SinanSarikaya.TermFetchStudio
-```
-
-</details>
 
 ## TUI
 
@@ -116,12 +96,16 @@ Force a mode with `TERMFETCH_STUDIO_GRAPHICS=kitty` or `=halfblock`.
 ## CLI
 
 ```bash
-termfetch-studio apply --theme nord --preset developer --logo pikachu --logo-size large
+termfetch apply --theme nord --preset developer --logo pikachu --logo-size large
 termfetch-studio preview --theme dracula --preset minimal      # ANSI preview to stdout
 termfetch-studio demo on|off|toggle|status
 termfetch-studio list themes|presets|logos|modules|colors
 termfetch-studio backup create|list|restore <name>|delete <name>
 termfetch-studio run          # fastfetch with the studio config
+termfetch-studio settings     # open the Settings screen
+termfetch-studio setup        # write configs and the shell/system integration again
+termfetch-studio install      # Windows: install for this user (same as install.cmd)
+termfetch-studio uninstall    # remove what TermFetch added to this system
 termfetch-studio doctor       # also: --doctor
 ```
 

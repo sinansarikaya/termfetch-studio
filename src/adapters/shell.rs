@@ -81,6 +81,9 @@ pub fn targets(
             home.join(".zshrc")
         } else if shell.ends_with("fish") {
             home.join(".config").join("fish").join("config.fish")
+        } else if os == Os::MacOs {
+            // macOS terminals start login shells, which read ~/.bash_profile, not ~/.bashrc.
+            home.join(".bash_profile")
         } else {
             home.join(".bashrc")
         };
@@ -261,6 +264,8 @@ mod tests {
     fn posix_targets_follow_the_login_shell() {
         let home = Path::new("/home/u");
         let cfg = Path::new("/home/u/.config/termfetch-studio/fastfetch.jsonc");
+        let mac_bash = targets(Os::MacOs, home, None, "/bin/bash", None, cfg);
+        assert_eq!(mac_bash[0].path, home.join(".bash_profile"));
         let zsh = targets(Os::Linux, home, None, "/bin/zsh", None, cfg);
         assert_eq!(zsh[0].path, home.join(".zshrc"));
         assert_eq!(

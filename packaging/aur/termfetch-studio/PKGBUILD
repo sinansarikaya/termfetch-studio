@@ -38,6 +38,7 @@ check() {
 package() {
     cd "$pkgname-$pkgver"
     install -Dm755 "target/release/termfetch-studio" "$pkgdir/usr/bin/termfetch-studio"
+    ln -sf termfetch-studio "$pkgdir/usr/bin/termfetch"
     
     # Install bundled assets (preset logos, themes)
     install -d "$pkgdir/usr/share/termfetch-studio"

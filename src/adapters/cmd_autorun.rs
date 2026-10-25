@@ -162,6 +162,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(windows)]
     fn integrate_sets_updates_and_leaves_foreign_values_alone() {
         let key = r"HKCU\Software\TermFetchStudioTest\Integrate";
         let _ = Command::new("reg")
@@ -184,6 +185,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(windows)]
     fn write_and_read_round_trip_on_a_scratch_key() {
         let key = r"HKCU\Software\TermFetchStudioRoundTrip\Scratch";
         let value = r#"if exist "C:\a b\fastfetch.exe" ("C:\a b\fastfetch.exe" -c "C:\cfg.jsonc")"#;

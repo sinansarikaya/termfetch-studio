@@ -20,6 +20,7 @@ sha256sums=('6ce95895c551679e40386ffc4cbc7e7e4aadcfbe993f8acbfa5c6acb4256047c')
 package() {
     cd "termfetch-studio-v$pkgver-x86_64-unknown-linux-gnu"
     install -Dm755 termfetch-studio "$pkgdir/usr/bin/termfetch-studio"
+    ln -sf termfetch-studio "$pkgdir/usr/bin/termfetch"
     
     install -d "$pkgdir/usr/share/termfetch-studio"
     cp -r assets "$pkgdir/usr/share/termfetch-studio/"
