@@ -45,9 +45,11 @@ def main():
         mac_sha = next((sha for name, sha in checksums.items() if "apple-darwin" in name or "macos" in name), None)
         linux_sha = next((sha for name, sha in checksums.items() if "x86_64-unknown-linux-gnu.tar.gz" in name), None)
         if mac_sha:
-            content = re.sub(r'sha256\s+"(?:PLACEHOLDER_APPLE_DARWIN_UNIVERSAL_SHA256|[a-f0-9]{64})"', f'sha256 "{mac_sha}"', content, count=1)
+            content = re.sub(r'(on_macos do\s+url\s+"[^"]+"\s+sha256\s+)"[^"]+"', rf'\1"{mac_sha}"', content)
+            content = content.replace("PLACEHOLDER_APPLE_DARWIN_UNIVERSAL_SHA256", mac_sha)
         if linux_sha:
-            content = re.sub(r'sha256\s+"(?:PLACEHOLDER_X86_64_LINUX_GNU_SHA256|[a-f0-9]{64})"', f'sha256 "{linux_sha}"', content)
+            content = re.sub(r'(on_linux do\s+url\s+"[^"]+"\s+sha256\s+)"[^"]+"', rf'\1"{linux_sha}"', content)
+            content = content.replace("PLACEHOLDER_X86_64_LINUX_GNU_SHA256", linux_sha)
         hb_file.write_text(content, encoding="utf-8")
         print("Updated Homebrew formula.")
 

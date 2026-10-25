@@ -15,7 +15,7 @@ optdepends=(
     'ttf-font-nerd: for icon glyphs'
 )
 source=("$url/releases/download/v$pkgver/termfetch-studio-v$pkgver-x86_64-unknown-linux-gnu.tar.gz")
-sha256sums=('SKIP')
+sha256sums=('6ce95895c551679e40386ffc4cbc7e7e4aadcfbe993f8acbfa5c6acb4256047c')
 
 package() {
     cd "termfetch-studio-v$pkgver-x86_64-unknown-linux-gnu"
