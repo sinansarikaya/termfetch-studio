@@ -23,6 +23,7 @@ fn os_release_value(text: &str, key: &str) -> Option<String> {
 }
 
 /// `+0300` / `-0530` → seconds.
+#[allow(dead_code)]
 fn parse_offset(s: &str) -> Option<i64> {
     let s = s.trim();
     let (sign, digits) = match s.as_bytes().first()? {
@@ -121,9 +122,13 @@ impl SysInfo {
             "\u{f08cd}"
         } else if is("nixos") {
             "\u{f08e4}"
-        } else if is("macos") || is("darwin") || cfg!(target_os = "macos") {
+        } else if is("macos") || is("darwin") {
             "\u{f0035}"
-        } else if is("windows") || cfg!(target_os = "windows") {
+        } else if is("windows") {
+            "\u{f05be}"
+        } else if cfg!(target_os = "macos") {
+            "\u{f0035}"
+        } else if cfg!(target_os = "windows") {
             "\u{f05be}"
         } else {
             "\u{f033d}"
