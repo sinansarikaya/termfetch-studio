@@ -1,26 +1,48 @@
 //! Shell integration: a marked block that runs fastfetch whenever a shell starts.
 //! The block is added once and only touches the lines between its markers.
 
-use crate::adapters::install::{Os, current_os};
+use crate::adapters::install::{Os, current_os, on_path};
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 
 pub const BEGIN: &str = "# >>> termfetch-studio >>>";
 pub const END: &str = "# <<< termfetch-studio <<<";
-/// Guarded so a missing fastfetch does not print an error in every new PowerShell.
-const POWERSHELL_LINE: &str =
-    "if (Get-Command fastfetch -ErrorAction SilentlyContinue) { fastfetch }";
-const POSIX_LINE: &str = "fastfetch";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Target {
     pub path: PathBuf,
-    pub line: &'static str,
+    pub line: String,
+}
+
+/// The startup line for a shell. `exe` is the full fastfetch path when fastfetch
+/// is not on PATH (WinGet portable installs get no PATH entry), `None` otherwise.
+fn powershell_line(exe: Option<&Path>) -> String {
+    match exe {
+        // Guarded so a missing fastfetch does not print an error in every new PowerShell.
+        None => "if (Get-Command fastfetch -ErrorAction SilentlyContinue) { fastfetch }".into(),
+        Some(p) => {
+            let q = p.display().to_string().replace('\'', "''");
+            format!("if (Test-Path -LiteralPath '{q}') {{ & '{q}' }}")
+        }
+    }
+}
+
+fn posix_line(exe: Option<&Path>) -> String {
+    match exe {
+        None => "fastfetch".into(),
+        Some(p) => format!("'{}'", p.display().to_string().replace('\'', r"'\''")),
+    }
 }
 
 /// Startup files that should run fastfetch on this system.
-pub fn targets(os: Os, home: &Path, documents: Option<&Path>, shell: &str) -> Vec<Target> {
+pub fn targets(
+    os: Os,
+    home: &Path,
+    documents: Option<&Path>,
+    shell: &str,
+    exe: Option<&Path>,
+) -> Vec<Target> {
     let mut out = Vec::new();
     if os == Os::Windows {
         if let Some(docs) = documents {
@@ -28,31 +50,28 @@ pub fn targets(os: Os, home: &Path, documents: Option<&Path>, shell: &str) -> Ve
                 path: docs
                     .join("PowerShell")
                     .join("Microsoft.PowerShell_profile.ps1"),
-                line: POWERSHELL_LINE,
+                line: powershell_line(exe),
             });
             // Windows PowerShell 5.1 only when it is actually set up on this machine.
             let legacy = docs.join("WindowsPowerShell");
             if legacy.is_dir() {
                 out.push(Target {
                     path: legacy.join("Microsoft.PowerShell_profile.ps1"),
-                    line: POWERSHELL_LINE,
+                    line: powershell_line(exe),
                 });
             }
         }
-    } else if shell.ends_with("zsh") {
-        out.push(Target {
-            path: home.join(".zshrc"),
-            line: POSIX_LINE,
-        });
-    } else if shell.ends_with("fish") {
-        out.push(Target {
-            path: home.join(".config").join("fish").join("config.fish"),
-            line: POSIX_LINE,
-        });
     } else {
+        let path = if shell.ends_with("zsh") {
+            home.join(".zshrc")
+        } else if shell.ends_with("fish") {
+            home.join(".config").join("fish").join("config.fish")
+        } else {
+            home.join(".bashrc")
+        };
         out.push(Target {
-            path: home.join(".bashrc"),
-            line: POSIX_LINE,
+            path,
+            line: posix_line(exe),
         });
     }
     out
@@ -90,9 +109,20 @@ pub fn integrate() -> io::Result<Vec<PathBuf>> {
     let documents =
         directories::UserDirs::new().and_then(|u| u.document_dir().map(Path::to_path_buf));
     let shell = std::env::var("SHELL").unwrap_or_default();
+    let exe = if on_path("fastfetch") {
+        None
+    } else {
+        crate::adapters::fastfetch::runner::find_fastfetch()
+    };
     let mut changed = Vec::new();
-    for target in targets(current_os(), &home, documents.as_deref(), &shell) {
-        if add_block(&target.path, target.line)? {
+    for target in targets(
+        current_os(),
+        &home,
+        documents.as_deref(),
+        &shell,
+        exe.as_deref(),
+    ) {
+        if add_block(&target.path, &target.line)? {
             changed.push(target.path);
         }
     }
@@ -113,7 +143,7 @@ mod tests {
     #[test]
     fn windows_targets_follow_documents_folder() {
         let docs = Path::new("C:/Users/x/OneDrive/Documents");
-        let t = targets(Os::Windows, Path::new("C:/Users/x"), Some(docs), "");
+        let t = targets(Os::Windows, Path::new("C:/Users/x"), Some(docs), "", None);
         assert_eq!(
             t[0].path,
             docs.join("PowerShell")
@@ -123,19 +153,33 @@ mod tests {
     }
 
     #[test]
+    fn powershell_uses_full_path_when_not_on_path() {
+        let exe = Path::new(r"C:\Users\x\WinGet\fastfetch.exe");
+        assert_eq!(
+            powershell_line(Some(exe)),
+            r"if (Test-Path -LiteralPath 'C:\Users\x\WinGet\fastfetch.exe') { & 'C:\Users\x\WinGet\fastfetch.exe' }"
+        );
+        assert!(powershell_line(None).contains("Get-Command fastfetch"));
+    }
+
+    #[test]
     fn posix_targets_follow_the_login_shell() {
         let home = Path::new("/home/u");
         assert_eq!(
-            targets(Os::Linux, home, None, "/bin/zsh")[0].path,
+            targets(Os::Linux, home, None, "/bin/zsh", None)[0].path,
             home.join(".zshrc")
         );
         assert_eq!(
-            targets(Os::Linux, home, None, "/usr/bin/fish")[0].path,
+            targets(Os::Linux, home, None, "/usr/bin/fish", None)[0].path,
             home.join(".config/fish/config.fish")
         );
         assert_eq!(
-            targets(Os::Linux, home, None, "/bin/bash")[0].path,
+            targets(Os::Linux, home, None, "/bin/bash", None)[0].path,
             home.join(".bashrc")
+        );
+        assert_eq!(
+            posix_line(Some(Path::new("/opt/it's/fastfetch"))),
+            r"'/opt/it'\''s/fastfetch'"
         );
     }
 
@@ -144,9 +188,9 @@ mod tests {
         let dir = temp("block");
         let file = dir.join("profile.ps1");
         fs::write(&file, "Set-Alias ll ls").unwrap();
-        assert!(add_block(&file, POSIX_LINE).unwrap());
+        assert!(add_block(&file, "fastfetch").unwrap());
         assert!(
-            !add_block(&file, POSIX_LINE).unwrap(),
+            !add_block(&file, "fastfetch").unwrap(),
             "second run is a no-op"
         );
         let text = fs::read_to_string(&file).unwrap();
@@ -162,8 +206,12 @@ mod tests {
         let file = dir
             .join("PowerShell")
             .join("Microsoft.PowerShell_profile.ps1");
-        assert!(add_block(&file, POWERSHELL_LINE).unwrap());
-        assert!(fs::read_to_string(&file).unwrap().contains(POWERSHELL_LINE));
+        assert!(add_block(&file, &powershell_line(None)).unwrap());
+        assert!(
+            fs::read_to_string(&file)
+                .unwrap()
+                .contains("Get-Command fastfetch")
+        );
         let _ = fs::remove_dir_all(dir);
     }
 }
