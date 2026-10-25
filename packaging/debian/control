@@ -1,0 +1,13 @@
+Package: termfetch-studio
+Version: 2.0.0
+Section: utils
+Priority: optional
+Architecture: amd64
+Maintainer: Sinan Sarıkaya <sinan@sinansarikaya.com>
+Depends: fastfetch
+Suggests: kitty, chafa
+Homepage: https://github.com/sinansarikaya/termfetch-studio
+Description: Cross-platform terminal customization and Fastfetch theme studio
+ TermFetch Studio v2 is an interactive terminal customization tool built with
+ Rust and Ratatui for browsing, previewing, and configuring Fastfetch themes,
+ presets, modules, and logos in real time.

@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.defaultLocale.1.6.0.schema.json
+
+PackageIdentifier: SinanSarikaya.TermFetchStudio
+PackageVersion: 2.0.0
+PackageLocale: en-US
+Publisher: Sinan Sarıkaya
+PublisherUrl: https://github.com/sinansarikaya
+PublisherSupportUrl: https://github.com/sinansarikaya/termfetch-studio/issues
+PackageName: TermFetch Studio
+PackageUrl: https://github.com/sinansarikaya/termfetch-studio
+License: MIT
+LicenseUrl: https://github.com/sinansarikaya/termfetch-studio/blob/main/LICENSE
+ShortDescription: Cross-platform terminal customization and Fastfetch theme studio.
+Description: TermFetch Studio v2 is an interactive terminal customization tool built with Rust and Ratatui for browsing, previewing, and configuring Fastfetch themes, presets, modules, and logos in real time.
+Moniker: termfetch-studio
+Tags:
+  - fastfetch
+  - tui
+  - theme
+  - terminal
+  - ratatui
+  - cli
+ReleaseNotesUrl: https://github.com/sinansarikaya/termfetch-studio/releases/tag/v2.0.0
+ManifestType: defaultLocale
+ManifestVersion: 1.6.0

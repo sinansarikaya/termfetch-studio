@@ -1,0 +1,29 @@
+# Maintainer: Sinan Sarıkaya <sinan@sinansarikaya.com>
+pkgname=termfetch-studio-bin
+pkgver=2.0.0
+pkgrel=1
+pkgdesc="Cross-platform terminal customization and Fastfetch theme studio (precompiled binary)"
+arch=('x86_64')
+url="https://github.com/sinansarikaya/termfetch-studio"
+license=('MIT')
+provides=('termfetch-studio')
+conflicts=('termfetch-studio')
+depends=('fastfetch')
+optdepends=(
+    'kitty: for Kitty Graphics protocol'
+    'chafa: for terminal half-block image fallback'
+    'ttf-font-nerd: for icon glyphs'
+)
+source=("$url/releases/download/v$pkgver/termfetch-studio-v$pkgver-x86_64-unknown-linux-gnu.tar.gz")
+sha256sums=('SKIP')
+
+package() {
+    cd "termfetch-studio-v$pkgver-x86_64-unknown-linux-gnu"
+    install -Dm755 termfetch-studio "$pkgdir/usr/bin/termfetch-studio"
+    
+    install -d "$pkgdir/usr/share/termfetch-studio"
+    cp -r assets "$pkgdir/usr/share/termfetch-studio/"
+
+    install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+    install -Dm644 README.md "$pkgdir/usr/share/doc/$pkgname/README.md"
+}

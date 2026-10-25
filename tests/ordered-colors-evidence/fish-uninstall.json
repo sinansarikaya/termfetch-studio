@@ -1,9 +1,0 @@
-{
-  "installer_sha256": "a3c33c8e5122ab6f72ea748ad94c1b131dd11496d70e7bb87d4be77ddf071704",
-  "checks": {
-    "legacy_alias_uninstall_clear": "passed: exact alias removed, original backed up, personal clear/function preserved, new Fish clear uses native fetch",
-    "existing_session_recovery": "passed: parent Fish keeps loaded alias until documented functions --erase fastfetch; clear then uses native fetch",
-    "custom_alias_preserved": "passed: compound custom alias is not removed"
-  },
-  "digest": "ubuntu@sha256:534baea6a22c03a63003dbc8dbe78fe34bc0d7e595d9a9dc9834884ff530eb55"
-}
