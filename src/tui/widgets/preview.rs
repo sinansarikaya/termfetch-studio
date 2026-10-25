@@ -84,7 +84,9 @@ impl PreviewModel<'_> {
                     .map(Line::width)
                     .max()
                     .unwrap_or(30)
-                    .min(46) as u16;
+                    .min(46)
+                    // Text wraps; the logo keeps at least half of a narrow pane.
+                    .min(usize::from(avail.0 / 2)) as u16;
                 let max_w = cw.min(
                     avail
                         .0
