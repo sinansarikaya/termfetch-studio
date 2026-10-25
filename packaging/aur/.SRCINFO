@@ -14,6 +14,6 @@ pkgbase = termfetch-studio
 	optdepends = chafa: for terminal half-block image fallback
 	optdepends = ttf-font-nerd: for icon glyphs
 	source = termfetch-studio-2.0.0.tar.gz::https://github.com/sinansarikaya/termfetch-studio/archive/refs/tags/v2.0.0.tar.gz
-	sha256sums = SKIP
+	sha256sums = ffc05868ca725fd561506749506a0ec5102ea01970fbf85ae4e2d318f1c749dc
 
 pkgname = termfetch-studio

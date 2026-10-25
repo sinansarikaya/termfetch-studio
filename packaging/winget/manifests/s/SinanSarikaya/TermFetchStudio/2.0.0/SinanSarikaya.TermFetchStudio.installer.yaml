@@ -13,7 +13,7 @@ Dependencies:
 Installers:
   - Architecture: x64
     InstallerUrl: https://github.com/sinansarikaya/termfetch-studio/releases/download/v2.0.0/termfetch-studio-v2.0.0-x86_64-pc-windows-msvc.zip
-    InstallerSha256: 0000000000000000000000000000000000000000000000000000000000000000
+    InstallerSha256: 59F11489EE32F211C4473269158EA24C051E0399F5B2FC8DCA477C83CE928113
     UpgradeBehavior: install
 ManifestType: installer
 ManifestVersion: 1.6.0
