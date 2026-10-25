@@ -691,6 +691,15 @@ fn main() -> Result<()> {
     if matches!(cli.command, Some(Command::Settings)) {
         reduce(&mut state, Action::Goto(Screen::Settings));
     }
+    // First interactive start: apply once, so a plain copy of the exe is fully set up.
+    let first_run = state.paths.config_dir.join("setup.done");
+    if interactive && !first_run.exists() {
+        reduce(&mut state, Action::Apply);
+        if state.status.0 == StatusKind::Ok {
+            let _ = std::fs::create_dir_all(&state.paths.config_dir);
+            let _ = std::fs::write(&first_run, b"1");
+        }
+    }
     if kitty::detect() {
         state.enable_kitty();
     } else {
