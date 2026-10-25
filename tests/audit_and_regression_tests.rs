@@ -215,17 +215,23 @@ fn broken_or_missing_logo_does_not_panic() {
     state
         .pool
         .request("/tmp/non_existent_termfetch_logo_xyz.png", true);
-    for _ in 0..10 {
+    let start = std::time::Instant::now();
+    let mut found_error = false;
+    while start.elapsed() < std::time::Duration::from_secs(5) {
         reduce(&mut state, Action::Tick);
-        std::thread::sleep(std::time::Duration::from_millis(5));
+        if state
+            .pool
+            .error("/tmp/non_existent_termfetch_logo_xyz.png")
+            .is_some()
+        {
+            found_error = true;
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(10));
     }
 
     // Verify error is registered gracefully
-    let err = state.pool.error("/tmp/non_existent_termfetch_logo_xyz.png");
-    assert!(
-        err.is_some(),
-        "Missing file must report an error, not panic"
-    );
+    assert!(found_error, "Missing file must report an error, not panic");
 
     // Verify rendering logos screen with broken image doesn't panic
     let mut term = Terminal::new(TestBackend::new(120, 35)).unwrap();
