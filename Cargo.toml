@@ -3,6 +3,14 @@ name = "termfetch-studio-v2"
 default-run = "termfetch-studio"
 version = "2.0.0"
 edition = "2024"
+authors = ["Sinan Sarıkaya"]
+description = "Cross-platform terminal customization and Fastfetch theme studio"
+readme = "README.md"
+repository = "https://github.com/sinansarikaya/termfetch-studio"
+homepage = "https://github.com/sinansarikaya/termfetch-studio"
+license = "MIT"
+keywords = ["fastfetch", "tui", "ratatui", "theme", "terminal"]
+categories = ["command-line-utilities"]
 
 [dependencies]
 anyhow = "1.0.104"
