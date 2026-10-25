@@ -2,7 +2,7 @@ use crate::adapters::backup;
 use crate::adapters::doctor;
 use crate::adapters::fastfetch::config;
 use crate::adapters::install;
-use crate::adapters::shell;
+use crate::adapters::setup;
 use crate::app::actions::Action;
 use crate::app::state::{
     AppState, DashCursor, DashRow, Dropdown, Effect, Focus, Hit, OPTION_APPLY, OPTION_ROWS,
@@ -571,24 +571,15 @@ fn quick_action(state: &mut AppState, i: usize) {
 fn tool_action(state: &mut AppState, i: usize) {
     match i {
         0 => open(state, Screen::Doctor),
-        1 => match shell::integrate() {
-            Ok(changed) if changed.is_empty() => state.set_status(
+        1 => {
+            let theme = state.current_theme().clone();
+            let config = state.paths.studio_config();
+            let steps = setup::integrate(&config, &theme, state.saved.apply_terminal_colors);
+            state.set_status(
                 StatusKind::Ok,
-                "Shell integration: already set up - fastfetch runs when a shell starts",
-            ),
-            Ok(changed) => {
-                let files = changed
-                    .iter()
-                    .map(|p| p.display().to_string())
-                    .collect::<Vec<_>>()
-                    .join(", ");
-                state.set_status(
-                    StatusKind::Ok,
-                    format!("✓ Shell integration added to {files} - open a new shell"),
-                );
-            }
-            Err(e) => state.set_status(StatusKind::Error, format!("Shell integration failed: {e}")),
-        },
+                format!("✓ Shell setup: {}", steps.join(" · ")),
+            );
+        }
         2 => open(state, Screen::Backup),
         _ => {
             open(state, Screen::Backup);
@@ -828,14 +819,11 @@ fn apply(state: &mut AppState) -> bool {
                 state.current_preset().name.clone(),
             );
             let mut msg = format!("✓ Applied {theme} · {preset}");
-            if state.shell_integration {
-                match shell::integrate() {
-                    Ok(changed) if changed.is_empty() => {
-                        msg.push_str(" · new shells show fastfetch");
-                    }
-                    Ok(_) => msg.push_str(" · shell set up - open a new shell to see it"),
-                    Err(e) => msg.push_str(&format!(" · shell setup failed: {e}")),
-                }
+            if state.system_setup {
+                let theme = state.current_theme().clone();
+                let config = state.paths.studio_config();
+                let steps = setup::integrate(&config, &theme, state.saved.apply_terminal_colors);
+                msg.push_str(&format!(" · {}", steps.join(" · ")));
             }
             state.set_status(StatusKind::Ok, msg);
             true

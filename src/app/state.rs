@@ -303,8 +303,8 @@ pub struct AppState {
     pub sixel: SixelState,
     /// Set once OSC 10/11 changed the host terminal colours; reset on exit.
     pub host_colors_applied: bool,
-    /// Apply also adds the startup block to the shell profiles (set by the app, not by tests).
-    pub shell_integration: bool,
+    /// Apply also sets up the shell startup block and the terminal scheme (set by the app, not by tests).
+    pub system_setup: bool,
     /// The install command was shown; a second `i` runs it.
     pub pending_install: bool,
     pub geo: TermGeometry,
@@ -387,7 +387,7 @@ impl AppState {
             kitty: None,
             sixel: SixelState::default(),
             host_colors_applied: false,
-            shell_integration: false,
+            system_setup: false,
             pending_install: false,
             geo,
             doctor: Vec::new(),
