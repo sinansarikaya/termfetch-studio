@@ -18,6 +18,7 @@ use termfetch_studio_v2::adapters::backup;
 use termfetch_studio_v2::adapters::doctor::{self, Level};
 use termfetch_studio_v2::adapters::fastfetch::{config, runner};
 use termfetch_studio_v2::adapters::install;
+use termfetch_studio_v2::adapters::shell;
 use termfetch_studio_v2::app::actions::Action;
 use termfetch_studio_v2::app::reducer::reduce;
 use termfetch_studio_v2::app::state::{AppState, Effect, StatusKind};
@@ -315,6 +316,19 @@ fn run_cli(cli: &Cli, paths: &Paths) -> Result<Option<i32>> {
                 println!("✓ deleted {}", b.name);
             }
         },
+        Command::Setup => {
+            let s = load_settings(paths).unwrap_or_default();
+            for p in commit(paths, &s)? {
+                println!("✓ wrote {}", p.display());
+            }
+            match shell::integrate() {
+                Ok(changed) if changed.is_empty() => println!("✓ shell startup already set up"),
+                Ok(changed) => changed
+                    .iter()
+                    .for_each(|p| println!("✓ shell startup added to {}", p.display())),
+                Err(e) => println!("! shell startup not added: {e}"),
+            }
+        }
         Command::Doctor => return Ok(Some(if print_doctor(paths) { 0 } else { 1 })),
     }
     Ok(Some(0))
@@ -612,8 +626,38 @@ fn run_app(terminal: &mut Tui, state: &mut AppState) -> Result<()> {
     Ok(())
 }
 
+/// Windows Terminal is the only Windows console that shows the logos and icons, so an
+/// interactive run from the classic console reopens itself there. Returns whether it did.
+fn relaunch_in_windows_terminal() -> bool {
+    if !cfg!(windows) || std::env::var_os("WT_SESSION").is_some() {
+        return false;
+    }
+    let Some(local) = std::env::var_os("LOCALAPPDATA") else {
+        return false;
+    };
+    let wt = PathBuf::from(local)
+        .join("Microsoft")
+        .join("WindowsApps")
+        .join("wt.exe");
+    let Ok(exe) = std::env::current_exe() else {
+        return false;
+    };
+    if !wt.is_file() {
+        return false;
+    }
+    std::process::Command::new(wt)
+        .args(["-w", "new", "--"])
+        .arg(exe)
+        .spawn()
+        .is_ok()
+}
+
 fn main() -> Result<()> {
     let cli = Cli::parse();
+    let interactive = cli.command.is_none() && cli.preview.is_none() && !cli.doctor;
+    if interactive && relaunch_in_windows_terminal() {
+        return Ok(());
+    }
     let paths = Paths::detect();
 
     match run_cli(&cli, &paths) {
