@@ -1,5 +1,7 @@
+use crate::adapters::fastfetch::config::LOGO_PADDING_TOP;
 use crate::app::state::{AppState, PreviewOutput, Screen};
 use crate::imaging::kitty::ImageKey;
+use crate::imaging::sixel::{ImageKey as SixelImage, Slot};
 use crate::tui::screens::{
     backup::render_backup, dashboard::render_dashboard, doctor::render_doctor, logos::render_logos,
     modules::render_modules, presets::render_presets, settings::render_settings,
@@ -10,6 +12,7 @@ use crate::tui::widgets::header::render_header;
 use crate::tui::widgets::options::{options_height, render_options};
 use crate::tui::widgets::preview::{
     ImageState, LogoRaster, PreviewModel, draw_preview_chrome, draw_preview_scrolled, inner_area,
+    rgb,
 };
 use crate::tui::widgets::sidebar::render_sidebar;
 use crate::tui::widgets::ui::{card, fill, key_badge, line_at};
@@ -215,13 +218,32 @@ fn render_preview_pane(f: &mut Frame, area: Rect, state: &mut AppState) {
         }
         kitty_prefetch(state, avail);
     }
+    // Sixel is next when the terminal has no Kitty graphics; half blocks are the last fallback.
+    let mut sixel_on = false;
+    if let (None, ImageState::Ready(_), Some(p)) = (kitty_id, image, path.as_deref())
+        && state.sixel.enabled
+    {
+        let cell = state.geo.cell;
+        let bg = rgb(preview_model(state, image).bg());
+        let slot = Slot {
+            x: inner.x,
+            y: inner.y + LOGO_PADDING_TOP,
+            image: SixelImage {
+                path: p.to_string(),
+                px: (u32::from(cells.0) * cell.w, u32::from(cells.1) * cell.h),
+                bg,
+            },
+        };
+        sixel_on = state.sixel.want(slot);
+    }
     // Half blocks are the fallback until the full-resolution upload is in the terminal.
     let grid = match (image, kitty_id, path) {
-        (ImageState::Ready(_), None, Some(p)) => state.pool.grid(&p, cells.0, cells.1),
+        (ImageState::Ready(_), None, Some(p)) if !sixel_on => state.pool.grid(&p, cells.0, cells.1),
         _ => None,
     };
     let raster = match (kitty_id, grid.as_deref()) {
         (Some(id), _) => LogoRaster::Kitty(id),
+        (None, _) if sixel_on => LogoRaster::Sixel,
         (None, Some(g)) => LogoRaster::Halfblock(g),
         (None, None) => LogoRaster::None,
     };
@@ -312,7 +334,7 @@ fn render_config_output(f: &mut Frame, area: Rect, state: &mut AppState) {
     }
 }
 
-const HELP: [(&str, &str); 17] = [
+const HELP: [(&str, &str); 18] = [
     (
         "Tab / Shift+Tab",
         "next / previous section (menu → stage → options)",
@@ -325,6 +347,7 @@ const HELP: [(&str, &str); 17] = [
         "jump to a screen (Dashboard stage: 1-4 quick actions)",
     ),
     ("p", "run the real fastfetch with the current selection"),
+    ("i", "install fastfetch (press twice)"),
     (
         "d / r / x",
         "Presets: duplicate / rename / confirm deletion",

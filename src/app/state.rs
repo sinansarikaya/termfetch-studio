@@ -1,6 +1,7 @@
 use crate::adapters::backup::{BackupEntry, list_backups};
-use crate::adapters::doctor::Check;
+use crate::adapters::doctor::{self, Check};
 use crate::adapters::fastfetch::runner::{self, RealInfo};
+use crate::adapters::install::Plan;
 use crate::domain::logo::{LogoItem, builtin_logos};
 use crate::domain::preset::{ModuleKind, Preset};
 use crate::domain::settings::Settings;
@@ -8,6 +9,7 @@ use crate::domain::theme::{Theme, get_builtin_themes};
 use crate::imaging::TermGeometry;
 use crate::imaging::kitty::KittyImages;
 use crate::imaging::pool::ImagePool;
+use crate::imaging::sixel::SixelState;
 use crate::paths::Paths;
 use ratatui::layout::Rect;
 use ratatui::widgets::ListState;
@@ -135,7 +137,7 @@ impl Screen {
             Self::Modules => &[("Space", "Toggle"), ("J/K", "Reorder")],
             Self::Settings => &[("←→", "Change")],
             Self::Backup => &[("x", "Delete")],
-            Self::Doctor => &[("r", "Re-run")],
+            Self::Doctor => &[("r", "Re-run"), ("i", "Install fastfetch")],
         }
     }
 }
@@ -222,6 +224,8 @@ pub enum StatusKind {
 pub enum Effect {
     /// Suspend the TUI and run fastfetch with the current (unsaved) choices.
     RunFastfetch,
+    /// Suspend the TUI and run the fastfetch install command in the shell.
+    InstallFastfetch(Plan),
     /// Raw escape sequence for the host terminal (OSC 10/11 theme colours).
     WriteTerminal(String),
 }
@@ -295,6 +299,12 @@ pub struct AppState {
     pub pool: ImagePool,
     /// Kitty graphics uploader; `None` renders image logos with half blocks.
     pub kitty: Option<KittyImages>,
+    /// Sixel logo output for terminals without Kitty graphics (Windows Terminal, foot).
+    pub sixel: SixelState,
+    /// Set once OSC 10/11 changed the host terminal colours; reset on exit.
+    pub host_colors_applied: bool,
+    /// The install command was shown; a second `i` runs it.
+    pub pending_install: bool,
     pub geo: TermGeometry,
     pub backups: Vec<BackupEntry>,
     pub doctor: Vec<Check>,
@@ -373,6 +383,9 @@ impl AppState {
             real_rx: None,
             pool: ImagePool::with_default_workers(),
             kitty: None,
+            sixel: SixelState::default(),
+            host_colors_applied: false,
+            pending_install: false,
             geo,
             doctor: Vec::new(),
             status: (
@@ -581,16 +594,31 @@ impl AppState {
 
     /// Probe real system values in the background (only needed with demo mode off).
     pub fn start_real_probe(&mut self) {
-        if self.real_info.is_some() || self.real_rx.is_some() || self.fastfetch_version.is_none() {
+        if self.real_info.is_some() || self.real_rx.is_some() {
             return;
         }
+        let have_fastfetch = self.fastfetch_version.is_some();
         let (tx, rx) = std::sync::mpsc::channel();
         let scratch = self.paths.cache_dir.join("probe.jsonc");
         std::thread::spawn(move || {
-            let info = runner::probe_real_info(&ModuleKind::ALL, &scratch).unwrap_or_default();
+            // Without fastfetch, Windows still reports its own facts.
+            let info = if have_fastfetch {
+                runner::probe_real_info(&ModuleKind::ALL, &scratch).unwrap_or_default()
+            } else {
+                crate::adapters::native_info::probe()
+            };
             let _ = tx.send(info);
         });
         self.real_rx = Some(rx);
+    }
+
+    /// Re-check fastfetch after an install: version, doctor list and real values.
+    pub fn refresh_fastfetch(&mut self) {
+        self.fastfetch_version = runner::version();
+        self.doctor = doctor::run_checks(&self.paths);
+        self.real_info = None;
+        self.real_rx = None;
+        self.start_real_probe();
     }
 
     pub fn refresh_backups(&mut self) {

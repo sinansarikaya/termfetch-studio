@@ -38,6 +38,8 @@ pub enum Action {
     ToggleDemo,
     CycleLogoSize,
     RunFastfetch,
+    /// Install fastfetch with this system's package manager; press twice to confirm.
+    Install,
     Refresh,
     Delete,
     Undo,

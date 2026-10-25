@@ -1,6 +1,7 @@
 use crate::adapters::backup;
 use crate::adapters::doctor;
 use crate::adapters::fastfetch::config;
+use crate::adapters::install;
 use crate::app::actions::Action;
 use crate::app::state::{
     AppState, DashCursor, DashRow, Dropdown, Effect, Focus, Hit, OPTION_APPLY, OPTION_ROWS,
@@ -28,6 +29,9 @@ fn step(idx: usize, len: usize, delta: isize, wrap: bool) -> usize {
 pub fn reduce(state: &mut AppState, action: Action) {
     if action != Action::Tick {
         state.dirty = true;
+    }
+    if !matches!(action, Action::Install | Action::Tick | Action::Resize) {
+        state.pending_install = false;
     }
     if state.editor.is_some() && !matches!(action, Action::Tick | Action::Resize) {
         match action {
@@ -186,6 +190,7 @@ pub fn reduce(state: &mut AppState, action: Action) {
         Action::ToggleDemo => toggle_demo(state),
         Action::CycleLogoSize => cycle_logo_size(state, true),
         Action::RunFastfetch => run_fastfetch(state),
+        Action::Install => install_fastfetch(state),
         Action::Refresh => match state.screen {
             Screen::Presets => {
                 state.editor = Some("rename".into());
@@ -277,6 +282,31 @@ fn run_fastfetch(state: &mut AppState) {
     } else {
         state.set_status(StatusKind::Error, "fastfetch is not installed - see Doctor");
     }
+}
+
+/// First press shows the command, second press runs it.
+fn install_fastfetch(state: &mut AppState) {
+    if state.fastfetch_version.is_some() {
+        state.set_status(StatusKind::Ok, "fastfetch is already installed");
+        return;
+    }
+    let Some(plan) = install::plan_for_this_system(&state.sysinfo.distro_ids) else {
+        state.set_status(
+            StatusKind::Error,
+            "no supported package manager found - install fastfetch from github.com/fastfetch-cli/fastfetch",
+        );
+        return;
+    };
+    if !state.pending_install {
+        state.pending_install = true;
+        state.set_status(
+            StatusKind::Warn,
+            format!("Press i again to run: {}", plan.command_line()),
+        );
+        return;
+    }
+    state.pending_install = false;
+    state.effects.push(Effect::InstallFastfetch(plan));
 }
 
 fn cycle_logo_size(state: &mut AppState, forward: bool) {
@@ -786,6 +816,7 @@ fn apply(state: &mut AppState) -> bool {
             if state.saved.apply_terminal_colors {
                 let osc = state.current_theme().osc_sequences();
                 state.effects.push(Effect::WriteTerminal(osc));
+                state.host_colors_applied = true;
             }
             let list = targets
                 .iter()

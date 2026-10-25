@@ -39,6 +39,8 @@ pub enum LogoRaster<'a> {
     Halfblock(&'a HalfblockGrid),
     /// Full-resolution image already uploaded to the terminal under this id.
     Kitty(u32),
+    /// Sixel image placed on top of the blank logo cells after the frame.
+    Sixel,
 }
 
 pub struct PreviewModel<'a> {
@@ -52,7 +54,7 @@ pub struct PreviewModel<'a> {
     pub geo: TermGeometry,
 }
 
-fn rgb(c: Color) -> (u8, u8, u8) {
+pub fn rgb(c: Color) -> (u8, u8, u8) {
     match c {
         Color::Rgb(r, g, b) => (r, g, b),
         _ => (0, 0, 0),
@@ -64,7 +66,7 @@ impl PreviewModel<'_> {
         self.theme.text_color()
     }
 
-    fn bg(&self) -> Color {
+    pub fn bg(&self) -> Color {
         self.theme.background_color()
     }
 
@@ -403,6 +405,8 @@ pub fn draw_preview_scrolled(
         (ImageState::Ready(_), LogoRaster::Kitty(id)) => {
             draw_kitty_placeholders(buf, lx, ly, inner, (lw, lh), id, bg)
         }
+        // Blank cells: the sixel image is written over them once the frame is out.
+        (ImageState::Ready(_), LogoRaster::Sixel) => {}
         (ImageState::NotImage, _) => {
             for (i, l) in model.logo.art.lines().enumerate() {
                 let y = ly + i as u16;

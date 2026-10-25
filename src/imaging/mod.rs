@@ -3,6 +3,7 @@
 pub mod kitty;
 mod kitty_diacritics;
 pub mod pool;
+pub mod sixel;
 
 use image::RgbaImage;
 use std::path::Path;
