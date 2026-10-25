@@ -2,6 +2,7 @@ use crate::adapters::backup;
 use crate::adapters::doctor;
 use crate::adapters::fastfetch::config;
 use crate::adapters::install;
+use crate::adapters::shell;
 use crate::app::actions::Action;
 use crate::app::state::{
     AppState, DashCursor, DashRow, Dropdown, Effect, Focus, Hit, OPTION_APPLY, OPTION_ROWS,
@@ -570,20 +571,24 @@ fn quick_action(state: &mut AppState, i: usize) {
 fn tool_action(state: &mut AppState, i: usize) {
     match i {
         0 => open(state, Screen::Doctor),
-        1 => {
-            let c = doctor::shell_integration();
-            let hint = if c.level == doctor::Level::Ok {
-                String::new()
-            } else {
-                " - add `fastfetch` to ~/.zshrc, ~/.bashrc or ~/.config/fish/config.fish".into()
-            };
-            let kind = if c.level == doctor::Level::Ok {
-                StatusKind::Ok
-            } else {
-                StatusKind::Info
-            };
-            state.set_status(kind, format!("Shell integration: {}{hint}", c.detail));
-        }
+        1 => match shell::integrate() {
+            Ok(changed) if changed.is_empty() => state.set_status(
+                StatusKind::Ok,
+                "Shell integration: already set up - fastfetch runs when a shell starts",
+            ),
+            Ok(changed) => {
+                let files = changed
+                    .iter()
+                    .map(|p| p.display().to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                state.set_status(
+                    StatusKind::Ok,
+                    format!("✓ Shell integration added to {files} - open a new shell"),
+                );
+            }
+            Err(e) => state.set_status(StatusKind::Error, format!("Shell integration failed: {e}")),
+        },
         2 => open(state, Screen::Backup),
         _ => {
             open(state, Screen::Backup);

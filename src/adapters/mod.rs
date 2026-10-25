@@ -4,4 +4,5 @@ pub mod fastfetch;
 pub mod fsutil;
 pub mod install;
 pub mod native_info;
+pub mod shell;
 pub mod sysinfo;
