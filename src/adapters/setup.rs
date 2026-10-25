@@ -38,6 +38,13 @@ pub fn integrate(config: &Path, theme: &Theme, terminal_colors: bool) -> Vec<Str
             Err(e) => out.push(format!("application menu entry not added: {e:#}")),
         }
     }
+    if let (true, Some(path)) = (cfg!(target_os = "macos"), desktop::command_path()) {
+        match desktop::write_command(&path) {
+            Ok(true) => out.push("~/Applications/TermFetch.command added".into()),
+            Ok(false) => {}
+            Err(e) => out.push(format!("TermFetch.command not added: {e:#}")),
+        }
+    }
     if terminal_colors {
         let colors = wt_terminal::Colors {
             background: theme.background.clone(),

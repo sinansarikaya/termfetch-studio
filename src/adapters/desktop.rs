@@ -1,6 +1,7 @@
-//! Linux application-menu entry (freedesktop `.desktop` file) with a "Settings" action.
+//! Application-menu launchers: a freedesktop `.desktop` entry on Linux and a double-clickable
+//! `.command` file on macOS. Both only ever replace or remove files that we wrote.
 
-use anyhow::Result;
+use anyhow::{Result, bail};
 use std::path::{Path, PathBuf};
 
 /// The entry for `exe`. Exec lines are quoted so paths with spaces work.
@@ -45,6 +46,53 @@ pub fn write(path: &Path, exe: &Path) -> Result<bool> {
     Ok(true)
 }
 
+/// macOS: a `.command` file in ~/Applications; double-clicking it opens TermFetch in Terminal.
+pub const COMMAND_MARK: &str = "# termfetch-studio launcher";
+
+pub fn command_text() -> String {
+    format!("#!/bin/sh\n{COMMAND_MARK}\nexec termfetch-studio\n")
+}
+
+pub fn command_path() -> Option<PathBuf> {
+    let dirs = directories::BaseDirs::new()?;
+    Some(
+        dirs.home_dir()
+            .join("Applications")
+            .join("TermFetch.command"),
+    )
+}
+
+/// Write the launcher, executable. Returns whether the file changed.
+pub fn write_command(path: &Path) -> Result<bool> {
+    let text = command_text();
+    if std::fs::read_to_string(path).is_ok_and(|t| t == text) {
+        return Ok(false);
+    }
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    std::fs::write(path, text)?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o755))?;
+    }
+    Ok(true)
+}
+
+/// Remove a file only when it is ours (it carries our marker). Returns whether it was removed.
+pub fn remove_if_ours(path: &Path, marker: &str) -> Result<bool> {
+    match std::fs::read_to_string(path) {
+        Ok(text) if text.contains(marker) => {
+            std::fs::remove_file(path)?;
+            Ok(true)
+        }
+        Ok(_) => bail!("{} exists and is not ours; left in place", path.display()),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(false),
+        Err(e) => Err(e.into()),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -62,6 +110,30 @@ mod tests {
     fn quotes_in_paths_are_escaped() {
         let text = entry(Path::new(r#"/opt/a"b/termfetch-studio"#));
         assert!(text.contains(r#"Exec="/opt/a\"b/termfetch-studio""#));
+    }
+
+    #[test]
+    fn command_launcher_is_written_once_and_only_removed_when_ours() {
+        let dir = std::env::temp_dir().join(format!("tfs-command-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let file = dir.join("TermFetch.command");
+        assert!(write_command(&file).unwrap());
+        assert!(!write_command(&file).unwrap());
+        assert!(command_text().contains("exec termfetch-studio"));
+        assert!(remove_if_ours(&file, COMMAND_MARK).unwrap());
+        assert!(!remove_if_ours(&file, COMMAND_MARK).unwrap());
+        std::fs::write(
+            &file,
+            "#!/bin/sh
+echo mine
+",
+        )
+        .unwrap();
+        assert!(
+            remove_if_ours(&file, COMMAND_MARK).is_err(),
+            "someone else's file stays"
+        );
+        let _ = std::fs::remove_dir_all(dir);
     }
 
     #[test]

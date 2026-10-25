@@ -22,10 +22,12 @@ presets, modules, and logos in real time.
 mkdir -p %{buildroot}%{_bindir}
 mkdir -p %{buildroot}%{_datadir}/%{name}
 install -m 755 termfetch-studio %{buildroot}%{_bindir}/termfetch-studio
+ln -sf termfetch-studio %{buildroot}%{_bindir}/termfetch
 cp -r assets %{buildroot}%{_datadir}/%{name}/
 
 %files
 %{_bindir}/termfetch-studio
+%{_bindir}/termfetch
 %{_datadir}/%{name}/assets
 %license LICENSE
 %doc README.md

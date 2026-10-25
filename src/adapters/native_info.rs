@@ -3,6 +3,7 @@
 
 use crate::adapters::fastfetch::runner::RealInfo;
 use crate::domain::preset::ModuleKind;
+#[cfg(windows)]
 use base64::Engine;
 use serde::Deserialize;
 use std::collections::HashMap;
@@ -22,6 +23,7 @@ pub struct Facts {
 }
 
 /// Single-line query; sent with `-EncodedCommand` so no shell quoting is involved.
+#[cfg(windows)]
 const QUERY: &str = "$os=Get-CimInstance Win32_OperatingSystem;\
 $cs=Get-CimInstance Win32_ComputerSystem;\
 $cpu=Get-CimInstance Win32_Processor|Select-Object -First 1;\
