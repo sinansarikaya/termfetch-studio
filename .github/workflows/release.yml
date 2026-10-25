@@ -102,7 +102,12 @@ jobs:
       - name: Prepare Release Archive Directory
         shell: bash
         run: |
-          TAG="${{ github.ref_name || github.event.inputs.tag }}"
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            TAG="${{ github.ref_name }}"
+          else
+            TAG="${{ inputs.tag || 'v2.0.0' }}"
+          fi
+          VERSION="${TAG#v}"
           ARCHIVE_DIR="termfetch-studio-${TAG}-${{ matrix.target }}"
           mkdir -p "$ARCHIVE_DIR" dist
           
@@ -136,7 +141,11 @@ jobs:
         if: matrix.build_packages
         shell: bash
         run: |
-          TAG="${{ github.ref_name || github.event.inputs.tag }}"
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            TAG="${{ github.ref_name }}"
+          else
+            TAG="${{ inputs.tag || 'v2.0.0' }}"
+          fi
           VERSION="${TAG#v}"
           ARCHIVE_DIR="termfetch-studio-${TAG}-${{ matrix.target }}"
 
