@@ -8,7 +8,7 @@ use serde_json::{Map, Value, json};
 use std::path::{Path, PathBuf};
 
 pub const SCHEME: &str = "TermFetch Studio";
-pub const PROFILE: &str = "TermFetch Studio";
+pub const PROFILE: &str = "TermFetch";
 /// Stable id, so re-running setup updates the same profile.
 pub const PROFILE_GUID: &str = "{6f1d2c9e-3b1a-4e5f-9a7c-7e0d5b2a1c44}";
 const BACKUP_SUFFIX: &str = ".termfetch-backup";
@@ -129,7 +129,7 @@ pub fn apply_scheme(path: &Path, colors: &Colors) -> Result<bool> {
     })
 }
 
-/// Add or update the "TermFetch Studio" profile, so it can be opened from the new-tab menu.
+/// Add or update the "TermFetch" profile, so it can be opened from the new-tab menu.
 pub fn ensure_profile(path: &Path, exe: &Path) -> Result<bool> {
     let commandline = format!("\"{}\"", exe.display());
     let profile = json!({
