@@ -18,7 +18,7 @@ use termfetch_studio_v2::adapters::backup;
 use termfetch_studio_v2::adapters::doctor::{self, Level};
 use termfetch_studio_v2::adapters::fastfetch::{config, runner};
 use termfetch_studio_v2::adapters::install;
-use termfetch_studio_v2::adapters::shell;
+use termfetch_studio_v2::adapters::setup;
 use termfetch_studio_v2::app::actions::Action;
 use termfetch_studio_v2::app::reducer::reduce;
 use termfetch_studio_v2::app::state::{AppState, Effect, StatusKind};
@@ -321,12 +321,14 @@ fn run_cli(cli: &Cli, paths: &Paths) -> Result<Option<i32>> {
             for p in commit(paths, &s)? {
                 println!("✓ wrote {}", p.display());
             }
-            match shell::integrate() {
-                Ok(changed) if changed.is_empty() => println!("✓ shell startup already set up"),
-                Ok(changed) => changed
-                    .iter()
-                    .for_each(|p| println!("✓ shell startup added to {}", p.display())),
-                Err(e) => println!("! shell startup not added: {e}"),
+            let cat = Catalogue::load(paths, &s);
+            let theme = cat
+                .themes
+                .iter()
+                .find(|t| t.id == s.theme)
+                .unwrap_or(&cat.themes[0]);
+            for step in setup::integrate(&paths.studio_config(), theme, s.apply_terminal_colors) {
+                println!("✓ {step}");
             }
         }
         Command::Doctor => return Ok(Some(if print_doctor(paths) { 0 } else { 1 })),
@@ -680,7 +682,7 @@ fn main() -> Result<()> {
     set_panic_hook();
     let mut terminal = setup_terminal()?;
     let mut state = AppState::new(paths, settings, TermGeometry::detect());
-    state.shell_integration = true;
+    state.system_setup = true;
     if kitty::detect() {
         state.enable_kitty();
     } else {
