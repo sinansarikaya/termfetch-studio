@@ -1,7 +1,7 @@
 //! Makes the system match the applied theme: the shell startup block and, when the
 //! theme's colors are applied, the Windows Terminal scheme.
 
-use crate::adapters::{shell, wt_terminal};
+use crate::adapters::{cmd_autorun, shell, wt_terminal};
 use crate::domain::theme::Theme;
 use std::path::Path;
 
@@ -12,6 +12,14 @@ pub fn integrate(config: &Path, theme: &Theme, terminal_colors: bool) -> Vec<Str
         Ok(changed) if changed.is_empty() => out.push("shell startup up to date".into()),
         Ok(_) => out.push("shell startup set up".into()),
         Err(e) => out.push(format!("shell startup failed: {e}")),
+    }
+    if cfg!(windows) {
+        let exe = crate::adapters::fastfetch::runner::find_fastfetch();
+        out.push(cmd_autorun::integrate(
+            cmd_autorun::KEY,
+            exe.as_deref(),
+            config,
+        ));
     }
     if terminal_colors {
         let colors = wt_terminal::Colors {

@@ -1,4 +1,5 @@
 pub mod backup;
+pub mod cmd_autorun;
 pub mod doctor;
 pub mod fastfetch;
 pub mod fsutil;
