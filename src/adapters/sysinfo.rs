@@ -38,25 +38,65 @@ fn parse_offset(s: &str) -> Option<i64> {
     Some(sign * (h * 3600 + m * 60))
 }
 
+fn detect_utc_offset() -> i64 {
+    #[cfg(unix)]
+    {
+        Command::new("date")
+            .arg("+%z")
+            .output()
+            .ok()
+            .and_then(|o| parse_offset(&String::from_utf8_lossy(&o.stdout)))
+            .unwrap_or(0)
+    }
+    #[cfg(windows)]
+    {
+        Command::new("powershell")
+            .args([
+                "-NoProfile",
+                "-Command",
+                "[System.TimeZoneInfo]::Local.GetUtcOffset([DateTime]::UtcNow).TotalSeconds",
+            ])
+            .output()
+            .ok()
+            .and_then(|o| {
+                let s = String::from_utf8_lossy(&o.stdout);
+                s.trim().parse::<f64>().ok().map(|secs| secs as i64)
+            })
+            .unwrap_or(0)
+    }
+    #[cfg(not(any(unix, windows)))]
+    {
+        0
+    }
+}
+
 impl SysInfo {
     pub fn detect() -> Self {
         let release = ["/etc/os-release", "/usr/lib/os-release"]
             .iter()
             .find_map(|p| std::fs::read_to_string(p).ok())
             .unwrap_or_default();
-        let distro =
-            os_release_value(&release, "NAME").unwrap_or_else(|| std::env::consts::OS.to_string());
+        let distro = os_release_value(&release, "NAME").unwrap_or_else(|| {
+            if cfg!(target_os = "macos") {
+                "macOS".to_string()
+            } else if cfg!(target_os = "windows") {
+                "Windows".to_string()
+            } else {
+                std::env::consts::OS.to_string()
+            }
+        });
         let mut distro_ids: Vec<String> = os_release_value(&release, "ID").into_iter().collect();
         if let Some(like) = os_release_value(&release, "ID_LIKE") {
             distro_ids.extend(like.split_whitespace().map(str::to_string));
         }
+        if cfg!(target_os = "macos") {
+            distro_ids.push("macos".to_string());
+            distro_ids.push("darwin".to_string());
+        } else if cfg!(target_os = "windows") {
+            distro_ids.push("windows".to_string());
+        }
         distro_ids.iter_mut().for_each(|s| s.make_ascii_lowercase());
-        let utc_offset = Command::new("date")
-            .arg("+%z")
-            .output()
-            .ok()
-            .and_then(|o| parse_offset(&String::from_utf8_lossy(&o.stdout)))
-            .unwrap_or(0);
+        let utc_offset = detect_utc_offset();
         Self {
             distro,
             distro_ids,
@@ -75,8 +115,16 @@ impl SysInfo {
             "\u{f08da}"
         } else if is("fedora") {
             "\u{f08db}"
-        } else if cfg!(target_os = "macos") {
+        } else if is("opensuse") || is("suse") {
+            "\u{f08e8}"
+        } else if is("alpine") {
+            "\u{f08cd}"
+        } else if is("nixos") {
+            "\u{f08e4}"
+        } else if is("macos") || is("darwin") || cfg!(target_os = "macos") {
             "\u{f0035}"
+        } else if is("windows") || cfg!(target_os = "windows") {
+            "\u{f05be}"
         } else {
             "\u{f033d}"
         }

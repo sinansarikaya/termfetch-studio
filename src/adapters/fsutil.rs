@@ -23,10 +23,23 @@ pub fn atomic_write(path: &Path, bytes: &[u8]) -> Result<()> {
     let tmp = parent.join(format!(".{file_name}.tmp-{}-{nanos}", std::process::id()));
 
     let result = (|| -> Result<()> {
-        let mut f =
-            fs::File::create(&tmp).with_context(|| format!("creating {}", tmp.display()))?;
-        f.write_all(bytes)?;
-        f.sync_all()?;
+        {
+            let mut f =
+                fs::File::create(&tmp).with_context(|| format!("creating {}", tmp.display()))?;
+            f.write_all(bytes)?;
+            f.sync_all()?;
+            // Explicitly drop `f` here so the file handle is closed before renaming.
+            // On Windows, holding an open handle causes `fs::rename` to fail with ERROR_SHARING_VIOLATION.
+            drop(f);
+        }
+        #[cfg(windows)]
+        {
+            // On Windows, if destination already exists, removing it first avoids rename collisions
+            // or EPERM issues across specific Windows filesystem configurations.
+            if path.exists() {
+                let _ = fs::remove_file(path);
+            }
+        }
         fs::rename(&tmp, path).with_context(|| format!("renaming into {}", path.display()))?;
         Ok(())
     })();

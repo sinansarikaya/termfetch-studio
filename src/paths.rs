@@ -31,12 +31,28 @@ impl Paths {
             .map(|b| b.home_dir().to_path_buf())
             .unwrap_or_else(std::env::temp_dir);
 
-        // Fastfetch reads `$XDG_CONFIG_HOME/fastfetch` or `~/.config/fastfetch` on every
-        // platform, so mirror that instead of the OS-native config directory.
+        // Fastfetch reads `$XDG_CONFIG_HOME/fastfetch` or `~/.config/fastfetch` on Linux/macOS.
+        // On Windows, Fastfetch checks `%APPDATA%/fastfetch/config.jsonc` as well as `~/.config/fastfetch/config.jsonc`.
         let config_root = std::env::var_os("XDG_CONFIG_HOME")
             .map(PathBuf::from)
             .filter(|p| p.is_absolute())
             .unwrap_or_else(|| home.join(".config"));
+
+        let fastfetch_config = if cfg!(windows) {
+            if let Some(appdata) = std::env::var_os("APPDATA").map(PathBuf::from) {
+                let appdata_cfg = appdata.join("fastfetch").join("config.jsonc");
+                if appdata_cfg.exists() {
+                    appdata_cfg
+                } else {
+                    config_root.join("fastfetch").join("config.jsonc")
+                }
+            } else {
+                config_root.join("fastfetch").join("config.jsonc")
+            }
+        } else {
+            config_root.join("fastfetch").join("config.jsonc")
+        };
+
         let data_root = base
             .as_ref()
             .map(|b| b.data_dir().to_path_buf())
@@ -49,7 +65,7 @@ impl Paths {
         let data_dir = data_root.join(APP_DIR);
         Self {
             config_dir: config_root.join(APP_DIR),
-            fastfetch_config: config_root.join("fastfetch").join("config.jsonc"),
+            fastfetch_config,
             assets_dir: find_assets_dir(&data_dir),
             data_dir,
             cache_dir: cache_root.join(APP_DIR),
