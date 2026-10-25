@@ -1,16 +1,52 @@
-# TermFetch Studio v2 (Rust + Ratatui)
+# TermFetch Studio v2
 
-Cross-platform terminal customization and Fastfetch theme studio — a native
-rewrite of the original `install.sh` (themes, presets, logos, colour editor,
-demo mode, backup/restore) with a live, fastfetch-accurate preview.
+[![CI Matrix](https://github.com/sinansarikaya/termfetch-studio/actions/workflows/ci.yml/badge.svg)](https://github.com/sinansarikaya/termfetch-studio/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![Platforms](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-brightgreen.svg)](#installation)
 
-## Build & install
+Cross-platform terminal customization and Fastfetch theme studio — built in Rust with Ratatui and Crossterm. Browse, customize, and apply Fastfetch themes, presets, modules, and logos with a real-time, cell-accurate live preview.
 
+---
+
+## Installation
+
+### 🚀 Arch Linux (AUR)
 ```bash
+# Precompiled binary (recommended)
+yay -S termfetch-studio-bin
+# or with paru
+paru -S termfetch-studio-bin
+
+# Build from source
+yay -S termfetch-studio
+```
+
+### 🍎 macOS (Homebrew)
+```bash
+brew tap sinansarikaya/tap
+brew install termfetch-studio
+```
+
+### 🪟 Windows (WinGet)
+```powershell
+winget install SinanSarikaya.TermFetchStudio
+```
+
+### 🐧 Debian / Ubuntu (.deb)
+```bash
+# Download and install the latest .deb package from GitHub Releases
+curl -sLO https://github.com/sinansarikaya/termfetch-studio/releases/latest/download/termfetch-studio_2.0.0_amd64.deb
+sudo apt install ./termfetch-studio_2.0.0_amd64.deb
+```
+
+### ⚡ Direct Binary Download (Linux, macOS, Windows)
+Prebuilt standalone binaries and universal musl static archives are available on [GitHub Releases](https://github.com/sinansarikaya/termfetch-studio/releases).
+
+### 🛠️ Build from Source
+```bash
+git clone https://github.com/sinansarikaya/termfetch-studio.git
+cd termfetch-studio
 cargo build --release
-install -Dm755 target/release/termfetch-studio ~/.local/bin/termfetch-studio
-mkdir -p ~/.local/share/termfetch-studio/assets
-cp -r assets/preset-logos ~/.local/share/termfetch-studio/assets/
 ```
 
 Assets are discovered at runtime (first match wins): `$TERMFETCH_STUDIO_ASSETS`,
