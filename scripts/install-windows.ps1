@@ -1,0 +1,108 @@
+# Installs TermFetch Studio for the current user in one step:
+#   Windows Terminal + fastfetch (winget, if missing), the exe on PATH,
+#   a Start Menu shortcut, and the first configuration (`termfetch-studio setup`).
+# Safe to run again. The -Skip switches exist for testing.
+param(
+    [string]$Source,
+    [string]$InstallDir = (Join-Path $env:LOCALAPPDATA 'Programs\TermFetch Studio'),
+    [switch]$SkipTerminal,
+    [switch]$SkipFastfetch,
+    [switch]$SkipPath,
+    [switch]$SkipShortcut,
+    [switch]$SkipSetup
+)
+
+$ErrorActionPreference = 'Stop'
+
+function Step($text) { Write-Host "`n==> $text" -ForegroundColor Cyan }
+function Done($text) { Write-Host "    ok: $text" -ForegroundColor Green }
+
+function Install-WingetPackage($id, $label) {
+    if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
+        throw "winget is not available. Install '$label' manually, then run this script again."
+    }
+    winget install --id $id --exact --accept-source-agreements --accept-package-agreements --silent
+    if ($LASTEXITCODE -ne 0) { throw "winget could not install $label (exit $LASTEXITCODE)." }
+}
+
+# 1. Source exe: next to this script (release zip) or the local release build.
+Step 'Locating termfetch-studio.exe'
+if (-not $Source) {
+    $candidates = @(
+        (Join-Path $PSScriptRoot 'termfetch-studio.exe'),
+        (Join-Path $PSScriptRoot '..\target\release\termfetch-studio.exe')
+    )
+    $Source = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+}
+if (-not $Source -or -not (Test-Path $Source)) { throw 'termfetch-studio.exe not found. Pass -Source <path>.' }
+$Source = (Resolve-Path $Source).Path
+Done $Source
+
+# 2. Windows Terminal: the app's logos and icons need it (the classic console cannot show them).
+if (-not $SkipTerminal) {
+    Step 'Windows Terminal'
+    if (Test-Path (Join-Path $env:LOCALAPPDATA 'Microsoft\WindowsApps\wt.exe')) {
+        Done 'already installed'
+    } else {
+        Install-WingetPackage 'Microsoft.WindowsTerminal' 'Windows Terminal'
+        Done 'installed'
+    }
+}
+
+# 3. fastfetch: the app runs it for the live preview and the real system values.
+if (-not $SkipFastfetch) {
+    Step 'fastfetch'
+    $packages = Join-Path $env:LOCALAPPDATA 'Microsoft\WinGet\Packages'
+    $present = (Get-Command fastfetch -ErrorAction SilentlyContinue) -or
+        (Get-ChildItem $packages -Directory -Filter 'Fastfetch-cli.Fastfetch*' -ErrorAction SilentlyContinue |
+            Where-Object { Test-Path (Join-Path $_.FullName 'fastfetch.exe') })
+    if ($present) {
+        Done 'already installed'
+    } else {
+        Install-WingetPackage 'Fastfetch-cli.Fastfetch' 'fastfetch'
+        Done 'installed'
+    }
+}
+
+# 4. Copy the exe into a stable folder.
+Step "Copying to $InstallDir"
+New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
+$target = Join-Path $InstallDir 'termfetch-studio.exe'
+Copy-Item -LiteralPath $Source -Destination $target -Force
+Done $target
+
+# 5. PATH (user scope, no admin rights needed).
+if (-not $SkipPath) {
+    Step 'PATH'
+    $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+    $entries = @($userPath -split ';' | Where-Object { $_ })
+    if ($entries -notcontains $InstallDir) {
+        [Environment]::SetEnvironmentVariable('Path', (($entries + $InstallDir) -join ';'), 'User')
+        Done 'added (open a new terminal to use `termfetch-studio`)'
+    } else {
+        Done 'already on PATH'
+    }
+}
+
+# 6. Start Menu shortcut.
+if (-not $SkipShortcut) {
+    Step 'Start Menu shortcut'
+    $lnk = Join-Path ([Environment]::GetFolderPath('Programs')) 'TermFetch Studio.lnk'
+    $shell = New-Object -ComObject WScript.Shell
+    $shortcut = $shell.CreateShortcut($lnk)
+    $shortcut.TargetPath = $target
+    $shortcut.WorkingDirectory = $env:USERPROFILE
+    $shortcut.Description = 'TermFetch Studio'
+    $shortcut.Save()
+    Done $lnk
+}
+
+# 7. First configuration: fastfetch configs and the shell startup block.
+if (-not $SkipSetup) {
+    Step 'Configuration'
+    & $target setup
+    if ($LASTEXITCODE -ne 0) { throw "termfetch-studio setup failed (exit $LASTEXITCODE)." }
+}
+
+Write-Host "`nTermFetch Studio is installed." -ForegroundColor Green
+Write-Host 'Open it from the Start Menu, or run `termfetch-studio` in Windows Terminal.'

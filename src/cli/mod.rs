@@ -84,6 +84,8 @@ pub enum Command {
         #[command(subcommand)]
         action: BackupCmd,
     },
+    /// First-time setup: write the configs and add the shell startup block
+    Setup,
     /// Run diagnostics
     Doctor,
 }
