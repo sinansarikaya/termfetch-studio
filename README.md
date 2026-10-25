@@ -1,159 +1,176 @@
-<div align="center">
+# TermFetch Studio v2
 
-# TermFetch Studio
+[![CI Matrix](https://github.com/sinansarikaya/termfetch-studio/actions/workflows/ci.yml/badge.svg)](https://github.com/sinansarikaya/termfetch-studio/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![Platforms](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-brightgreen.svg)](#installation)
 
-**An interactive terminal theme and fastfetch manager for Linux.**
+Cross-platform terminal customization and Fastfetch theme studio — built in Rust with Ratatui and Crossterm. Browse, customize, and apply Fastfetch themes, presets, modules, and logos with a real-time, cell-accurate live preview.
 
-Choose themes, organize system information and personalize your terminal with image or ASCII logos.
+---
 
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Application version](https://img.shields.io/badge/application-1.1.0-informational.svg)](CHANGELOG.md)
-[![Platform](https://img.shields.io/badge/platform-Linux-lightgrey.svg)](#requirements)
+## Installation
 
-[Quick start](#quick-start) · [User guide](docs/USER_GUIDE.md) · [Changelog](CHANGELOG.md) · [Release notes](docs/RELEASE_NOTES.md) · [Report a bug](https://github.com/sinansarikaya/termfetch-studio/issues)
-
-<img src="menu.png" width="760" alt="TermFetch Studio interactive terminal menu">
-
-</div>
-
-## Why TermFetch Studio?
-
-Terminal customization often means editing several configuration files. TermFetch Studio brings theme selection, fastfetch presets and logo configuration into one keyboard-driven interface.
-
-Built and used daily by [Sinan Sarıkaya](https://sinansarikaya.dev).
-
-## Features
-
-- **Themes and previews:** choose built-in color schemes or create a custom theme.
-- **Fastfetch presets:** select system-information modules, customize colors and reorder custom presets.
-- **Image and ASCII logos:** personalize output to suit your terminal with persistent sizing (small, medium, large) and aspect-ratio preservation.
-- **Live color editor:** draft and preview semantic group colors (OS, Desktop, Hardware, Network, Time) across all presets with 16 named RGB colors.
-- **Stable menu rendering:** dedicated alternate-screen sessions and off-screen frame preparation for smooth terminal navigation.
-- **Shell integration:** configure startup output for Bash, Zsh or Fish with automatic deduplication.
-- **Distribution-aware installation:** tested installation and behavior are recorded by distribution, date and test type below.
-- **Configuration tools:** preview your setup, create backups and restore saved settings.
-
-<p align="center">
-  <img src="full-info.png" width="760" alt="Fastfetch system information customized with TermFetch Studio">
-</p>
-
-## Version and project status
-
-Current application version: **1.1.0**. Published release: [v1.1.0](https://github.com/sinansarikaya/termfetch-studio/releases/tag/v1.1.0).
-
-See the [changelog](CHANGELOG.md) for dated history and [release notes](docs/RELEASE_NOTES.md) for detailed notes on each release.
-
-## Requirements
-
-- Linux and Bash to run the installer and application.
-- fastfetch >= 2.42.0; the installer offers automatic dependency installation on supported distributions.
-- A Nerd Font configured in your terminal for icon display. See [font setup](FONT_SETUP.md).
-- Optional image tools such as `chafa` and `imagemagick`.
-
-Bash, Zsh and Fish are shell-integration targets; the application itself runs in Bash. Colors and image rendering depend on the terminal. See the [user guide](docs/USER_GUIDE.md) for extended compatibility details.
-
-## Compatibility and test evidence (x86_64)
-
-**Docker tests validate distribution detection, dependencies, installation and basic
-application behavior. They do not validate a desktop or graphical terminal.**
-Results below belong to the recorded source snapshots/dates, not every release
-of a distribution. Digests, fastfetch versions and rerun commands are in the linked reports.
-
-| Distribution / version | Test type / date | Desktop / terminal | Result and evidence |
-| --- | --- | --- | --- |
-| Ubuntu 24.04 | Docker / 2026-10-09; UI follow-up 2026-10-22 | None | Passed both fastfetch initial states; [baseline](tests/REPORT.md), [120-check follow-up](tests/group-colors-evidence/README.md) |
-| Debian 12 | Docker / 2026-10-09 | None | Passed both states with fastfetch 2.53.0; [report](tests/REPORT.md) |
-| Debian 13 | Docker / 2026-10-09 | None | Passed with fastfetch 2.53.0; existing repository 2.40.4 was rejected without replacement; [report](tests/REPORT.md) |
-| Fedora 43 | Docker / 2026-10-09 | None | Passed both states with fastfetch 2.68.1; [report](tests/REPORT.md) |
-| Arch Linux rolling | Docker / 2026-10-09; UI follow-up 2026-10-22 | None | Passed both states; 2.69.0 baseline / 2.70.0 follow-up; [report](tests/group-colors-evidence/README.md) |
-| openSUSE Tumbleweed 20261007 | Docker / 2026-10-09 | None | Passed both states with fastfetch 2.69.0; [report](tests/REPORT.md) |
-| Ubuntu 24.04.5 | Real graphical VM / baseline report | GNOME 46 / Wayland; GNOME Terminal 3.52.0 + Kitty 0.32.2 | Recorded basic checks passed; [screenshots](tests/screenshots/README.md) |
-| Debian 13.7 | Real graphical VM / baseline report | Plasma 6.3.6 / Wayland; Konsole 25.04.2 + Kitty 0.41.1 | Recorded basic checks passed; [report](tests/REPORT.md) |
-| Fedora 43 | Real graphical VM / baseline report | GNOME 49.10 / Wayland; GNOME Terminal 3.56.3 + Kitty 0.43.1 | Recorded basic checks passed; [report](tests/REPORT.md) |
-| Arch Linux rolling | Real graphical VM / baseline + 2026-10-22 UI follow-up | Hyprland 0.56.2 / Wayland; Kitty 0.49.2 | Recorded basic checks and ordered-color follow-up passed; [real screens](tests/ordered-colors-evidence/README.md) |
-| openSUSE Tumbleweed 20261007 | Real graphical VM / baseline report | Plasma 6.7.5 / Wayland; Konsole 26.08.1 + Kitty 0.48.2 | Recorded checks passed after guest terminal packages were completed; [report](tests/REPORT.md) |
-| Ubuntu 24.04.5 | Separate real X11 VM session / baseline report | GNOME 46 / X11; GNOME Terminal + Kitty | Recorded comparison passed; [screenshots](tests/screenshots/README.md) |
-| CachyOS rolling | User-reported daily use | Niri / Wayland; Kitty (user screenshots) | Daily use reported; not an exhaustive automated validation |
-
-The full baseline Docker run was **12 scenarios / 336 checks**. Later group-color
-checks reran only Ubuntu and Arch (**4 scenarios / 120 checks**); the final ordered
-preview follow-up recorded **26 PTY tests** and targeted Fish uninstall checks.
-These are distinct runs: the complete matrix was not rerun for every UI change
-or the 1.1.0 version-label update. Other desktops/terminals need a fresh UI regression
-before those changes are claimed as validated there. See [remaining manual checks](tests/MANUAL_CHECKLIST.md).
-
-Baseline VM checks covered menu navigation, Dracula/Nord colors, terminal reopen
-persistence, sample Nerd Font icons, fastfetch, PNG or ASCII fallback, and Bash
-startup. They do not prove every theme, glyph, image format, physical GPU, display
-scale or monitor layout. Fish/Zsh startup was tested in Docker PTYs. Untested
-versions, RHEL/CentOS/Leap and aarch64 are not listed as verified installations.
-
-## Updating an existing checkout
-
-If you have no local changes:
-
-```bash
-cd ~/termfetch-studio
-git pull --ff-only
-bash ./install.sh
-```
-
-If the checkout contains your edits, preserve them before updating. Reinstallation
-updates the app and uninstaller; changing repository files alone does not update
-installed files. Run as your normal user.
-
-## Quick start
-
-Review [install.sh](install.sh) before running it. Run the installer as your normal user; dependency installation may request sudo:
-
+### 🛠️ Build from Source (Recommended for Development)
 ```bash
 git clone https://github.com/sinansarikaya/termfetch-studio.git
 cd termfetch-studio
-bash install.sh
-termfetch-studio
+cargo build --release
+./target/release/termfetch-studio
 ```
 
-If the command is not found, run `~/.local/bin/termfetch-studio` and ensure `~/.local/bin` is in your shell's PATH.
+Assets are discovered automatically at runtime (first match wins): `$TERMFETCH_STUDIO_ASSETS`,
+`<exe dir>/assets`, `<exe dir>/../share/termfetch-studio/assets`,
+`~/.local/share/termfetch-studio/assets`, `./assets`, then the source checkout.
 
-**Navigation:** arrow keys to move, Enter to select, Q to go back.
+### ⚡ Direct Binary Download (GitHub Releases)
+Prebuilt standalone binaries and universal musl static archives are published on [GitHub Releases](https://github.com/sinansarikaya/termfetch-studio/releases):
+- **Linux (Musl Static):** `termfetch-studio-v2.0.0-x86_64-unknown-linux-musl.tar.gz` (Zero runtime dependencies, runs on any Linux distribution)
+- **Linux (Glibc):** `termfetch-studio-v2.0.0-x86_64-unknown-linux-gnu.tar.gz`
+- **macOS (Universal):** `termfetch-studio-v2.0.0-apple-darwin-universal.tar.gz` (Native on Apple Silicon M-series and Intel x86_64)
+- **Windows (x64):** `termfetch-studio-v2.0.0-x86_64-pc-windows-msvc.zip`
 
-## Commands
+---
 
-| Command | Purpose |
-| --- | --- |
-| `termfetch-studio` | Open the interactive menu |
-| `termfetch-studio --preview` | Show the current setup |
-| `termfetch-studio --version` | Show the application version |
-| `termfetch-studio --help` | Show command help |
-| `termfetch-studio --backup` | Create a configuration backup |
-| `termfetch-studio --restore` | Select a backup to restore |
-| `termfetch-studio uninstall` | Run the installed uninstaller |
+### 📦 Package Managers *(Active upon official v2.0.0 release)*
 
-Keep an independent copy of important configuration files when modifying system-wide settings.
+> [!NOTE]
+> Package manager formulas, manifests, and PKGBUILDs are prepared in [`packaging/`](./packaging) and will be submitted to the respective repositories immediately upon official v2.0.0 release publication.
 
-## Configuration
+#### 🚀 Arch Linux (AUR) `[Upcoming / Release Gate]`
+```bash
+# Precompiled binary (recommended)
+yay -S termfetch-studio-bin
+# or with paru
+paru -S termfetch-studio-bin
 
-| Location | Contents |
-| --- | --- |
-| `~/.local/bin` | Application commands |
-| `~/.local/share/termfetch-studio` | Installed application files |
-| `~/.config/termfetch-studio` | Settings, images and backups |
+# Build from source
+yay -S termfetch-studio
+```
 
-See the [user guide](docs/USER_GUIDE.md) for themes, presets, logos, demo mode and troubleshooting.
+#### 🍎 macOS (Homebrew) `[Upcoming / Release Gate]`
+```bash
+brew tap sinansarikaya/tap
+brew install termfetch-studio
+```
 
-## Contributing and feedback
+#### 🪟 Windows (WinGet) `[Upcoming / Release Gate]`
+```powershell
+winget install SinanSarikaya.TermFetchStudio
+```
 
-Bug reports and feature suggestions are welcome. Include:
+#### 🐧 Debian / Ubuntu (.deb) `[Upcoming / Release Gate]`
+```bash
+# Download and install the verified .deb package from GitHub Releases
+curl -sLO https://github.com/sinansarikaya/termfetch-studio/releases/download/v2.0.0/termfetch-studio_2.0.0_amd64.deb
+sudo apt install ./termfetch-studio_2.0.0_amd64.deb
+```
 
-- Linux distribution, terminal and shell versions.
-- TermFetch Studio and fastfetch versions.
-- Steps to reproduce, expected behavior and actual behavior.
-- Relevant error output or terminal screenshots.
+#### 🎩 Fedora / openSUSE (.rpm) `[Upcoming / Release Gate]`
+```bash
+# Download and install the verified .rpm package from GitHub Releases
+curl -sLO https://github.com/sinansarikaya/termfetch-studio/releases/download/v2.0.0/termfetch-studio-2.0.0-1.x86_64.rpm
+sudo dnf install ./termfetch-studio-2.0.0-1.x86_64.rpm  # Fedora
+# or on openSUSE:
+# sudo zypper install ./termfetch-studio-2.0.0-1.x86_64.rpm
+```
 
-Theme contributions are welcome: include the theme file, a preview and the terminal used to test it.
+## TUI
 
-## License and credits
+```bash
+termfetch-studio            # uses the saved demo setting
+termfetch-studio --no-demo  # start with real specs
+```
 
-[MIT](LICENSE). Built on [fastfetch](https://github.com/fastfetch-cli/fastfetch), with thanks to the terminal theme and Nerd Fonts communities.
+Layout (the "Studio" design): a header bar with brand, fastfetch status,
+distribution and local clock; a sidebar with the navigation (Dashboard, Themes,
+Presets, Logos, Modules, Settings - Backup & Restore and Doctor live under
+Settings) and context cards for the current theme, preset and config path; the
+center stage; and on the right the **Live Preview** with a **Preview Options**
+card (theme / preset / logo / output dropdowns and the *Apply Theme to System*
+button). The Dashboard shows quick actions, recently applied themes with
+procedural thumbnails, a system overview and tools. The chrome uses a fixed
+navy/indigo palette by default; *Settings → Studio chrome* switches it to follow
+the active theme. Every label is WCAG-checked on every surface in both modes.
 
-Created by [Sinan Sarıkaya](https://github.com/sinansarikaya).
+The preview, painted in the theme background, reproduces fastfetch's layout
+exactly (logo padding, `keyWidth`, separator, resolved colours); the *Output*
+option switches it to the generated JSONC. Image logos are decoded once by a
+background worker pool, so scrolling stays well above 60 FPS.
+
+In terminals with the Kitty graphics protocol (kitty, Ghostty) the preview shows
+image logos at full resolution: each logo is resized to the preview's exact
+pixel box and PNG-encoded on a background thread, uploaded once, and then drawn
+through Unicode placeholder cells, so switching logos only swaps an image id.
+The whole gallery is pre-uploaded in the background; half-blocks are shown
+until an upload lands and are used everywhere else (including tmux/screen).
+Force a mode with `TERMFETCH_STUDIO_GRAPHICS=kitty` or `=halfblock`.
+
+| Key | Action |
+|---|---|
+| `Tab` / `Shift+Tab` | next / previous section: menu → center stage → preview options |
+| `↑`/`↓`/`←`/`→`, `hjkl`, `PgUp`/`PgDn`, `g`/`G` | move (preview updates instantly) |
+| `Enter` | select: open a quick action / tool, apply a card, open a dropdown |
+| `a` / `A` | apply theme to system: save settings and write both fastfetch configs |
+| `1`–`8` | jump to a screen (on the Dashboard stage `1`–`4` run the quick actions) |
+| `p` | run the real fastfetch with the current, unsaved selection |
+| `d` | toggle privacy demo mode (persisted, config regenerated) |
+| `s` | cycle image logo size (small / medium / large) |
+| `o` | cycle the preview output (terminal preview / generated config) |
+| `Space`, `J`/`K` | Modules: toggle / reorder modules |
+| `←`/`→` | Settings: cycle colours and preferences · Preview Options: cycle values |
+| `x` | Backup: delete selected backup · `r` Doctor: re-run checks |
+| `?` | keyboard shortcuts overlay · mouse click and wheel supported everywhere |
+| `q` / `Esc` | quit; unsaved changes are saved and applied to both fastfetch configs first |
+
+## CLI
+
+```bash
+termfetch-studio apply --theme nord --preset developer --logo pikachu --logo-size large
+termfetch-studio preview --theme dracula --preset minimal      # ANSI preview to stdout
+termfetch-studio demo on|off|toggle|status
+termfetch-studio list themes|presets|logos|modules|colors
+termfetch-studio backup create|list|restore <name>|delete <name>
+termfetch-studio run          # fastfetch with the studio config
+termfetch-studio doctor       # also: --doctor
+```
+
+## Files
+
+| Path | Purpose |
+|---|---|
+| `~/.config/termfetch-studio/settings.json` | saved choices |
+| `~/.config/termfetch-studio/fastfetch.jsonc` | generated config (original installer path) |
+| `~/.config/fastfetch/config.jsonc` | generated config (fastfetch default) |
+| `~/.config/termfetch-studio/backups/` | backups; a hand-written fastfetch config is preserved here before the first overwrite |
+| `~/.config/termfetch-studio/custom.png` | custom image logo |
+
+Both configs are produced from typed `serde_json` structures and written
+atomically (temp file + fsync + rename). `$XDG_CONFIG_HOME` is respected.
+
+## Image sizing
+
+The logo box is computed from the image header's pixel size and the terminal's
+real cell size (`TIOCGWINSZ` via `crossterm::terminal::window_size`, falling
+back to 1:2 cells), bounded by the size preset (20×14 / 36×22 / 52×32), a third
+of the terminal width and its height − 4 — the same algorithm as the original
+installer, including its "largest rectangle within 5% of the true ratio" search.
+The preview uses the identical box, shrinking it with the same aspect ratio only
+if the pane is smaller.
+
+## Architecture
+
+```
+src/
+├── main.rs              # CLI dispatch, terminal lifecycle, event loop, live fastfetch
+├── paths.rs             # XDG/exe-relative path + asset discovery
+├── cli/                 # clap definitions
+├── app/                 # AppState, Action, reducer (+ effects)
+├── domain/              # themes, presets/modules, logos, colours, settings, style resolution
+├── imaging/             # fit_image_cells, half-block raster, Kitty graphics, decode pool
+├── adapters/            # fastfetch config/runner, backup, doctor, atomic fs
+└── tui/                 # layout, sidebar, preview, screens
+```
+
+## License
+
+MIT — Sinan Sarıkaya

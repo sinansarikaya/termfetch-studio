@@ -1,0 +1,149 @@
+cargo test
+   Compiling termfetch-studio-v2 v2.0.0 (/home/sinan/termfetch-studio-v2)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.01s
+     Running unittests src/lib.rs (target/debug/deps/termfetch_studio_v2-bd9e6dce244000ae)
+
+running 30 tests
+test adapters::fsutil::tests::formats_known_timestamp ... ok
+test adapters::fastfetch::runner::tests::parses_probe_lines ... ok
+test adapters::sysinfo::tests::parses_os_release_and_offsets ... ok
+test adapters::fsutil::tests::atomic_write_replaces_content ... ok
+test domain::color::tests::parses_all_palette_entries ... ok
+test domain::color::tests::sgr_for_hex ... ok
+test domain::color::tests::cycle_wraps_and_includes_inherit_for_groups ... ok
+test domain::contrast::tests::known_ratios ... ok
+test domain::contrast::tests::ensure_reaches_target_on_both_polarities ... ok
+test imaging::kitty::tests::id_roundtrips_through_rgb ... ok
+test imaging::kitty::tests::placeholder_is_one_cell_wide ... ok
+test imaging::tests::config_bounds_follow_terminal ... ok
+test domain::settings::tests::roundtrip_and_partial_files ... ok
+test imaging::kitty::tests::transmit_is_chunked ... ok
+test imaging::tests::respects_bounds_and_ratio_for_many_shapes ... ok
+test imaging::tests::square_image_on_1x2_cells_is_twice_as_wide ... ok
+test imaging::tests::uses_real_cell_size ... ok
+test tui::screens::dashboard::tests::wrap_respects_width_and_line_count ... ok
+test tui::widgets::header::tests::version_is_shortened ... ok
+test tui::widgets::preview::wrapping_tests::long_identifiers_and_unicode_survive_wrapping ... ok
+test imaging::tests::halfblock_grid_dimensions ... ok
+test app::reducer::tests::module_builder_toggle_and_reorder ... ok
+test app::reducer::tests::quit_autosaves_unsaved_changes_to_both_configs ... ok
+test app::reducer::tests::browsing_changes_preview_but_not_saved_state ... ok
+test app::reducer::tests::colors_cycle_and_reset ... ok
+test app::reducer::tests::backup_restore_roundtrip ... ok
+test app::reducer::tests::demo_toggle_persists_and_regenerates ... ok
+test app::reducer::tests::quit_without_changes_writes_nothing ... ok
+test imaging::kitty::tests::encodes_in_background_and_uploads_once ... ok
+test imaging::pool::tests::decodes_in_background_and_caches_grids ... ok
+
+test result: ok. 30 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.20s
+
+     Running unittests src/main.rs (target/debug/deps/termfetch_studio-ea90290dedd76578)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/cli_tests.rs (target/debug/deps/cli_tests-36381260a1f59332)
+
+running 2 tests
+test apply_subcommand_parses_selection ... ok
+test demo_flags_toggle_both_ways ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/config_tests.rs (target/debug/deps/config_tests-8d973f46e12101a3)
+
+running 6 tests
+test ascii_logo_uses_file_type_with_theme_colour ... ok
+test colour_settings_override_theme ... ok
+test foreign_fastfetch_config_is_backed_up_before_first_overwrite ... ok
+test title_has_no_key_and_demo_mode_controls_formats ... ok
+test image_logo_config_is_valid_and_written_atomically_to_both_targets ... ok
+test generated_config_runs_in_fastfetch_when_available ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.73s
+
+     Running tests/contrast_tests.rs (target/debug/deps/contrast_tests-54a1d504f8880415)
+
+running 3 tests
+test light_themes_are_detected_as_light ... ok
+test palette_meets_wcag_on_all_themes ... ok
+test every_cell_is_legible_on_every_theme_and_screen ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 12.76s
+
+     Running tests/theme_tests.rs (target/debug/deps/theme_tests-6aa1e22d4ef419c7)
+
+running 7 tests
+test test_all_categories_represented ... ok
+test test_all_logos_and_images_present ... ok
+test test_demo_specs_not_empty_and_privacy_safe ... ok
+test test_builtin_presets_match_original_installer ... ok
+test test_builtin_themes_load_and_have_valid_colors ... ok
+test test_preset_image_paths_are_discovered_not_hardcoded ... ok
+test test_theme_ids_unique ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/tui_render_tests.rs (target/debug/deps/tui_render_tests-eebeda60ae6db092)
+
+running 12 tests
+test builtin_presets_can_be_renamed_and_deleted_with_confirmation ... ok
+test preset_copy_rename_and_confirmed_delete_persist ... ok
+test custom_ascii_gallery_does_not_import_generated_logo_cache ... ok
+test theme_search_filters_navigation_and_supports_empty_results ... ok
+test dashboard_matches_the_studio_layout ... ok
+test dashboard_keyboard_flow_and_options_dropdown ... ok
+test focus_preview_expands_and_restores_with_keyboard_and_mouse ... ok
+test thumbnails_are_deterministic_crisp_and_theme_specific ... ok
+test all_quick_actions_have_click_targets_at_standard_and_compact_sizes ... ok
+test every_screen_renders_at_every_size ... ok
+test image_logos_render_from_decode_pool_without_blocking ... ok
+test kitty_mode_uploads_full_resolution_and_draws_placeholders ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.14s
+
+   Doc-tests termfetch_studio_v2
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+cargo build --release
+   Compiling termfetch-studio-v2 v2.0.0 (/home/sinan/termfetch-studio-v2)
+    Finished `release` profile [optimized] target(s) in 15.57s
+
+cargo run --example theme_gallery -- docs/ui-theme-gallery.png
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.07s
+     Running `target/debug/examples/theme_gallery docs/ui-theme-gallery.png`
+1: Catppuccin Mocha ☕
+2: Catppuccin Latte 🥛
+3: Rosé Pine 🌲
+4: Kanagawa 🌊
+5: Everforest Dark 🍃
+6: Dracula 🧛
+7: Nord Aurora ❄️
+8: Tokyo Night 🌃
+9: Gruvbox Dark 📦
+10: One Dark 🌌
+11: Synthwave '84 🎸
+12: Oceanic Next 🌊
+13: Monokai Pro 👾
+14: Material Palenight 🔮
+15: Monochrome Minimal 🖤
+16: Solarized Light ☀️
+17: Ayu Light 🌤️
+18: Gruvbox Light 📜
+19: One Light 💡
+20: Sakura Cherry 🌸
+21: Lavender Dream 💜
+22: Candy Pastel 🍬
+23: Matrix 💚
+24: Cyberpunk 2077 🌆
+25: Naruto Uzumaki 🍜
+26: Pokemon Pikachu ⚡
+27: Spider-Man 🕷️
+28: Doom Slayer 👹
+29: Valorant Radiant 🔥
+30: Minecraft Overworld ⛏️
