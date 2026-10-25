@@ -22,8 +22,10 @@ Assets are discovered automatically at runtime (first match wins): `$TERMFETCH_S
 `<exe dir>/assets`, `<exe dir>/../share/termfetch-studio/assets`,
 `~/.local/share/termfetch-studio/assets`, `./assets`, then the source checkout.
 
-### ⚡ Direct Binary Download (GitHub Releases)
-Prebuilt standalone binaries and universal musl static archives are published on [GitHub Releases](https://github.com/sinansarikaya/termfetch-studio/releases):
+### ⚡ Direct Binary & Package Downloads (GitHub Releases)
+Prebuilt standalone binaries and system packages are published on [GitHub Releases](https://github.com/sinansarikaya/termfetch-studio/releases):
+- **Debian / Ubuntu (.deb):** `termfetch-studio_2.0.0_amd64.deb` (`sudo apt install ./termfetch-studio_2.0.0_amd64.deb`)
+- **Fedora / openSUSE (.rpm):** `termfetch-studio-2.0.0-1.x86_64.rpm` (`sudo dnf install ./termfetch-studio-2.0.0-1.x86_64.rpm`)
 - **Linux (Musl Static):** `termfetch-studio-v2.0.0-x86_64-unknown-linux-musl.tar.gz` (Zero runtime dependencies, runs on any Linux distribution)
 - **Linux (Glibc):** `termfetch-studio-v2.0.0-x86_64-unknown-linux-gnu.tar.gz`
 - **macOS (Universal):** `termfetch-studio-v2.0.0-apple-darwin-universal.tar.gz` (Native on Apple Silicon M-series and Intel x86_64)
@@ -31,12 +33,15 @@ Prebuilt standalone binaries and universal musl static archives are published on
 
 ---
 
-### 📦 Package Managers *(Active upon official v2.0.0 release)*
+### 📦 Package Managers *(AUR, Homebrew, WinGet)*
 
 > [!NOTE]
-> Package manager formulas, manifests, and PKGBUILDs are prepared in [`packaging/`](./packaging) and will be submitted to the respective repositories immediately upon official v2.0.0 release publication.
+> Package manager formulas, manifests, and PKGBUILDs are prepared in [`packaging/`](./packaging). Upstream submissions (AUR, Homebrew tap, WinGet) are underway following the v2.0.0 release.
 
-#### 🚀 Arch Linux (AUR) `[Upcoming / Release Gate]`
+<details>
+<summary><b>Click to preview upcoming package manager installation commands</b></summary>
+
+#### 🚀 Arch Linux (AUR)
 ```bash
 # Precompiled binary (recommended)
 yay -S termfetch-studio-bin
@@ -47,32 +52,18 @@ paru -S termfetch-studio-bin
 yay -S termfetch-studio
 ```
 
-#### 🍎 macOS (Homebrew) `[Upcoming / Release Gate]`
+#### 🍎 macOS (Homebrew)
 ```bash
 brew tap sinansarikaya/tap
 brew install termfetch-studio
 ```
 
-#### 🪟 Windows (WinGet) `[Upcoming / Release Gate]`
+#### 🪟 Windows (WinGet)
 ```powershell
 winget install SinanSarikaya.TermFetchStudio
 ```
 
-#### 🐧 Debian / Ubuntu (.deb) `[Upcoming / Release Gate]`
-```bash
-# Download and install the verified .deb package from GitHub Releases
-curl -sLO https://github.com/sinansarikaya/termfetch-studio/releases/download/v2.0.0/termfetch-studio_2.0.0_amd64.deb
-sudo apt install ./termfetch-studio_2.0.0_amd64.deb
-```
-
-#### 🎩 Fedora / openSUSE (.rpm) `[Upcoming / Release Gate]`
-```bash
-# Download and install the verified .rpm package from GitHub Releases
-curl -sLO https://github.com/sinansarikaya/termfetch-studio/releases/download/v2.0.0/termfetch-studio-2.0.0-1.x86_64.rpm
-sudo dnf install ./termfetch-studio-2.0.0-1.x86_64.rpm  # Fedora
-# or on openSUSE:
-# sudo zypper install ./termfetch-studio-2.0.0-1.x86_64.rpm
-```
+</details>
 
 ## TUI
 
