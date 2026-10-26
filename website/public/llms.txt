@@ -16,7 +16,7 @@ This is an optional navigation summary. It does not grant access to private data
 - [Downloads](https://termfetch-studio.sinansarikaya.dev/downloads): Verified published v2.0.0 Windows x64, universal macOS and Linux archives, DEB/RPM packages, and SHA-256 checksums. Homebrew, WinGet, Scoop and AUR publication is pending; no unverified install commands are provided.
 - [Documentation](https://termfetch-studio.sinansarikaya.dev/docs): Themes, presets, modules, color behavior and browser/native boundaries.
 - [Getting started](https://termfetch-studio.sinansarikaya.dev/docs/getting-started): Try the browser demo, export JSONC and use Fastfetch locally.
-- [Releases](https://termfetch-studio.sinansarikaya.dev/releases): Published release history versus the current v2.1.0 source checkout. Source state is not a claim that v2.1.0 binaries are published.
+- [Releases](https://termfetch-studio.sinansarikaya.dev/releases): Published release history versus the current v2.1.1 source checkout. Source state is not a claim that v2.1.0 binaries are published.
 
 ## Primary project sources
 
