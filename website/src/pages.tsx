@@ -253,7 +253,7 @@ export function Docs({ gettingStarted = false }: { gettingStarted?: boolean }) {
         </p>
         <pre tabIndex={0}>
           {
-            "termfetch-studio --demo\ntermfetch-studio\ntermfetch-studio doctor"
+            "termfetch --demo\ntermfetch\ntermfetch doctor"
           }
         </pre>
         <p>
