@@ -59,10 +59,10 @@ fn test_all_logos_and_images_present() {
     let logos = get_builtin_logos();
     assert_eq!(
         logos.len(),
-        30,
-        "15 ASCII + 14 preset PNGs + 1 custom image"
+        31,
+        "16 ASCII + 14 preset PNGs + 1 custom image"
     );
-    for id in ["eren-1", "tux", "arch", "link-(zelda)"] {
+    for id in ["eren-1", "tux", "arch", "apple", "link-(zelda)"] {
         assert!(logos.iter().any(|l| l.id == id), "missing logo {id}");
     }
 }

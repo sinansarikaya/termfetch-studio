@@ -146,6 +146,7 @@ fn preview_model(state: &AppState, image: ImageState) -> PreviewModel<'_> {
         info_loading: state.real_rx.is_some(),
         image,
         geo: state.geo,
+        fill: state.block_logos,
     }
 }
 
@@ -244,7 +245,7 @@ fn render_preview_pane(f: &mut Frame, area: Rect, state: &mut AppState) {
     let raster = match (kitty_id, grid.as_deref()) {
         (Some(id), _) => LogoRaster::Kitty(id),
         (None, _) if sixel_on => LogoRaster::Sixel,
-        (None, Some(g)) => LogoRaster::Halfblock(g),
+        (None, Some(g)) => LogoRaster::Blocks(g),
         (None, None) => LogoRaster::None,
     };
     let pal = state.palette();

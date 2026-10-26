@@ -2,7 +2,7 @@
 //! threads; the UI thread only ever reads finished thumbnails and small cached
 //! half-block grids, so scrolling never blocks on disk or PNG decoding.
 
-use super::HalfblockGrid;
+use super::BlockGrid;
 use image::RgbaImage;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::PathBuf;
@@ -34,7 +34,7 @@ pub struct ImagePool {
     decoded: HashMap<String, Arc<DecodedImage>>,
     failed: HashMap<String, String>,
     pending: HashSet<String>,
-    grids: HashMap<(String, u16, u16), Arc<HalfblockGrid>>,
+    grids: HashMap<(String, u16, u16), Arc<BlockGrid>>,
 }
 
 pub fn decode(path: &str) -> Result<DecodedImage, String> {
@@ -171,14 +171,19 @@ impl ImagePool {
         self.grids.retain(|(p, _, _), _| p != path);
     }
 
-    /// Half-block raster at exactly `w` x `h` cells, cached per size.
-    pub fn grid(&mut self, path: &str, w: u16, h: u16) -> Option<Arc<HalfblockGrid>> {
+    /// Block raster at exactly `w` x `h` cells, cached per size.
+    pub fn grid(&mut self, path: &str, w: u16, h: u16) -> Option<Arc<BlockGrid>> {
         let key = (path.to_string(), w, h);
         if let Some(g) = self.grids.get(&key) {
             return Some(Arc::clone(g));
         }
         let img = self.decoded.get(path)?;
-        let grid = Arc::new(HalfblockGrid::from_image(&img.thumb, w, h));
+        let grid = Arc::new(BlockGrid::from_image(
+            &img.thumb,
+            w,
+            h,
+            super::Shape::detect(),
+        ));
         if self.grids.len() >= GRID_CACHE_LIMIT {
             self.grids.clear();
         }

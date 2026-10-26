@@ -26,7 +26,7 @@ def fixture(base, branded):
     if branded:
         brand = base / "assets" / "brand"
         brand.mkdir()
-        for name in ("termfetch-symbol.svg", "termfetch-studio.desktop"):
+        for name in ("termfetch-app-icon.svg", "termfetch-studio.desktop"):
             (brand / name).write_bytes((ROOT / "assets" / "brand" / name).read_bytes())
 
 

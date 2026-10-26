@@ -10,4 +10,5 @@ pub mod native_info;
 pub mod setup;
 pub mod shell;
 pub mod sysinfo;
+pub mod terminal_app;
 pub mod wt_terminal;

@@ -1187,6 +1187,7 @@ mod tests {
     #[test]
     fn demo_toggle_persists_and_regenerates() {
         let (mut s, root) = app();
+        s.settings.demo_mode = true;
         reduce(&mut s, Action::Apply);
         let before = std::fs::read_to_string(s.paths.studio_config()).unwrap();
         assert!(before.contains(crate::domain::preset::DEMO_DATA.os));
