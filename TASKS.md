@@ -4,7 +4,7 @@
 
 - Website created at website/ in this repository; original prototype preserved.
 - Interactive browser studio uses Rust catalogs: themes, presets, logos, modules, semantic colors, local apply/restore and JSONC export.
-- Downloads, Docs, Getting Started and Releases pages show verified public v2.0.0 downloads separately from source 2.1.0. Four package-manager channels remain pending.
+- Downloads, Docs, Getting Started and Releases pages show verified public v2.0.0 downloads separately from source 2.1.1. Four package-manager channels remain pending.
 - Original TF SVG brand with deterministic PNG/ICO/ICNS assets, website favicon, Linux/Windows launchers, Windows Terminal profile and Windows EXE resource embedding.
 - AUR/RPM recipes remain compatible with existing v2.0.0 archives; future release archives require brand assets.
 - Namespaced nonroot Dockerfile/Compose, Nginx health/cache/security/SPA configuration, website CI and deployment documentation.
