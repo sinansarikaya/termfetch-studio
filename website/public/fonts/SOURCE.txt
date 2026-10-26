@@ -1,0 +1,6 @@
+TermFetch Mono is a renamed, minimal WOFF2 subset of the locally installed
+JetBrainsMonoNerdFont-Regular.ttf, package ttf-jetbrains-mono-nerd 3.5.1-2.
+Original font copyright/license is preserved in OFL.txt and font metadata.
+Includes basic text, terminal box drawing, arrows and only the app's used glyphs.
+Source: https://github.com/ryanoasis/nerd-fonts/tree/master/patched-fonts/JetBrainsMono
+Subset created with fontTools pyftsubset; family renamed TermFetch Mono.

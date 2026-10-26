@@ -1,0 +1,11 @@
+{
+  "status": "Pass",
+  "old_version": "termfetch-studio 2.0.0",
+  "installed_version": "termfetch-studio 2.1.0",
+  "installed_path": "/home/sinan/.local/bin/termfetch-studio",
+  "backup": "/home/sinan/.local/share/termfetch-studio/update-backups/20261026T085735Z",
+  "sha256": "250052516d5bd015c4e192f4ec8ab167f8783c757512774f68566690c6a5c458",
+  "settings_unchanged": true,
+  "assets_updated": true,
+  "note": "Replaced active old executable atomically; rollback copy retained. No uninstall/setup commands or host shell integration changes."
+}

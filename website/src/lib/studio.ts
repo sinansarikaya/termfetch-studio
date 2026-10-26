@@ -2,13 +2,13 @@ import catalog from './catalog.json';
 export { catalog };
 export const groups = ['os', 'desktop', 'hardware', 'network', 'time'] as const;
 export type Group = typeof groups[number];
-export type Settings = Omit<typeof catalog.defaults, 'group_colors'> & { group_colors: Record<Group, string>; image_path: string; image_protocol: string; custom_art: string; recent_themes: string[] };
+export type Settings = Omit<typeof catalog.defaults, 'group_colors'> & { group_colors: Record<Group, string>; image_path: string; image_protocol: string; custom_art: string; recent_themes: string[]; preset_library?: typeof catalog.presets };
 export type Theme = typeof catalog.themes[number];
 export const defaults: Settings = { ...catalog.defaults, group_colors: { ...catalog.defaults.group_colors }, custom_modules: [...catalog.defaults.custom_modules], image_path: '', image_protocol: 'chafa', custom_art: '', recent_themes: [] };
 export function getTheme(s: Settings) { return catalog.themes.find(t => t.id === s.theme)!; }
 export function getLogo(s: Settings) { return catalog.logos.find(l => l.id === s.logo)!; }
 export function getPreset(s: Settings) {
- const p = catalog.presets.find(p => p.id === s.preset)!;
+ const p = (s.preset_library ?? catalog.presets).find(p => p.id === s.preset)!;
  if (p.id !== 'custom') return p;
  const sections: string[][] = [];
  for (const id of s.custom_modules) {

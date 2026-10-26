@@ -1,0 +1,69 @@
+{
+  "status": "Pass",
+  "engine": "React static server rendering with hydration",
+  "pages": [
+    {
+      "path": "/",
+      "title": "TermFetch Studio — Fastfetch themes, image logos and live preview",
+      "canonical": "https://termfetch-studio.sinansarikaya.dev/",
+      "noindex": false,
+      "htmlBytes": 92372
+    },
+    {
+      "path": "/themes",
+      "title": "30 Fastfetch themes and color palettes | TermFetch Studio",
+      "canonical": "https://termfetch-studio.sinansarikaya.dev/themes",
+      "noindex": false,
+      "htmlBytes": 59332
+    },
+    {
+      "path": "/presets",
+      "title": "Fastfetch presets: Full Info, Developer and Gaming | TermFetch Studio",
+      "canonical": "https://termfetch-studio.sinansarikaya.dev/presets",
+      "noindex": false,
+      "htmlBytes": 35848
+    },
+    {
+      "path": "/downloads",
+      "title": "Download TermFetch Studio for Windows, macOS and Linux",
+      "canonical": "https://termfetch-studio.sinansarikaya.dev/downloads",
+      "noindex": false,
+      "htmlBytes": 12290
+    },
+    {
+      "path": "/docs",
+      "title": "Fastfetch customization documentation | TermFetch Studio",
+      "canonical": "https://termfetch-studio.sinansarikaya.dev/docs",
+      "noindex": false,
+      "htmlBytes": 9073
+    },
+    {
+      "path": "/docs/getting-started",
+      "title": "Get started with TermFetch Studio and Fastfetch JSONC",
+      "canonical": "https://termfetch-studio.sinansarikaya.dev/docs/getting-started",
+      "noindex": false,
+      "htmlBytes": 11400
+    },
+    {
+      "path": "/releases",
+      "title": "TermFetch Studio releases and source version status",
+      "canonical": "https://termfetch-studio.sinansarikaya.dev/releases",
+      "noindex": false,
+      "htmlBytes": 8919
+    },
+    {
+      "path": "/faq",
+      "title": "Fastfetch themes, logos and installation FAQ | TermFetch Studio",
+      "canonical": "https://termfetch-studio.sinansarikaya.dev/faq",
+      "noindex": false,
+      "htmlBytes": 13661
+    },
+    {
+      "path": "/404",
+      "title": "Page not found | TermFetch Studio",
+      "canonical": "https://termfetch-studio.sinansarikaya.dev/404",
+      "noindex": true,
+      "htmlBytes": 6434
+    }
+  ]
+}

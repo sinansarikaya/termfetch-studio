@@ -25,9 +25,10 @@ curl --fail http://127.0.0.1:18080/docs
 docker inspect --format '{{.Config.User}}' termfetch-studio-web-local
 ```
 
-The user must be `101:101`. Check that missing asset URLs return 404 and that
-`/downloads`, `/docs`, `/docs/getting-started` and `/releases` survive a direct
-request and browser reload. Run the website's headed browser regression as
+The user must be `101:101`. Check that missing assets and unknown document URLs return 404, and that
+`/downloads`, `/docs`, `/docs/getting-started`, `/releases`, `/themes`, `/presets`
+and `/faq` return their prerendered HTML directly without a slash redirect.
+They must also survive a browser reload. Run the website's headed browser regression as
 described in its README. Container smoke checks do not replace that browser test.
 
 [`docker-compose.yml`](../docker-compose.yml) provides a single
@@ -88,7 +89,9 @@ record. A queued build is not a successful deployment.
 
 The runtime has `/healthz`, a graceful SIGQUIT stop, HTML revalidation, immutable
 hashed JavaScript/CSS caching, 24-hour brand/image caching and explicit missing
-asset 404s. Security headers permit the inline styles required by the color
+asset 404s. The build produces static HTML for each valid route and a noindex
+404 document; Nginx uses `$uri/index.html` to serve clean document URLs without
+redirecting them to trailing slashes. Security headers permit the inline styles required by the color
 preview while scripts load only from the site itself. There is no runtime API.
 
 ## Roll back

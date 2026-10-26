@@ -1,8 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url><loc>https://termfetch-studio.sinansarikaya.dev/</loc></url>
+  <url><loc>https://termfetch-studio.sinansarikaya.dev/themes</loc></url>
+  <url><loc>https://termfetch-studio.sinansarikaya.dev/presets</loc></url>
   <url><loc>https://termfetch-studio.sinansarikaya.dev/downloads</loc></url>
   <url><loc>https://termfetch-studio.sinansarikaya.dev/docs</loc></url>
   <url><loc>https://termfetch-studio.sinansarikaya.dev/docs/getting-started</loc></url>
   <url><loc>https://termfetch-studio.sinansarikaya.dev/releases</loc></url>
+  <url><loc>https://termfetch-studio.sinansarikaya.dev/faq</loc></url>
 </urlset>

@@ -129,10 +129,76 @@ export function Downloads() {
   );
 }
 
-export function Docs() {
+export function Docs({ gettingStarted = false }: { gettingStarted?: boolean }) {
+  if (!gettingStarted)
+    return (
+      <div className="document">
+        <PageIntro label="DOCS / REFERENCE" title="Know your studio.">
+          How themes, presets, modules, semantic colors and logos work together
+          in TermFetch Studio.
+        </PageIntro>
+        <div className="docs-overview">
+          <section>
+            <h2>Themes set the visual foundation.</h2>
+            <p>
+              The 30 source palettes define a background, readable text, accents
+              and five semantic groups: OS, desktop, hardware, network and time.
+              Use a complete theme first, then override individual groups when
+              you want a particular contrast.
+            </p>
+            <Link to="/themes">Explore the theme library →</Link>
+          </section>
+          <section>
+            <h2>Presets compose the information.</h2>
+            <p>
+              Full Info includes all 25 modules. Minimal, Focused, Developer and
+              Gaming offer more focused layouts. Custom Modules is built from
+              the items you enable and the order you choose. Preset copies
+              retain section breaks and color-dot settings.
+            </p>
+            <Link to="/presets">Compare the layouts →</Link>
+          </section>
+          <section>
+            <h2>Colors follow a clear hierarchy.</h2>
+            <p>
+              A semantic group override colors both its keys and output values.
+              Inherit follows global icon and text settings, which can use the
+              theme palette. Apply, Cancel and Reset let you preview a color
+              change without committing it.
+            </p>
+          </section>
+          <section>
+            <h2>Artwork depends on the terminal.</h2>
+            <p>
+              ASCII artwork is text and travels inside the browser export. Image
+              artwork uses a local file path, size and protocol such as Kitty,
+              Sixel or a text-rendered fallback. The native app sizes images
+              using the real terminal cell geometry; browser rendering is an
+              interactive recreation.
+            </p>
+          </section>
+          <section id="behavior" tabIndex={-1}>
+            <h2>Local by design. Sample data in the browser.</h2>
+            <p>
+              Browser Apply saves locally and never writes terminal
+              configuration. Every browser preview uses samples; turning Demo
+              export off lets Fastfetch detect actual values when you run the
+              exported JSONC. Native Apply, shell setup, backups and Doctor run
+              only in the installed application.
+            </p>
+          </section>
+        </div>
+        <Link className="button-primary" to="/docs/getting-started">
+          Follow the step-by-step guide →
+        </Link>
+      </div>
+    );
   return (
     <div className="document">
-      <PageIntro label="DOCS / GETTING STARTED" title="From studio to shell.">
+      <PageIntro
+        label="DOCS / GETTING STARTED"
+        title={gettingStarted ? "From studio to shell." : "Know your studio."}
+      >
         Explore in the browser. Take your Fastfetch config with you. Run the
         native studio when you are ready.
       </PageIntro>

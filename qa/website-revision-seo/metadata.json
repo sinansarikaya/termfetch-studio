@@ -1,0 +1,17 @@
+{
+  "status": "Pass",
+  "routeCount": 8,
+  "faqCount": 9,
+  "checks": [
+    "Unique titles and descriptive metadata",
+    "Canonical normalization",
+    "Release/source version distinction",
+    "No fabricated aggregate rating",
+    "Unknown route noindex",
+    "JSON-LD script-termination escaping",
+    "FAQ schema derives from shared visible content source"
+  ],
+  "limitations": [
+    "Full static page/hydration validation awaits the parallel frontend implementation."
+  ]
+}
