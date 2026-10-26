@@ -48,6 +48,25 @@ fn posix_line(exe: Option<&Path>, config: &Path) -> String {
     format!("{cmd} -c '{cfg}'")
 }
 
+/// Block of the macOS app: its commands go on PATH and `termfetch-studio run` adapts
+/// fastfetch to the terminal. Skipped quietly once the app has been deleted.
+pub fn bundle_lines(bin_dir: &Path, fish: bool) -> String {
+    let q = |p: &Path| {
+        let p = p.display().to_string();
+        if fish {
+            format!("'{}'", p.replace('\\', r"\\").replace('\'', r"\'"))
+        } else {
+            format!("'{}'", p.replace('\'', r"'\''"))
+        }
+    };
+    let (dir, exe) = (q(bin_dir), q(&bin_dir.join("termfetch-studio")));
+    if fish {
+        format!("if test -x {exe}\n    set -gx PATH {dir} $PATH\n    {exe} run\nend")
+    } else {
+        format!("if [ -x {exe} ]; then\n    export PATH={dir}:\"$PATH\"\n    {exe} run\nfi")
+    }
+}
+
 /// Startup files that should run fastfetch on this system.
 pub fn targets(
     os: Os,
@@ -146,6 +165,7 @@ pub fn integrate(config: &Path) -> io::Result<Vec<PathBuf>> {
     } else {
         crate::adapters::fastfetch::runner::find_fastfetch()
     };
+    let bin_dir = crate::paths::app_bundle_bin_dir();
     let mut changed = Vec::new();
     for target in targets(
         current_os(),
@@ -155,7 +175,11 @@ pub fn integrate(config: &Path) -> io::Result<Vec<PathBuf>> {
         exe.as_deref(),
         config,
     ) {
-        if add_block(&target.path, &target.line)? {
+        let line = match &bin_dir {
+            Some(dir) => bundle_lines(dir, target.path.ends_with("config.fish")),
+            None => target.line,
+        };
+        if add_block(&target.path, &line)? {
             changed.push(target.path);
         }
     }
@@ -194,6 +218,7 @@ pub fn remove_all() -> io::Result<Vec<PathBuf>> {
         directories::UserDirs::new().and_then(|u| u.document_dir().map(Path::to_path_buf));
     let mut candidates = vec![
         home.join(".bashrc"),
+        home.join(".bash_profile"),
         home.join(".zshrc"),
         home.join(".config").join("fish").join("config.fish"),
     ];
@@ -280,6 +305,27 @@ mod tests {
             targets(Os::Linux, home, None, "/bin/bash", None, cfg)[0].path,
             home.join(".bashrc")
         );
+    }
+
+    // The app bundle exists only on macOS; Windows would join the path with `\`.
+    #[cfg(unix)]
+    #[test]
+    fn app_bundle_block_puts_commands_on_path_and_runs_the_adapter() {
+        let dir = Path::new("/Applications/TermFetch Studio.app/Contents/MacOS");
+        assert_eq!(
+            bundle_lines(dir, false),
+            "if [ -x '/Applications/TermFetch Studio.app/Contents/MacOS/termfetch-studio' ]; then\n    \
+             export PATH='/Applications/TermFetch Studio.app/Contents/MacOS':\"$PATH\"\n    \
+             '/Applications/TermFetch Studio.app/Contents/MacOS/termfetch-studio' run\nfi"
+        );
+        let fish = bundle_lines(dir, true);
+        assert!(fish.starts_with(
+            "if test -x '/Applications/TermFetch Studio.app/Contents/MacOS/termfetch-studio'\n"
+        ));
+        assert!(
+            fish.contains("set -gx PATH '/Applications/TermFetch Studio.app/Contents/MacOS' $PATH")
+        );
+        assert!(fish.ends_with(" run\nend"));
     }
 
     #[test]

@@ -11,9 +11,7 @@ use crate::domain::preset::{DEMO_DATA, Preset};
 use crate::domain::settings::Settings;
 use crate::domain::style;
 use crate::domain::theme::Theme;
-use crate::imaging::{
-    HalfblockGrid, TermGeometry, blend, config_logo_cells, fit_image_cells, kitty,
-};
+use crate::imaging::{BlockGrid, TermGeometry, config_logo_cells, fit_image_cells, kitty};
 use crate::tui::palette::Palette;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
@@ -35,8 +33,8 @@ pub enum ImageState {
 pub enum LogoRaster<'a> {
     /// Not rasterised yet.
     None,
-    /// `▀` half blocks (any truecolor terminal).
-    Halfblock(&'a HalfblockGrid),
+    /// Quadrant block characters (any terminal).
+    Blocks(&'a BlockGrid),
     /// Full-resolution image already uploaded to the terminal under this id.
     Kitty(u32),
     /// Sixel image placed on top of the blank logo cells after the frame.
@@ -52,6 +50,8 @@ pub struct PreviewModel<'a> {
     pub info_loading: bool,
     pub image: ImageState,
     pub geo: TermGeometry,
+    /// Block-drawn logo that grows to the height of the info text.
+    pub fill: bool,
 }
 
 pub fn rgb(c: Color) -> (u8, u8, u8) {
@@ -76,8 +76,13 @@ impl PreviewModel<'_> {
     pub fn logo_cells(&self, avail: (u16, u16)) -> (u16, u16) {
         match self.image {
             ImageState::Ready(dims) => {
-                let (cw, ch) =
+                let (mut cw, mut ch) =
                     config_logo_cells(dims, self.settings.logo_size.max_cells(), &self.geo);
+                if self.fill {
+                    // As tall as the info text, as `termfetch run` draws it in the shell.
+                    let rows = (self.lines().len() as u16).max(ch);
+                    (cw, ch) = fit_image_cells(dims.0, dims.1, self.geo.cell, avail.0, rows);
+                }
                 let info_width = self
                     .lines()
                     .iter()
@@ -223,15 +228,8 @@ impl PreviewModel<'_> {
     }
 }
 
-/// Paint `grid` with upper-half blocks at (x, y), alpha-blended onto `bg`.
-pub fn draw_halfblocks(
-    buf: &mut Buffer,
-    x: u16,
-    y: u16,
-    clip: Rect,
-    grid: &HalfblockGrid,
-    bg: Color,
-) {
+/// Paint `grid` with quadrant blocks at (x, y), alpha-blended onto `bg`.
+pub fn draw_blocks(buf: &mut Buffer, x: u16, y: u16, clip: Rect, grid: &BlockGrid, bg: Color) {
     let bg_rgb = rgb(bg);
     for cy in 0..grid.h {
         for cx in 0..grid.w {
@@ -239,15 +237,17 @@ pub fn draw_halfblocks(
             if px >= clip.right() || py >= clip.bottom() {
                 continue;
             }
-            let (top, bottom) = grid.cell(cx, cy);
-            if top[3] == 0 && bottom[3] == 0 {
+            if grid.pixels(cx, cy).iter().all(|p| p[3] == 0) {
                 continue;
             }
-            let (tr, tg, tb) = blend(top, bg_rgb);
-            let (br, bgc, bb) = blend(bottom, bg_rgb);
+            let Some(block) = grid.cell(cx, cy, Some(bg_rgb)) else {
+                continue;
+            };
+            let (fr, fg, fb) = block.fg;
+            let (br, bgc, bb) = block.bg.unwrap_or(bg_rgb);
             if let Some(cell) = buf.cell_mut((px, py)) {
-                cell.set_char('▀')
-                    .set_fg(Color::Rgb(tr, tg, tb))
+                cell.set_char(block.ch)
+                    .set_fg(Color::Rgb(fr, fg, fb))
                     .set_bg(Color::Rgb(br, bgc, bb));
             }
         }
@@ -401,9 +401,7 @@ pub fn draw_preview_scrolled(
         .fg(style::logo_color(model.theme).tui_color(fg))
         .bg(bg);
     match (model.image, raster) {
-        (ImageState::Ready(_), LogoRaster::Halfblock(g)) => {
-            draw_halfblocks(buf, lx, ly, inner, g, bg)
-        }
+        (ImageState::Ready(_), LogoRaster::Blocks(g)) => draw_blocks(buf, lx, ly, inner, g, bg),
         (ImageState::Ready(_), LogoRaster::Kitty(id)) => {
             draw_kitty_placeholders(buf, lx, ly, inner, (lw, lh), id, bg)
         }

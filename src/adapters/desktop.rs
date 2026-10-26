@@ -25,7 +25,7 @@ pub fn entry(exe: &Path) -> String {
 }
 
 /// Embedded source also works for a standalone executable.
-pub const ICON: &str = include_str!("../../assets/brand/termfetch-symbol.svg");
+pub const ICON: &str = include_str!("../../assets/brand/termfetch-app-icon.svg");
 
 fn write_icon(path: &Path) -> Result<bool> {
     match std::fs::read(path) {

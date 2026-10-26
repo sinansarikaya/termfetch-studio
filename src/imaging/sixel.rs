@@ -30,7 +30,10 @@ pub fn detect() -> bool {
         return false;
     }
     let term = var("TERM").to_ascii_lowercase();
+    let program = var("TERM_PROGRAM");
     std::env::var_os("WT_SESSION").is_some()
+        || program == "iTerm.app"
+        || program == "WezTerm"
         || term.starts_with("foot")
         || term.contains("mlterm")
         || term.contains("sixel")

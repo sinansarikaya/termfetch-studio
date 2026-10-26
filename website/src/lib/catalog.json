@@ -885,6 +885,13 @@
       "art": "   .---.\n  /     \\\n  \\.@-@./\n  /`\\_/`\\\n //  _  \\\\\n| \\     )|_\n/`\\_`>  <_/ \\\n\\__/'---'\\__/"
     },
     {
+      "id": "apple",
+      "name": "Apple macOS 🍎",
+      "group": "DistroAscii",
+      "kind": "ascii",
+      "art": "        .:'\n    __ :'__\n .'`__`-'__``.\n:__________.-'\n:_________:\n :_________`-;\n  `.__.-.__.'"
+    },
+    {
       "id": "pikachu-ascii",
       "name": "Pikachu ⚡",
       "group": "AnimePopAscii",

@@ -36,7 +36,15 @@ pub fn find_fastfetch() -> Option<PathBuf> {
         }
     }
 
-    // 2. Platform-specific standard package manager locations
+    // 2. Bundled beside the executable (the macOS app ships its own fastfetch)
+    if let Some(dir) = crate::paths::exe_dir() {
+        let bundled = dir.join(exe_name);
+        if bundled.is_file() {
+            return Some(bundled);
+        }
+    }
+
+    // 3. Platform-specific standard package manager locations
     #[cfg(target_os = "macos")]
     {
         let mac_candidates = [

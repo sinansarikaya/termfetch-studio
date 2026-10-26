@@ -113,7 +113,10 @@ fn image_logo_config_is_valid_and_written_atomically_to_both_targets() {
 fn title_has_no_key_and_demo_mode_controls_formats() {
     let themes = get_builtin_themes();
     let full = &get_builtin_presets()[0];
-    let mut s = Settings::default();
+    let mut s = Settings {
+        demo_mode: true,
+        ..Default::default()
+    };
 
     let demo = parse(
         &to_jsonc(
@@ -248,7 +251,10 @@ fn generated_config_runs_in_fastfetch_when_available() {
     let logos = builtin_logos(&paths);
     let geo = TermGeometry::from_window(160, 48, 1600, 960);
     for preset in &presets {
-        let s = Settings::default();
+        let s = Settings {
+            demo_mode: true,
+            ..Settings::default()
+        };
         let text = config::render(&themes[0], preset, &logos[0], &s, &paths, &geo).unwrap();
         let file = root.join(format!("{}.jsonc", preset.id));
         std::fs::write(&file, text).unwrap();
