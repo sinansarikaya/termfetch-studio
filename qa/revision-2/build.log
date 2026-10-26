@@ -15,13 +15,13 @@ rendering chunks...
 computing gzip size...
 dist/index.html                   1.25 kB │ gzip:   0.61 kB
 dist/assets/index-BfZhdoie.css   56.02 kB │ gzip:  12.41 kB
-dist/assets/index-CzgLVcey.js   347.96 kB │ gzip: 109.78 kB
-✓ built in 996ms
+dist/assets/index-BBHfw1nt.js   349.25 kB │ gzip: 110.22 kB
+✓ built in 994ms
 Prerendered 8 indexable routes and a noindex 404 page.
 {
   "status": "Pass",
   "target": "built static HTML",
-  "checkedAt": "2026-10-26T14:26:04.288Z",
+  "checkedAt": "2026-10-26T14:38:46.806Z",
   "checks": [
     "Robots, sitemap and optional llms.txt describe the actual public origin and route set",
     "/: substantial JS-less HTML, unique metadata, canonical/social cards, linked routes, accessible images and truthful structured data",

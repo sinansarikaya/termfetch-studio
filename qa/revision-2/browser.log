@@ -8,15 +8,17 @@
     "Native navy/indigo geometry, 44% preview, licensed glyph font, image artwork, all25 icon/tree modules and5 semantic colors",
     "Native-style preset copy/rename/confirmeddelete, section/color-dot fidelity, persisted browser library and real exportable25module JSONC",
     "Deleting Custom Modules then toggling/reordering/adopting restores its definition; apply/export/restore retains all25modules without duplicate options or runtime errors",
+    "Realcopycapacity40 applies/restores; deletingCustomreservesaslot, keyboardcopyguardholds39, moduleactivationrestores40withoutdroppinguserpresets; external40-withoutCustomrejected",
     "Theme/ASCII/preset selections, module toggles/reorder and adoptingfullpreset are functional",
     "Semantic liveedit/apply/cancel/reset, draftexportguard, demo-off export, imageprotocol/size/path and invalidstorage rejection",
     "Scoped keyboard/input behavior, previewexpand/restore and actualmarketinglook/theme buttons update studio",
+    "Focused/Customcardsnavigateexplicitvalidatedpresetqueryandexport9/4modules; directreloadhydratescleanly, invalidpresetignored, WindowsZIPmanualrun/Fastfetchcopytruthful",
     "Nohydrationmismatch on directqueryshowcases orall8SSGroutes;30themegallery, verifieddownloads/pendingmanagers, docsanchor andskiplink",
     "Alllocalart/font/brand assets, bodyoverflow320/390/768/1440, readablemobilefont, containedpan and expandedstudio"
   ],
   "errors": [],
   "headless": false,
-  "startedAt": "2026-10-26T14:26:56.855Z",
+  "startedAt": "2026-10-26T14:39:28.009Z",
   "limitations": [
     "Browser recreation shares the Rust catalog and JSONC rules; it does not execute the Rust TUI engine.",
     "Local headed performance snapshot is not a field metric, SEO score, ranking or native platform guarantee."
@@ -24,10 +26,10 @@
   "target": "http://127.0.0.1:18080",
   "localPerformance": {
     "context": "Fresh local headed Chromium navigation, 1660×1200, brief observation before interaction",
-    "navigationDurationMs": 139.8999999910593,
-    "responseStartMs": 1.5999999940395355,
-    "lcpMs": 220,
+    "navigationDurationMs": 118.20000000298023,
+    "responseStartMs": 1.5,
+    "lcpMs": 184,
     "cls": 0
   },
-  "completedAt": "2026-10-26T14:27:08.293Z"
+  "completedAt": "2026-10-26T14:39:44.384Z"
 }

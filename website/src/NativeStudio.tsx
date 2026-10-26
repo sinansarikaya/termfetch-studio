@@ -16,6 +16,7 @@ import {
 import type { Settings, Theme } from "./lib/studio";
 import { LOOKS, settingsForLook } from "./lib/looks";
 
+const MAX_PRESETS = 40;
 const nativeScreens = [
   "Dashboard",
   "Themes",
@@ -103,7 +104,9 @@ function validSettings(value: unknown): value is Settings {
     s.preset_library !== undefined &&
     (!Array.isArray(s.preset_library) ||
       s.preset_library.length < 1 ||
-      s.preset_library.length > 40 ||
+      s.preset_library.length > MAX_PRESETS ||
+      (s.preset_library.length === MAX_PRESETS &&
+        !s.preset_library.some((p) => p?.id === "custom")) ||
       new Set(s.preset_library.map((p) => p.id)).size !==
         s.preset_library.length ||
       s.preset_library.some(
@@ -268,6 +271,10 @@ export function NativeStudio({
     preset = getPreset(settings),
     logo = getLogo(settings);
   const presets = settings.preset_library ?? catalog.presets;
+  const presetCopyLimit = presets.some((item) => item.id === "custom")
+    ? MAX_PRESETS
+    : MAX_PRESETS - 1;
+  const canCopyPreset = presets.length < presetCopyLimit;
   const active = draft
     ? {
         ...settings,
@@ -276,7 +283,19 @@ export function NativeStudio({
         group_colors: draft.group_colors,
       }
     : settings;
-  const update = (patch: Partial<Settings>) =>
+  const update = (patch: Partial<Settings>) => {
+    const library = patch.preset_library ?? settings.preset_library;
+    if (
+      (patch.preset ?? settings.preset) === "custom" &&
+      library &&
+      !library.some((item) => item.id === "custom") &&
+      library.length >= MAX_PRESETS
+    ) {
+      setStatus(
+        "Preset library full · delete a preset before using Custom Modules",
+      );
+      return;
+    }
     setSettings((old) => {
       const next = { ...old, ...patch };
       // Module Builder must remain usable after an editable library deletes its
@@ -287,15 +306,25 @@ export function NativeStudio({
         next.preset_library &&
         !next.preset_library.some((item) => item.id === "custom")
       ) {
+        if (next.preset_library.length >= MAX_PRESETS) return old;
         next.preset_library = [
           ...next.preset_library,
-          structuredClone(catalog.presets.find((item) => item.id === "custom")!),
+          structuredClone(
+            catalog.presets.find((item) => item.id === "custom")!,
+          ),
         ];
       }
       return next;
     });
+  };
   const dirty = JSON.stringify(settings) !== JSON.stringify(saved);
   function apply() {
+    if (!validSettings(settings)) {
+      setStatus(
+        "Cannot apply an invalid preset library · remove a preset or reset the setup",
+      );
+      return;
+    }
     setSaved(structuredClone(settings));
     try {
       localStorage.setItem(
@@ -322,12 +351,26 @@ export function NativeStudio({
       setSettings(value);
       setSaved(structuredClone(value));
       setDraft(null);
-      setStatus("✓ Restored browser save");
+      const library = value.preset_library ?? catalog.presets;
+      const copyLimit = library.some((item) => item.id === "custom")
+        ? MAX_PRESETS
+        : MAX_PRESETS - 1;
+      setStatus(
+        library.length >= copyLimit
+          ? "✓ Restored browser save · preset library capacity reached"
+          : "✓ Restored browser save",
+      );
     } catch {
       setStatus("Could not read browser save");
     }
   }
   function copyPreset() {
+    if (!canCopyPreset) {
+      setStatus(
+        "Preset library capacity reached · delete a preset before copying; a slot is reserved for Custom Modules",
+      );
+      return;
+    }
     let n = 1;
     while (presets.some((p) => p.id === `user-${n}`)) n++;
     const copied = {
@@ -336,7 +379,11 @@ export function NativeStudio({
       name: `${preset.name} copy`.slice(0, 100),
     };
     update({ preset: copied.id, preset_library: [...presets, copied] });
-    setStatus("✓ Preset copied · edit or rename your copy");
+    setStatus(
+      presets.length + 1 >= presetCopyLimit
+        ? "✓ Preset copied · preset library capacity reached"
+        : "✓ Preset copied · edit or rename your copy",
+    );
   }
   function savePresetDialog() {
     if (presetDialog === "rename" && presetInput.trim()) {
@@ -541,7 +588,16 @@ export function NativeStudio({
                     title={
                       <>
                         Presets · Enter use ·{" "}
-                        <button aria-label="Copy preset" onClick={copyPreset}>
+                        <button
+                          aria-label="Copy preset"
+                          onClick={copyPreset}
+                          disabled={!canCopyPreset}
+                          title={
+                            canCopyPreset
+                              ? "Duplicate this layout"
+                              : "Preset capacity reached (40 total, including reserved Custom Modules slot)"
+                          }
+                        >
                           d copy
                         </button>{" "}
                         ·{" "}

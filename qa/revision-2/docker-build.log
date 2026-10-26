@@ -11,103 +11,100 @@
 #3 resolve docker.io/docker/dockerfile:1@sha256:4edf897a3ffa55b89f906fc8cc78afdb3f1834cc9c7083565e611a8a7d5fe99e 0.0s done
 #3 CACHED
 
-#4 [internal] load metadata for docker.io/nginxinc/nginx-unprivileged:stable-alpine@sha256:f5116ed4606f3eb015dd4a8e28cb9b351476dc0ad4bc6e9f93b19cec130cdf03
-#4 ...
+#4 [internal] load metadata for docker.io/library/node:24-alpine@sha256:06d7adf3e0ef61a13f1d28682726366f97a15aa1888c934d3ecec86c33918b53
+#4 DONE 0.6s
 
-#5 [internal] load metadata for docker.io/library/node:24-alpine@sha256:06d7adf3e0ef61a13f1d28682726366f97a15aa1888c934d3ecec86c33918b53
-#5 DONE 1.3s
-
-#4 [internal] load metadata for docker.io/nginxinc/nginx-unprivileged:stable-alpine@sha256:f5116ed4606f3eb015dd4a8e28cb9b351476dc0ad4bc6e9f93b19cec130cdf03
-#4 DONE 1.3s
+#5 [internal] load metadata for docker.io/nginxinc/nginx-unprivileged:stable-alpine@sha256:f5116ed4606f3eb015dd4a8e28cb9b351476dc0ad4bc6e9f93b19cec130cdf03
+#5 DONE 0.6s
 
 #6 [internal] load .dockerignore
 #6 transferring context: 315B done
 #6 DONE 0.0s
 
 #7 [termfetch-studio-web 1/3] FROM docker.io/nginxinc/nginx-unprivileged:stable-alpine@sha256:f5116ed4606f3eb015dd4a8e28cb9b351476dc0ad4bc6e9f93b19cec130cdf03
-#7 resolve docker.io/nginxinc/nginx-unprivileged:stable-alpine@sha256:f5116ed4606f3eb015dd4a8e28cb9b351476dc0ad4bc6e9f93b19cec130cdf03 0.0s done
-#7 DONE 0.0s
+#7 resolve docker.io/nginxinc/nginx-unprivileged:stable-alpine@sha256:f5116ed4606f3eb015dd4a8e28cb9b351476dc0ad4bc6e9f93b19cec130cdf03 0.1s done
+#7 DONE 0.1s
 
 #8 [termfetch-studio-builder  1/10] FROM docker.io/library/node:24-alpine@sha256:06d7adf3e0ef61a13f1d28682726366f97a15aa1888c934d3ecec86c33918b53
-#8 resolve docker.io/library/node:24-alpine@sha256:06d7adf3e0ef61a13f1d28682726366f97a15aa1888c934d3ecec86c33918b53 0.0s done
-#8 DONE 0.0s
+#8 resolve docker.io/library/node:24-alpine@sha256:06d7adf3e0ef61a13f1d28682726366f97a15aa1888c934d3ecec86c33918b53 0.1s done
+#8 DONE 0.1s
 
 #9 [internal] load build context
-#9 transferring context: 557.48kB done
+#9 transferring context: 157.01kB done
 #9 DONE 0.0s
 
-#10 [termfetch-studio-builder  3/10] COPY website/package.json website/package-lock.json ./website/
+#10 [termfetch-studio-builder  7/10] COPY src/adapters/fastfetch/config.rs ./src/adapters/fastfetch/config.rs
 #10 CACHED
 
-#11 [termfetch-studio-builder  2/10] WORKDIR /termfetch-studio
+#11 [termfetch-studio-builder  3/10] COPY website/package.json website/package-lock.json ./website/
 #11 CACHED
 
-#12 [termfetch-studio-builder  4/10] RUN --mount=type=cache,target=/root/.npm npm ci --prefix website
+#12 [termfetch-studio-builder  2/10] WORKDIR /termfetch-studio
 #12 CACHED
 
 #13 [termfetch-studio-builder  5/10] COPY Cargo.toml ./
-#13 DONE 0.1s
+#13 CACHED
 
 #14 [termfetch-studio-builder  6/10] COPY src/domain/ ./src/domain/
-#14 DONE 0.1s
+#14 CACHED
 
-#15 [termfetch-studio-builder  7/10] COPY src/adapters/fastfetch/config.rs ./src/adapters/fastfetch/config.rs
-#15 DONE 0.1s
+#15 [termfetch-studio-builder  4/10] RUN --mount=type=cache,target=/root/.npm npm ci --prefix website
+#15 CACHED
 
 #16 [termfetch-studio-builder  8/10] COPY assets/brand/ ./assets/brand/
-#16 DONE 0.1s
+#16 CACHED
 
 #17 [termfetch-studio-builder  9/10] COPY website/ ./website/
 #17 DONE 0.1s
 
 #18 [termfetch-studio-builder 10/10] RUN npm run build --prefix website
-#18 0.486
-#18 0.486 > termfetch-studio-website@0.0.0 prebuild
-#18 0.486 > node scripts/sync-brand.mjs
-#18 0.486
-#18 0.514 Shared brand synchronized to /termfetch-studio/website/public/brand/
-#18 0.519
-#18 0.519 > termfetch-studio-website@0.0.0 build
-#18 0.519 > node check-catalog.mjs && tsc -b && vite build && node scripts/prerender.mjs && node scripts/check-seo.mjs
-#18 0.519
-#18 0.796 Catalog drift checks and 360 Fastfetch configuration combinations passed.
-#18 2.389 vite v7.3.7 building client environment for production...
-#18 2.432 transforming...
-#18 3.433 ✓ 50 modules transformed.
-#18 3.539 rendering chunks...
-#18 3.544 computing gzip size...
-#18 3.551 dist/index.html                   1.25 kB │ gzip:   0.61 kB
-#18 3.551 dist/assets/index-BfZhdoie.css   56.02 kB │ gzip:  12.41 kB
-#18 3.551 dist/assets/index-CzgLVcey.js   347.96 kB │ gzip: 109.78 kB
-#18 3.551 ✓ built in 1.15s
-#18 3.755 Prerendered 8 indexable routes and a noindex 404 page.
-#18 3.877 {
-#18 3.877   "status": "Pass",
-#18 3.877   "target": "built static HTML",
-#18 3.877   "checkedAt": "2026-10-26T14:26:12.419Z",
-#18 3.877   "checks": [
-#18 3.877     "Robots, sitemap and optional llms.txt describe the actual public origin and route set",
-#18 3.877     "/: substantial JS-less HTML, unique metadata, canonical/social cards, linked routes, accessible images and truthful structured data",
-#18 3.877     "/themes: substantial JS-less HTML, unique metadata, canonical/social cards, linked routes, accessible images and truthful structured data",
-#18 3.877     "/presets: substantial JS-less HTML, unique metadata, canonical/social cards, linked routes, accessible images and truthful structured data",
-#18 3.877     "/downloads: substantial JS-less HTML, unique metadata, canonical/social cards, linked routes, accessible images and truthful structured data",
-#18 3.877     "/docs: substantial JS-less HTML, unique metadata, canonical/social cards, linked routes, accessible images and truthful structured data",
-#18 3.877     "/docs/getting-started: substantial JS-less HTML, unique metadata, canonical/social cards, linked routes, accessible images and truthful structured data",
-#18 3.877     "/releases: substantial JS-less HTML, unique metadata, canonical/social cards, linked routes, accessible images and truthful structured data",
-#18 3.877     "/faq: substantial JS-less HTML, unique metadata, canonical/social cards, linked routes, accessible images and truthful structured data",
-#18 3.877     "Unknown pages have a substantial noindex 404 document (HTTP 404 checked when --base is used)"
-#18 3.877   ],
-#18 3.877   "limitations": [
-#18 3.877     "These are technical/content checks, not a ranking, indexing or AI-citation guarantee.",
-#18 3.877     "Browser hydration, visual fidelity, keyboard and responsive checks are covered separately by the headed browser regression."
-#18 3.877   ]
-#18 3.877 }
-#18 3.883 npm notice
-#18 3.883 npm notice New major version of npm available! 11.19.1 -> 12.2.1
-#18 3.883 npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.1
-#18 3.883 npm notice To update run: npm install -g npm@12.2.1
-#18 3.883 npm notice
-#18 DONE 4.0s
+#18 0.259
+#18 0.259 > termfetch-studio-website@0.0.0 prebuild
+#18 0.259 > node scripts/sync-brand.mjs
+#18 0.259
+#18 0.288 Shared brand synchronized to /termfetch-studio/website/public/brand/
+#18 0.293
+#18 0.293 > termfetch-studio-website@0.0.0 build
+#18 0.293 > node check-catalog.mjs && tsc -b && vite build && node scripts/prerender.mjs && node scripts/check-seo.mjs
+#18 0.293
+#18 0.570 Catalog drift checks and 360 Fastfetch configuration combinations passed.
+#18 2.064 vite v7.3.7 building client environment for production...
+#18 2.106 transforming...
+#18 3.066 ✓ 50 modules transformed.
+#18 3.167 rendering chunks...
+#18 3.172 computing gzip size...
+#18 3.180 dist/index.html                   1.25 kB │ gzip:   0.61 kB
+#18 3.180 dist/assets/index-BfZhdoie.css   56.02 kB │ gzip:  12.41 kB
+#18 3.180 dist/assets/index-BBHfw1nt.js   349.25 kB │ gzip: 110.22 kB
+#18 3.180 ✓ built in 1.10s
+#18 3.393 Prerendered 8 indexable routes and a noindex 404 page.
+#18 3.516 {
+#18 3.516   "status": "Pass",
+#18 3.516   "target": "built static HTML",
+#18 3.516   "checkedAt": "2026-10-26T14:39:26.584Z",
+#18 3.516   "checks": [
+#18 3.516     "Robots, sitemap and optional llms.txt describe the actual public origin and route set",
+#18 3.516     "/: substantial JS-less HTML, unique metadata, canonical/social cards, linked routes, accessible images and truthful structured data",
+#18 3.516     "/themes: substantial JS-less HTML, unique metadata, canonical/social cards, linked routes, accessible images and truthful structured data",
+#18 3.516     "/presets: substantial JS-less HTML, unique metadata, canonical/social cards, linked routes, accessible images and truthful structured data",
+#18 3.516     "/downloads: substantial JS-less HTML, unique metadata, canonical/social cards, linked routes, accessible images and truthful structured data",
+#18 3.516     "/docs: substantial JS-less HTML, unique metadata, canonical/social cards, linked routes, accessible images and truthful structured data",
+#18 3.516     "/docs/getting-started: substantial JS-less HTML, unique metadata, canonical/social cards, linked routes, accessible images and truthful structured data",
+#18 3.516     "/releases: substantial JS-less HTML, unique metadata, canonical/social cards, linked routes, accessible images and truthful structured data",
+#18 3.516     "/faq: substantial JS-less HTML, unique metadata, canonical/social cards, linked routes, accessible images and truthful structured data",
+#18 3.516     "Unknown pages have a substantial noindex 404 document (HTTP 404 checked when --base is used)"
+#18 3.516   ],
+#18 3.516   "limitations": [
+#18 3.516     "These are technical/content checks, not a ranking, indexing or AI-citation guarantee.",
+#18 3.516     "Browser hydration, visual fidelity, keyboard and responsive checks are covered separately by the headed browser regression."
+#18 3.516   ]
+#18 3.516 }
+#18 3.523 npm notice
+#18 3.523 npm notice New major version of npm available! 11.19.1 -> 12.2.1
+#18 3.523 npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.1
+#18 3.523 npm notice To update run: npm install -g npm@12.2.1
+#18 3.523 npm notice
+#18 DONE 3.6s
 
 #19 [termfetch-studio-web 2/3] COPY --chown=101:101 deploy/termfetch-studio-nginx.conf /etc/nginx/conf.d/default.conf
 #19 CACHED
@@ -116,12 +113,11 @@
 #20 DONE 0.1s
 
 #21 exporting to image
-#21 exporting layers
-#21 exporting layers 0.2s done
-#21 exporting manifest sha256:640dbd9472a23ba8195541a863514e81e697186d396055c4b8cbdc5016275a2f done
-#21 exporting config sha256:f4895eaa24d4a26673edeffe812e538b93cee2ebc5b58b626f938a74e829a57b done
-#21 exporting attestation manifest sha256:961bd509472491050c74a4a6e6166e78a704c1444515598610b4c48bc6a47ace done
-#21 exporting manifest list sha256:52053714c47dabc024a1650244729b192df1074a28905fb95bde5ea948b411eb 0.0s done
+#21 exporting layers 0.1s done
+#21 exporting manifest sha256:5a31bc21d266642b9b32654729ea10bdd28c9db70a22532a0ea5ee4d2140b56d done
+#21 exporting config sha256:4e733c3fc102c67d6212df68311b86dd618243c0617de8d2a28618fb28af141b done
+#21 exporting attestation manifest sha256:f09b280bc780e68fc11216bbd9aa1913a38f2562134c6ab2954d37ba6f95e0bb 0.0s done
+#21 exporting manifest list sha256:2c991adbf4689735d8b92cfe0def1201984632a752e22617a2db31a394b611d1 done
 #21 naming to docker.io/library/termfetch-studio-web:revision-2 done
 #21 unpacking to docker.io/library/termfetch-studio-web:revision-2 0.0s done
-#21 DONE 0.3s
+#21 DONE 0.2s
