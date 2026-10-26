@@ -108,7 +108,7 @@ export function Site() {
         </div>
         <div>
           <h3>Explore</h3>
-          <Link to="/themes">30 themes</Link>
+          <Link to="/themes">40 themes</Link>
           <Link to="/presets">Presets & layouts</Link>
           <Link to="/downloads">Downloads</Link>
         </div>
@@ -169,7 +169,7 @@ function ThemeGallery({
     "rose-pine",
     "gruvbox-dark",
     "catppuccin-latte",
-    "kanagawa",
+    "cotton-candy",
     "cyberpunk",
     "sakura",
   ];
@@ -198,7 +198,7 @@ function ThemeGallery({
             ))}
           </select>
         ) : (
-          <Link to="/themes">Explore all 30 themes →</Link>
+          <Link to="/themes">Explore all 40 themes →</Link>
         )}
       </div>
       <div className="marketing-theme-grid">
@@ -346,7 +346,7 @@ function Home() {
         </div>
         <div className="hero-proof">
           <span>
-            <b>30</b> real palettes
+            <b>40</b> real palettes
           </span>
           <span>
             <b>25</b> configurable modules

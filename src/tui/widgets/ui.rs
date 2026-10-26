@@ -158,6 +158,14 @@ fn rgb(c: Color, fallback: Rgb) -> Rgb {
 }
 
 /// Small deterministic hash so every theme gets its own skyline.
+/// Implicit heart curve centred at `(cx, cy)`; `s` is roughly its half-width.
+fn in_heart(x: i32, y: i32, cx: i32, cy: i32, s: f64) -> bool {
+    let dx = f64::from(x - cx) / s;
+    let dy = f64::from(cy - y) / s;
+    let a = dx * dx + dy * dy - 1.0;
+    a * a * a - dx * dx * dy * dy * dy <= 0.0
+}
+
 fn seed(id: &str) -> u32 {
     id.bytes().fold(2_166_136_261u32, |h, b| {
         (h ^ u32::from(b)).wrapping_mul(16_777_619)
@@ -1135,6 +1143,349 @@ pub fn draw_thumbnail_mode(buf: &mut Buffer, area: Rect, theme: &Theme, mode: Th
                     }
                     if y >= 24 {
                         c = (32, 24, 42);
+                    }
+                }
+            }
+            "cotton-candy" => {
+                c = mix((255, 236, 246), (250, 204, 228), f64::from(y) / 32.0);
+                if compact {
+                    let fluff = (x - 32).pow(2) + (y - 10).pow(2) <= 48
+                        || (x - 26).pow(2) + (y - 13).pow(2) <= 20
+                        || (x - 38).pow(2) + (y - 13).pow(2) <= 20;
+                    if fluff {
+                        c = if (x + y) % 5 == 0 {
+                            (250, 190, 222)
+                        } else {
+                            (240, 150, 196)
+                        };
+                    }
+                    if (16..=27).contains(&y) && (x - 32).abs() <= (27 - y) / 3 {
+                        c = (232, 196, 150);
+                    }
+                    if y >= 28 {
+                        c = (214, 64, 138);
+                    }
+                } else {
+                    if y < 9 && (x * 5 + y * 11) % 23 == 0 {
+                        c = (255, 255, 255);
+                    }
+                    for (cx, cy, tint) in [(18, 11, (240, 150, 196)), (46, 10, (196, 168, 238))] {
+                        if (x - cx).pow(2) + (y - cy).pow(2) <= 30 {
+                            c = tint;
+                        }
+                        if x == cx && (16..=26).contains(&y) {
+                            c = (200, 160, 120);
+                        }
+                    }
+                    if y >= 27 {
+                        c = if (x / 4) % 2 == 0 {
+                            (246, 172, 210)
+                        } else {
+                            (255, 222, 238)
+                        };
+                    }
+                }
+            }
+            "strawberry-milk" => {
+                c = mix((255, 245, 247), (255, 222, 230), f64::from(y) / 32.0);
+                if compact {
+                    let wave = 18 + ((x as f64 / 5.0).sin() * 2.0) as i32;
+                    if y >= wave {
+                        c = (248, 178, 198);
+                    }
+                    let wave2 = 24 + ((x as f64 / 7.0).cos() * 2.0) as i32;
+                    if y >= wave2 {
+                        c = (255, 238, 242);
+                    }
+                    if (x - 32).pow(2) + (y - 8).pow(2) <= 20 {
+                        c = (210, 58, 104);
+                    }
+                    if (30..=34).contains(&x) && y == 3 {
+                        c = (63, 138, 79);
+                    }
+                } else {
+                    if in_heart(x, y, 32, 12, 9.0) {
+                        c = if (x * 3 + y * 7) % 11 == 0 {
+                            (255, 226, 160)
+                        } else {
+                            (210, 58, 104)
+                        };
+                    }
+                    if (27..=37).contains(&x) && (2..=3).contains(&y) {
+                        c = (63, 138, 79);
+                    }
+                    if y >= 25 {
+                        c = (255, 214, 226);
+                    }
+                }
+            }
+            "dollhouse" => {
+                c = mix((255, 232, 244), (255, 200, 228), f64::from(y) / 32.0);
+                if compact {
+                    if in_heart(x, y, 32, 14, 9.0) {
+                        c = (214, 21, 127);
+                    }
+                    if in_heart(x, y, 32, 14, 5.0) {
+                        c = (255, 150, 200);
+                    }
+                    if y >= 28 {
+                        c = (168, 63, 196);
+                    }
+                } else {
+                    let roof = y >= 6 && (x - 32).abs() <= (y - 6) && y <= 14;
+                    if roof {
+                        c = (214, 21, 127);
+                    }
+                    if (22..=42).contains(&x) && (15..=27).contains(&y) {
+                        c = (255, 170, 210);
+                        let window = ((25..=29).contains(&x) || (35..=39).contains(&x))
+                            && (17..=20).contains(&y);
+                        if window {
+                            c = (255, 250, 214);
+                        }
+                        if (30..=34).contains(&x) && y >= 22 {
+                            c = (168, 63, 196);
+                        }
+                    }
+                    if y >= 28 {
+                        c = (240, 120, 180);
+                    }
+                }
+            }
+            "marshmallow" => {
+                c = mix((246, 214, 236), (253, 247, 251), f64::from(y) / 32.0);
+                if compact {
+                    for (bx, by, tint) in [
+                        (22, 18, (255, 255, 255)),
+                        (34, 18, (250, 196, 224)),
+                        (28, 10, (226, 214, 250)),
+                    ] {
+                        if (bx..=bx + 9).contains(&x) && (by..=by + 7).contains(&y) {
+                            c = tint;
+                        }
+                    }
+                    if y >= 26 {
+                        c = (201, 72, 138);
+                    }
+                } else {
+                    for (cx, cy, r) in [(14, 8, 18), (22, 6, 26), (44, 10, 22), (52, 8, 16)] {
+                        if (x - cx).pow(2) + (y - cy).pow(2) <= r {
+                            c = (255, 255, 255);
+                        }
+                    }
+                    let puff = 22 + ((x as f64 / 4.0).sin() * 2.0) as i32;
+                    if y >= puff {
+                        c = (255, 246, 251);
+                    }
+                    if y >= 28 {
+                        c = (240, 196, 222);
+                    }
+                }
+            }
+            "peach-blossom" => {
+                c = mix((255, 214, 196), (255, 244, 236), f64::from(y) / 32.0);
+                if compact {
+                    if (x - 32).pow(2) + (y - 14).pow(2) <= 60 {
+                        c = if x < 32 {
+                            (255, 170, 140)
+                        } else {
+                            (240, 140, 112)
+                        };
+                    }
+                    if (x - 36).pow(2) + (y - 5).pow(2) <= 6 {
+                        c = (75, 140, 90);
+                    }
+                    if y >= 26 {
+                        c = (194, 69, 126);
+                    }
+                } else {
+                    if (x - 46).pow(2) + (y - 7).pow(2) <= 22 {
+                        c = (255, 196, 150);
+                    }
+                    let branch = y == 6 + x / 6 && x < 40;
+                    if branch {
+                        c = (120, 80, 70);
+                    }
+                    if x < 40 && (y - (6 + x / 6)).abs() <= 2 && (x * 7 + y * 3) % 6 == 0 {
+                        c = (240, 140, 180);
+                    }
+                    let hill = 22 + ((x as f64 / 9.0).sin() * 2.5) as i32;
+                    if y >= hill {
+                        c = (246, 196, 176);
+                    }
+                    if y >= 28 {
+                        c = (212, 89, 63);
+                    }
+                }
+            }
+            "lilac-mist" => {
+                c = mix((236, 224, 255), (246, 240, 255), f64::from(y) / 32.0);
+                if compact {
+                    for (cx, cy) in [(28, 8), (36, 8), (32, 12), (28, 16), (36, 16), (32, 20)] {
+                        if (x - cx).pow(2) + (y - cy).pow(2) <= 8 {
+                            c = (176, 140, 230);
+                        }
+                    }
+                    if x == 32 && y >= 22 {
+                        c = (47, 138, 122);
+                    }
+                    if y >= 28 {
+                        c = (125, 79, 208);
+                    }
+                } else {
+                    for band in 0..3 {
+                        let base = 12 + band * 6;
+                        let w = base + ((x as f64 / (6.0 + f64::from(band))).sin() * 2.0) as i32;
+                        if y >= w {
+                            c = mix(
+                                (246, 240, 255),
+                                (150, 110, 214),
+                                0.25 + f64::from(band) * 0.2,
+                            );
+                        }
+                    }
+                    if (x - 16).pow(2) + (y - 6).pow(2) <= 14 {
+                        c = (255, 250, 255);
+                    }
+                }
+            }
+            "mint-macaron" => {
+                c = mix((222, 246, 236), (238, 250, 244), f64::from(y) / 32.0);
+                let shell = |cx: i32, cy: i32, w: i32| {
+                    (x - cx).pow(2) * 4 + (y - cy).pow(2) * w * w / 4 <= w * w * 4
+                };
+                if compact {
+                    if shell(32, 10, 6) {
+                        c = (150, 220, 190);
+                    }
+                    if (20..=44).contains(&x) && (14..=15).contains(&y) {
+                        c = (255, 246, 230);
+                    }
+                    if shell(32, 19, 6) {
+                        c = (150, 220, 190);
+                    }
+                    if y >= 27 {
+                        c = (31, 138, 106);
+                    }
+                } else {
+                    for (cx, tint) in [
+                        (16, (150, 220, 190)),
+                        (32, (248, 186, 214)),
+                        (48, (206, 190, 245)),
+                    ] {
+                        if shell(cx, 14, 5) {
+                            c = tint;
+                        }
+                        if (cx - 9..=cx + 9).contains(&x) && y == 17 {
+                            c = (255, 246, 230);
+                        }
+                        if shell(cx, 20, 5) {
+                            c = tint;
+                        }
+                    }
+                    if y >= 27 {
+                        c = (255, 255, 255);
+                    }
+                }
+            }
+            "kawaii" => {
+                c = mix((42, 31, 45), (70, 44, 66), f64::from(y) / 32.0);
+                if compact {
+                    for cx in [14, 32, 50] {
+                        if in_heart(x, y, cx, 13, 5.0) {
+                            c = (255, 166, 201);
+                        }
+                    }
+                    if y >= 26 {
+                        c = (197, 163, 255);
+                    }
+                } else {
+                    if star && y < 9 {
+                        c = (255, 233, 243);
+                    }
+                    let dx = (x - 32).abs();
+                    let wing = (3..=16).contains(&dx) && (y - 14).abs() <= dx / 2 + 1;
+                    if wing {
+                        c = (255, 166, 201);
+                    }
+                    if dx <= 2 && (12..=16).contains(&y) {
+                        c = (255, 210, 228);
+                    }
+                    let tail = (17..=25).contains(&y) && (dx - (y - 17) / 2 - 3).abs() <= 1;
+                    if tail {
+                        c = (240, 130, 176);
+                    }
+                    if y >= 27 {
+                        c = (56, 38, 60);
+                    }
+                }
+            }
+            "unicorn" => {
+                c = mix((38, 31, 51), (66, 52, 92), f64::from(y) / 32.0);
+                if compact {
+                    let horn = (4..=24).contains(&y) && (x - 32).abs() <= (y - 4) / 4;
+                    if horn {
+                        c = if (y + x) % 4 == 0 {
+                            (247, 168, 216)
+                        } else {
+                            (255, 243, 163)
+                        };
+                    }
+                    if y >= 25 {
+                        c = (184, 164, 255);
+                    }
+                } else {
+                    if star && y < 12 {
+                        c = (247, 238, 255);
+                    }
+                    let d = (((x - 32).pow(2) + (y - 30).pow(2)) as f64).sqrt();
+                    let bands = [
+                        (247, 168, 216),
+                        (255, 211, 165),
+                        (255, 243, 163),
+                        (158, 240, 224),
+                        (163, 216, 255),
+                        (184, 164, 255),
+                    ];
+                    if (14.0..26.0).contains(&d) {
+                        c = bands[((26.0 - d) / 2.0) as usize % 6];
+                    }
+                    if y >= 28 {
+                        c = (255, 255, 255);
+                    }
+                }
+            }
+            "rose-quartz" => {
+                c = mix((43, 34, 40), (74, 52, 64), f64::from(y) / 32.0);
+                let gem = |cx: i32, cy: i32, r: i32| (x - cx).abs() + (y - cy).abs() * 2 <= r;
+                if compact {
+                    for (cx, cy, r) in [(16, 16, 8), (32, 12, 14), (48, 16, 8)] {
+                        if gem(cx, cy, r) {
+                            c = if x < cx {
+                                (244, 167, 187)
+                            } else {
+                                (214, 130, 156)
+                            };
+                        }
+                    }
+                    if y >= 25 {
+                        c = (36, 28, 34);
+                    }
+                } else {
+                    if gem(32, 14, 18) {
+                        c = if y < 14 {
+                            (250, 200, 214)
+                        } else if x < 32 {
+                            (244, 167, 187)
+                        } else {
+                            (214, 130, 156)
+                        };
+                    }
+                    if gem(32, 14, 6) {
+                        c = (255, 230, 238);
+                    }
+                    if y >= 25 {
+                        c = mix((43, 34, 40), (224, 176, 255), 0.18);
                     }
                 }
             }

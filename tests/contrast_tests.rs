@@ -107,7 +107,7 @@ fn every_cell_is_legible_on_every_theme_and_screen() {
     let themes = get_builtin_themes();
     assert_eq!(
         themes.len(),
-        30,
+        40,
         "every built-in theme is audited, with both chrome modes"
     );
     for (theme, follow) in themes.iter().flat_map(|t| [(t, false), (t, true)]) {

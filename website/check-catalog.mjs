@@ -25,7 +25,7 @@ const text=readFileSync(here+'src/lib/studio.ts','utf8').replace("import catalog
 const js=ts.transpileModule(text,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText;
 const studio=await import('data:text/javascript;base64,'+Buffer.from(js).toString('base64'));
 const {defaults,buildConfig,getPreset,colors,jsonc}=studio;
-assert.equal(snapshot.themes.length,30);assert.equal(snapshot.modules.length,25);assert.equal(snapshot.logos.length,31);
+assert.equal(snapshot.themes.length,40);assert.equal(snapshot.modules.length,25);assert.equal(snapshot.logos.length,31);
 assert.deepEqual([defaults.theme,defaults.preset,defaults.logo,defaults.logo_size,defaults.demo_mode],['catppuccin-mocha','full','arch','medium',true]);
 let combinations=0;
 for(const theme of snapshot.themes)for(const preset of snapshot.presets)for(const demo_mode of [true,false]){
@@ -49,5 +49,5 @@ s.logo='pikachu';assert.equal(buildConfig(s).logo.type,'auto');s.image_path='/ho
 s.logo='arch';assert.equal(buildConfig(s).logo.type,'data');assert.equal(buildConfig(s).logo.source,snapshot.logos[0].art);
 s.logo='custom-user-image';s.image_path='';s.custom_art=' /\\_/\\ ';assert.equal(buildConfig(s).logo.source,s.custom_art);
 assert.equal(studio.validColor('#123abc'),true);assert.equal(studio.validColor('red;}body{display:none'),false);
-const report={status:'Pass',assertions:['Rust source hashes unchanged','Catalog extraction matches snapshot','360 theme/preset/demo combinations preserve writer module order, breaks, key width, separator, title and values','Group override precedence and default/ANSI resolution','Custom regrouping and empty modules','Self-contained ASCII and explicit image path/auto fallback','Export JSONC parses to generated object'],combinations,limitations:['Rust executable was not run: writer compatibility is source-derived, with explicit ASCII data/image sizing adaptations.','Headed browser verification requires a separately authorized QA command.']};
+const report={status:'Pass',assertions:['Rust source hashes unchanged','Catalog extraction matches snapshot','480 theme/preset/demo combinations preserve writer module order, breaks, key width, separator, title and values','Group override precedence and default/ANSI resolution','Custom regrouping and empty modules','Self-contained ASCII and explicit image path/auto fallback','Export JSONC parses to generated object'],combinations,limitations:['Rust executable was not run: writer compatibility is source-derived, with explicit ASCII data/image sizing adaptations.','Headed browser verification requires a separately authorized QA command.']};
 writeFileSync(here+'verification.json',JSON.stringify(report,null,2)+'\n');console.log('Catalog drift checks and '+combinations+' Fastfetch configuration combinations passed.');
