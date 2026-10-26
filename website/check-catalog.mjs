@@ -9,7 +9,7 @@ const hashes=JSON.parse(readFileSync(here+'catalog-sources.json','utf8'));
 const sources={};
 const update=process.argv.includes('--update');
 for(const [path,hash] of Object.entries(hashes)) {
- const text=readFileSync(root+path,'utf8');sources[path]=text;
+ const text=readFileSync(root+path,'utf8').replace(/\r\n/g,'\n');sources[path]=text;
  const actual=createHash('sha256').update(text).digest('hex');
  if(update) hashes[path]=actual;
  else if(actual!==hash) throw Error('Rust source drift: '+path+'. Review writer/defaults and regenerate catalog-sources.json; do not silently accept drift.');
