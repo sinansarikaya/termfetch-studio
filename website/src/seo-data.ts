@@ -100,4 +100,3 @@ export function renderSeoHead(pathname: string) {
     `<script id="termfetch-structured-data" type="application/ld+json">${serializeJsonLd(meta.structuredData)}</script>`,
   ].join("\n    ");
 }
-

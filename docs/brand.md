@@ -97,10 +97,12 @@ Windows SDK resource compiler (or a configured GNU windres toolchain). A missing
 compiler fails the Windows build instead of silently shipping an unbranded EXE.
 Native Windows Explorer, shortcut and Terminal rendering require Windows QA.
 
-macOS receives the ICNS as a reusable asset. The current launcher is a .command
-file opened in Terminal, not an application bundle; it retains the standard
-document/Terminal icon. No Finder custom-icon metadata, .app bundle, signing,
-or Dock identity is claimed. ICNS display requires native macOS QA.
+The current macOS source includes an application bundle and DMG build workflow
+with the shared ICNS icon, launcher and bundled dependencies. These packaging
+sources do not imply a published DMG asset: the verified public v2.0.0 release
+still provides the universal tarball. Check actual release assets before
+advertising a downloadable DMG. Signing, notarization and native Finder/Dock
+display require their own macOS verification.
 
 ## Verification
 

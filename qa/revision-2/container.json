@@ -1,0 +1,11 @@
+{
+  "status": "Pass",
+  "image": "sha256:52053714c47dabc024a1650244729b192df1074a28905fb95bde5ea948b411eb",
+  "user": "101:101",
+  "readonly": true,
+  "health": "healthy",
+  "index_sha256": "b2eff16ac5dde9c38da99871b905a7a5237cb3ca8c30c4669e7086a61c9f15d9",
+  "local_dist_matches": true,
+  "upstream_app_base": "27ad1fe",
+  "checked_at": "2026-10-26T14:28:34.237137+00:00"
+}
