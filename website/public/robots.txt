@@ -1,3 +1,6 @@
 User-agent: *
 Allow: /
+
+# The public product, catalog, documentation and release pages are crawlable.
+# The site does not vary its HTML for search or AI user agents.
 Sitemap: https://termfetch-studio.sinansarikaya.dev/sitemap.xml

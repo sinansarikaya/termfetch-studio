@@ -1,0 +1,27 @@
+# TermFetch Studio
+
+> An open-source Rust terminal UI for customizing Fastfetch themes, module layouts, semantic colors and ASCII or image logos. The interactive browser demo uses sample system data and can export Fastfetch JSONC.
+
+This is an optional navigation summary. It does not grant access to private data or guarantee indexing, rankings or citations.
+
+## Product and catalogs
+
+- [Overview and interactive studio](https://termfetch-studio.sinansarikaya.dev/): Product features and a browser demo with privacy-safe sample values.
+- [Themes](https://termfetch-studio.sinansarikaya.dev/themes): The current source catalog of 30 Fastfetch palettes, including Catppuccin, Nord, Tokyo Night and Synthwave.
+- [Presets](https://termfetch-studio.sinansarikaya.dev/presets): Full Info with 25 modules, Minimal, Focused, Developer, Gaming and Custom Modules.
+- [Questions and answers](https://termfetch-studio.sinansarikaya.dev/faq): Fastfetch requirements, custom images, demo mode, configuration exports and platform scope.
+
+## Installation and documentation
+
+- [Downloads](https://termfetch-studio.sinansarikaya.dev/downloads): Verified published v2.0.0 Windows x64, universal macOS and Linux archives, DEB/RPM packages, and SHA-256 checksums. Homebrew, WinGet, Scoop and AUR publication is pending; no unverified install commands are provided.
+- [Documentation](https://termfetch-studio.sinansarikaya.dev/docs): Themes, presets, modules, color behavior and browser/native boundaries.
+- [Getting started](https://termfetch-studio.sinansarikaya.dev/docs/getting-started): Try the browser demo, export JSONC and use Fastfetch locally.
+- [Releases](https://termfetch-studio.sinansarikaya.dev/releases): Published release history versus the current v2.1.0 source checkout. Source state is not a claim that v2.1.0 binaries are published.
+
+## Primary project sources
+
+- [GitHub source](https://github.com/sinansarikaya/termfetch-studio): Rust source, issues and development history.
+- [Published v2.0.0 release](https://github.com/sinansarikaya/termfetch-studio/releases/tag/v2.0.0): Version-specific binaries and release notes.
+- [MIT license](https://github.com/sinansarikaya/termfetch-studio/blob/main/LICENSE): Project license.
+
+Fastfetch is a separate dependency. Actual terminal geometry and image protocol support vary by terminal. The browser preview does not inspect the visitor's hardware or write host configuration files.

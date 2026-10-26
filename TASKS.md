@@ -38,3 +38,12 @@ None.
 - **Changed Files**: []
 - **Evidence Paths**: ["qa/website-release/browser.json", "qa/website-release/container.json", "qa/website-release/docker-build.log", "qa/website-release/build.log", "qa/website-release/browser-production.log", "qa/website-release/windows-release.json", "qa/native-brand/independent-review.json"]
 - **Accepted At**: 2026-10-26T04:06:17Z
+
+## Revision 2 — user feedback
+
+- Installed old2.0.0 executable replaced with current2.1.0 releasebuild; originalsettings preserved, rollbackbackup retained; header now usesCargo version.
+- In progress: faithful nativeTUI browserdemo based on supplied reference, FullInfo25modules and colorfultheme/preset/image combinations.
+- In progress: substantial productmarketing site with themes/presets/images/module/color/privacy/platform/how-to/FAQ sections.
+- In progress: actual SSR/SSG HTML and per-route metadata/schema/crawler files for SEO/GEO; no rankingguarantees or unpublishedpackageclaims.
+- In progress: freshcurrentinstalledapp DEMO recordings and better naturalTurkishvoice; oldPiper voice rejected. Videoagent mustshowvoicesamplesbeforefullnewrenders.
+- Three concurrent Codex specialists are justified for separate UI, search/prerender and voice/video production ownership. Allkeepuseroriginalsystemspecs out ofmedia.

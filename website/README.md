@@ -24,10 +24,15 @@ npm run lint --prefix website
 npm run check:catalog --prefix website
 ```
 
-Production output is `website/dist/`. Routes use BrowserRouter; static hosting
-must serve `index.html` for document routes such as `/downloads` and `/docs`,
-while genuinely missing asset files return 404. The repository Dockerfile and
-[deployment guide](../docs/website-deployment.md) supply that setup.
+Production output is `website/dist/`. After Vite compilation, React renders the
+home, downloads, docs, getting-started, releases, themes, presets and FAQ routes
+to complete HTML documents. `npm run check:seo --prefix website` checks this
+output, per-route metadata, structured data and crawler files. BrowserRouter
+hydrates those documents for interactive use. Static hosting serves each route's
+`index.html` directly; unknown routes and missing assets return an actual 404.
+The repository Dockerfile and [deployment guide](../docs/website-deployment.md)
+supply that setup. See [SEO/GEO implementation](../docs/website-seo.md) for
+primary-source rationale and verification.
 
 ## App catalog and Fastfetch export
 
@@ -38,9 +43,11 @@ source hashes; `check-catalog.mjs` fails when those files drift. It also checks
 Run the build from a full repository checkout, because these source files are
 required inputs. Review source changes before refreshing hashes or the catalog.
 
-The browser reproduces the app’s catalog, default choices and configuration
-rules. It does not execute the native TUI. Preview geometry and image protocols
-are approximations. All preview specs are sample fixtures, including when demo
+The browser uses the app’s catalog and configuration rules, with native-style
+terminal chrome, module glyphs and semantic color groups. Its initial marketing
+showcase combines Full Info, Synthwave and Pikachu; the extracted Rust defaults
+remain unchanged. This is a browser implementation, not execution of the native
+binary. Terminal geometry and image protocols are represented in browser layout. All preview specs are sample fixtures, including when demo
 export is disabled; Fastfetch detects real specs only when the exported file is
 run on the visitor’s machine.
 

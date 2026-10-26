@@ -1,0 +1,60 @@
+{
+  "status": "Pass",
+  "scope": "SEO/GEO implementation and static HTML verification",
+  "changed_files": [
+    "website/src/seo.tsx",
+    "website/src/seo-data.ts",
+    "website/src/entry-server.tsx",
+    "website/scripts/prerender.mjs",
+    "website/scripts/check-seo.mjs",
+    "website/index.html",
+    "website/public/robots.txt",
+    "website/public/sitemap.xml",
+    "website/public/llms.txt",
+    "docs/website-seo.md"
+  ],
+  "checks": [
+    {
+      "command": "npm run build --prefix website",
+      "status": "Pass",
+      "evidence": [
+        "qa/website-revision-seo/prerender.json",
+        "qa/website-revision-seo/checks.json"
+      ],
+      "result": "Eight static indexable routes plus a noindex 404; all static metadata/content/links/FAQ checks passed."
+    },
+    {
+      "command": "SEO metadata bundle checks",
+      "status": "Pass",
+      "evidence": [
+        "qa/website-revision-seo/metadata.json"
+      ]
+    },
+    {
+      "command": "website/node_modules/.bin/eslint src/seo.tsx src/seo-data.ts src/entry-server.tsx",
+      "status": "Pass",
+      "result": "Targeted SEO TypeScript/SSR entry lint passed."
+    },
+    {
+      "command": "node --check website/scripts/prerender.mjs; node --check website/scripts/check-seo.mjs",
+      "status": "Pass"
+    }
+  ],
+  "integration": [
+    "Parent added esbuild direct dependency and build/prerender/check scripts.",
+    "Frontend exports Site, mounts Seo, uses sharedFAQ_ITEMS and hydrates static markup.",
+    "Parent changed Nginx handling for direct canonical routes and true404."
+  ],
+  "pending": [
+    "Final full build/lint and headed hydration check after frontend CSS/UI work stabilizes.",
+    "Run node website/scripts/check-seo.mjs --base PUBLIC_ORIGIN against production container and live site.",
+    "No SearchConsole/Bing account or sitemap submission claimed; actual indexing, rankings and AI citations remain externally measured outcomes."
+  ],
+  "sources": [
+    "https://developers.google.com/search/docs/appearance/ai-features",
+    "https://developers.google.com/search/docs/crawling-indexing/javascript/javascript-seo-basics",
+    "https://developers.google.com/search/updates",
+    "https://developers.openai.com/api/docs/bots",
+    "https://blogs.bing.com/webmaster/2025/12/Does-Duplicate-Content-Hurt-SEO-and-AI-Search-Visibility/"
+  ]
+}
