@@ -15,9 +15,13 @@
 - Published through GitHub main and Dokploy MainServer at https://termfetch-studio.sinansarikaya.dev. HTTPS, routes, icons, redirects and live build identity verified.
 - GitHub Website CI and Linux/macOS/Windows CI Matrix passed for c00d932.
 
+- Turkish horizontal and vertical OpenMontage promos delivered in ~/youtube/videos/termfetch-studio-promo-20261026/renders/.
+- Both final videos: 64.277 seconds, H.264/AAC, 30 fps, 1920×1080 and 1080×1920. Source project, SRT, metadata and QA records retained.
+- Final contact sheets, ffprobe and SHA256SUMS verified. Only app demo fixtures appear; no original host specs. No YouTube upload performed.
+
 ## In progress
 
-- Separate Codex agent: Turkish horizontal/vertical OpenMontage promo in ~/youtube/videos/termfetch-studio-promo-20261026.
+None.
 
 ## Notes
 
