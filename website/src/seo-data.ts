@@ -28,7 +28,7 @@ export const FAQ_ITEMS = [
   },
   {
     question: "Can I install TermFetch Studio with a package manager?",
-    answer: "Homebrew, WinGet, Scoop and AUR publication is pending. Verified v2.0.0 archives and DEB/RPM files are available on the Downloads page. The current source checkout is version 2.1.0 and may contain changes not included in those published binaries.",
+    answer: "Homebrew, WinGet, Scoop and AUR publication is pending. Verified v2.0.0 archives and DEB/RPM files are available on the Downloads page. The current source checkout is version 2.1.1 and may contain changes not included in those published binaries.",
   },
   {
     question: "Is TermFetch Studio free, and do I need an account?",
@@ -47,7 +47,7 @@ export const ROUTES = [
   { path: "/downloads", name: "Downloads", title: "Download TermFetch Studio for Windows, macOS and Linux", description: "Download verified TermFetch Studio v2.0.0 archives, DEB and RPM packages with SHA-256 checksums. Check the status of Homebrew, WinGet, Scoop and AUR." },
   { path: "/docs", name: "Documentation", title: "Fastfetch customization documentation | TermFetch Studio", description: "Learn how themes, presets, image logos, semantic colors and demo mode work. Understand browser exports and the native TermFetch Studio workflow." },
   { path: "/docs/getting-started", name: "Getting started", title: "Get started with TermFetch Studio and Fastfetch JSONC", description: "Try the studio, export a Fastfetch JSONC file and use it in your terminal. Follow practical setup steps for the browser demo and native Rust application." },
-  { path: "/releases", name: "Releases", title: "TermFetch Studio releases and source version status", description: "Find published v2.0.0 downloads and release history. Understand the difference between the current 2.1.0 source and verified public binaries." },
+  { path: "/releases", name: "Releases", title: "TermFetch Studio releases and source version status", description: "Find published v2.0.0 downloads and release history. Understand the difference between the current 2.1.1 source and verified public binaries." },
   { path: "/faq", name: "Frequently asked questions", title: "Fastfetch themes, logos and installation FAQ | TermFetch Studio", description: "Answers about TermFetch Studio, Fastfetch requirements, image logos, demo privacy, supported platforms, JSONC exports and package-manager availability." },
 ] as const;
 

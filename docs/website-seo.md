@@ -25,7 +25,7 @@ entry and writes an HTML document for each route:
 | `/downloads` | Find verified release files, checksums and package-channel status |
 | `/docs` | Understand customization concepts and browser/native boundaries |
 | `/docs/getting-started` | Follow the initial configuration and export workflow |
-| `/releases` | Distinguish published release 2.0.0 from source 2.1.0 |
+| `/releases` | Distinguish published release 2.0.0 from source 2.1.1 |
 | `/faq` | Find direct answers to product, installation and privacy questions |
 
 The generated `404.html` is `noindex`. It is not in the sitemap. Nginx must serve
@@ -65,7 +65,7 @@ HTML check is not a browser or accessibility certification.
   merely because a manifest exists in this repository.
 
 SoftwareApplication data describes the published 2.0.0 application. A separate
-SoftwareSourceCode node identifies source 2.1.0. The graph includes truthful
+SoftwareSourceCode node identifies source 2.1.1. The graph includes truthful
 publisher, website, breadcrumb and catalog relationships, with no invented
 ratings, reviews, download totals or benchmark claims. The source is MIT licensed
 and the application is free; the Offer price is zero. This markup is not a

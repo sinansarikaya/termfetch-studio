@@ -63,7 +63,7 @@ geometry. These adaptations are intentional and disclosed in the site’s Docs.
 
 `src/lib/distribution.ts` is the single source of truth. Published v2.0.0 assets
 and the checksum file were verified against the repository’s GitHub release.
-Cargo source v2.1.0 is displayed separately; it is not advertised as a published
+Cargo source v2.1.1 is displayed separately; it is not advertised as a published
 binary release. Homebrew, WinGet, Scoop and AUR stay `pending` until their actual
 registry publication is verified. The typed `available` state requires both a
 real registry URL and an installation command. Downloadable DEB/RPM packages do
