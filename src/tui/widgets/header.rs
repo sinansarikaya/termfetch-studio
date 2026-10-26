@@ -112,7 +112,10 @@ pub fn render_header(f: &mut Frame, area: Rect, state: &AppState) {
                 .bg(pal.bg)
                 .add_modifier(Modifier::BOLD),
         ),
-        Span::styled(" v2.0 ", Style::new().fg(pal.muted).bg(pal.raised)),
+        Span::styled(
+            format!(" v{} ", env!("CARGO_PKG_VERSION")),
+            Style::new().fg(pal.muted).bg(pal.raised),
+        ),
     ];
     let left_w: u16 = left.iter().map(|s| width(&s.content)).sum();
     let tagline = "   Customize your terminal, your way.";

@@ -71,7 +71,7 @@ fn dashboard_matches_the_studio_layout() {
     }
     for needle in [
         "TermFetch Studio",
-        "v2.0",
+        concat!("v", env!("CARGO_PKG_VERSION")),
         "Customize your terminal, your way.",
         "Fastfetch:",
         "Dashboard",
