@@ -1,0 +1,112 @@
+{
+  "status": "Pass",
+  "url": "https://termfetch-studio.sinansarikaya.dev",
+  "source_commit": "c00d932ac6fc7903cdea582c81690eae244368d2",
+  "deployment_id": "q1knQ70kyRV8FPYKmQnHn",
+  "application": "termfetch-studio-web-eouagy",
+  "server": "MainServer",
+  "checked_at": "2026-10-26T04:10:28.362594+00:00",
+  "routes": [
+    {
+      "path": "/healthz",
+      "http_status": 200
+    },
+    {
+      "path": "/",
+      "http_status": 200
+    },
+    {
+      "path": "/downloads",
+      "http_status": 200
+    },
+    {
+      "path": "/docs",
+      "http_status": 200
+    },
+    {
+      "path": "/docs/getting-started",
+      "http_status": 200
+    },
+    {
+      "path": "/releases",
+      "http_status": 200
+    },
+    {
+      "path": "/brand/termfetch-symbol.svg",
+      "http_status": 200
+    },
+    {
+      "path": "/brand/termfetch.ico",
+      "http_status": 200
+    },
+    {
+      "path": "/brand/apple-touch-icon.png",
+      "http_status": 200
+    },
+    {
+      "path": "/robots.txt",
+      "http_status": 200
+    },
+    {
+      "path": "/sitemap.xml",
+      "http_status": 200
+    },
+    {
+      "path": "/assets/missing.js",
+      "http_status": 404
+    }
+  ],
+  "live_index_matches_reviewed_build": true,
+  "live_script_matches_reviewed_build": true,
+  "script": "/assets/index-BKQr7uUT.js",
+  "tls": {
+    "version": "TLSv1.3",
+    "not_after": "Jan 24 03:09:32 2027 GMT",
+    "issuer": [
+      [
+        [
+          "countryName",
+          "US"
+        ]
+      ],
+      [
+        [
+          "organizationName",
+          "Let's Encrypt"
+        ]
+      ],
+      [
+        [
+          "commonName",
+          "YR1"
+        ]
+      ]
+    ]
+  },
+  "http": {
+    "status": 200,
+    "final_url": "https://termfetch-studio.sinansarikaya.dev/"
+  },
+  "headers": {
+    "Accept-Ranges": "bytes",
+    "Alt-Svc": "h3=\":443\"; ma=2592000",
+    "Cache-Control": "no-cache",
+    "Content-Length": "1770",
+    "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'",
+    "Content-Type": "text/html; charset=utf-8",
+    "Date": "Mon, 26 Oct 2026 04:10:27 GMT",
+    "Etag": "\"6aded28a-6ea\"",
+    "Last-Modified": "Mon, 26 Oct 2026 04:09:46 GMT",
+    "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "Server": "nginx",
+    "Strict-Transport-Security": "max-age=31536000",
+    "Vary": "Accept-Encoding",
+    "X-Content-Type-Options": "nosniff",
+    "Connection": "close"
+  },
+  "github_website_ci": "https://github.com/sinansarikaya/termfetch-studio/actions/runs/40267554909",
+  "github_native_ci": "https://github.com/sinansarikaya/termfetch-studio/actions/runs/40267554869",
+  "github_native_ci_status": "success (Linux, macOS, Windows)",
+  "github_website_ci_status": "success"
+}
