@@ -33,7 +33,7 @@ jobs:
           set -euo pipefail
           docker run -d --name termfetch-studio-web-ci --read-only --tmpfs /tmp:rw,size=32m --cap-drop=ALL --security-opt=no-new-privileges -p 127.0.0.1:18080:8080 termfetch-studio-web:ci
           trap 'docker logs termfetch-studio-web-ci; docker rm -f termfetch-studio-web-ci' EXIT
-          curl --retry 10 --retry-delay 1 --retry-connrefused --fail http://127.0.0.1:18080/healthz
+          curl --retry 10 --retry-delay 1 --retry-all-errors --retry-connrefused --fail http://127.0.0.1:18080/healthz
           curl --fail http://127.0.0.1:18080/docs -o /dev/null
           test "$(docker inspect --format '{{.Config.User}}' termfetch-studio-web-ci)" = '101:101'
           test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:18080/assets/missing.js)" = '404'
