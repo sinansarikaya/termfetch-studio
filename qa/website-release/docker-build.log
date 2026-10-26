@@ -58,15 +58,15 @@
 #17 DONE 0.1s
 
 #18 [termfetch-studio-builder 10/10] RUN npm run build --prefix website
-#18 0.544 
+#18 0.544
 #18 0.544 > termfetch-studio-website@0.0.0 prebuild
 #18 0.544 > node scripts/sync-brand.mjs
-#18 0.544 
+#18 0.544
 #18 0.572 Shared brand synchronized to /termfetch-studio/website/public/brand/
-#18 0.576 
+#18 0.576
 #18 0.576 > termfetch-studio-website@0.0.0 build
 #18 0.576 > node check-catalog.mjs && tsc -b && vite build
-#18 0.576 
+#18 0.576
 #18 0.860 Catalog drift checks and 360 Fastfetch configuration combinations passed.
 #18 2.290 vite v7.3.7 building client environment for production...
 #18 2.336 transforming...
