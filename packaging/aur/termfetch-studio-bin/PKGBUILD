@@ -25,8 +25,8 @@ package() {
     install -d "$pkgdir/usr/share/termfetch-studio"
     cp -r assets "$pkgdir/usr/share/termfetch-studio/"
     # Released v2.0.0 archives predate the shared brand assets.
-    if [[ -f assets/brand/termfetch-symbol.svg && -f assets/brand/termfetch-studio.desktop ]]; then
-        install -Dm644 assets/brand/termfetch-symbol.svg "$pkgdir/usr/share/icons/hicolor/scalable/apps/termfetch-studio.svg"
+    if [[ -f assets/brand/termfetch-app-icon.svg && -f assets/brand/termfetch-studio.desktop ]]; then
+        install -Dm644 assets/brand/termfetch-app-icon.svg "$pkgdir/usr/share/icons/hicolor/scalable/apps/termfetch-studio.svg"
         install -Dm644 assets/brand/termfetch-studio.desktop "$pkgdir/usr/share/applications/termfetch-studio.desktop"
     fi
 

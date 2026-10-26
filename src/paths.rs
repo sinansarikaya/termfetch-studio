@@ -124,6 +124,30 @@ impl Paths {
     }
 }
 
+/// The directory of the running executable, with symlinks resolved.
+pub fn exe_dir() -> Option<PathBuf> {
+    std::env::current_exe()
+        .ok()
+        .and_then(|e| e.canonicalize().ok())
+        .and_then(|e| e.parent().map(Path::to_path_buf))
+}
+
+/// `Contents/MacOS` when `dir` lies inside a macOS `.app` bundle.
+pub fn bundle_bin_dir(dir: &Path) -> Option<&Path> {
+    let contents = dir.parent()?;
+    let app = contents.parent()?;
+    (dir.file_name()? == "MacOS"
+        && contents.file_name()? == "Contents"
+        && app.extension()? == "app")
+        .then_some(dir)
+}
+
+/// `Contents/MacOS` of the `.app` bundle we run from, if any (the macOS DMG install).
+pub fn app_bundle_bin_dir() -> Option<PathBuf> {
+    let dir = exe_dir()?;
+    bundle_bin_dir(&dir).map(Path::to_path_buf)
+}
+
 fn is_assets_dir(p: &Path) -> bool {
     p.join("preset-logos").is_dir()
 }
@@ -134,12 +158,10 @@ pub fn asset_candidates(data_dir: &Path) -> Vec<PathBuf> {
     if let Some(env) = std::env::var_os(ASSETS_ENV) {
         out.push(PathBuf::from(env));
     }
-    if let Some(exe_dir) = std::env::current_exe()
-        .ok()
-        .and_then(|e| e.canonicalize().ok())
-        .and_then(|e| e.parent().map(Path::to_path_buf))
-    {
+    if let Some(exe_dir) = exe_dir() {
         out.push(exe_dir.join("assets"));
+        // macOS app bundle: `Contents/MacOS/<exe>` -> `Contents/Resources/assets`.
+        out.push(exe_dir.join("..").join("Resources").join("assets"));
         out.push(
             exe_dir
                 .join("..")
@@ -163,4 +185,17 @@ pub fn find_assets_dir(data_dir: &Path) -> Option<PathBuf> {
         .into_iter()
         .find(|p| is_assets_dir(p))
         .map(|p| p.canonicalize().unwrap_or(p))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn bundle_bin_dir_only_matches_app_bundles() {
+        let inside = Path::new("/Applications/TermFetch Studio.app/Contents/MacOS");
+        assert_eq!(bundle_bin_dir(inside), Some(inside));
+        assert_eq!(bundle_bin_dir(Path::new("/usr/local/bin")), None);
+        assert_eq!(bundle_bin_dir(Path::new("/opt/Contents/MacOS")), None);
+    }
 }

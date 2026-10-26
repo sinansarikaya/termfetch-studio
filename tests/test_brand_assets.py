@@ -38,8 +38,10 @@ class BrandAssets(unittest.TestCase):
                 pixels = zlib.decompress(raw)
                 self.assertEqual(len(pixels), size * (size * 4 + 1))
                 self.assertEqual(pixels[4], 0)  # transparent margin
-                self.assertIn(b"\x05\x96\x69\xff", pixels)
-                self.assertIn(b"\x08\x91\xb2\xff", pixels)
+                self.assertIn(b"\x0f\x17\x2a\xff", pixels)  # navy tile
+                if size >= 32:
+                    self.assertIn(b"\x34\xd3\x99\xff", pixels)
+                    self.assertIn(b"\x22\xd3\xee\xff", pixels)
             ico = first["termfetch.ico"]
             self.assertEqual(struct.unpack("<HHH", ico[:6]), (0, 1, 6))
             for i, size in enumerate((16, 32, 48, 64, 128, 256)):
@@ -50,10 +52,13 @@ class BrandAssets(unittest.TestCase):
             self.assertEqual(icns[:4], b"icns")
             self.assertEqual(struct.unpack(">I", icns[4:8])[0], len(icns))
             offset = 8
-            for kind, size in ((b"icp4",16),(b"icp5",32),(b"icp6",64),(b"ic07",128),(b"ic08",256),(b"ic09",512)):
+            for kind, size in brand.MAC_ICNS:
                 self.assertEqual(icns[offset:offset+4], kind)
                 length = struct.unpack(">I", icns[offset+4:offset+8])[0]
-                self.assertEqual(icns[offset+8:offset+length], first[f"termfetch-{size}.png"])
+                data = icns[offset+8:offset+length]
+                self.assertEqual(struct.unpack(">II", data[16:24]), (size, size))
+                if f"termfetch-{size}.png" in first:
+                    self.assertEqual(data, first[f"termfetch-{size}.png"])
                 offset += length
             self.assertEqual(offset, len(icns))
             # Canonical assets are written only after their temporary equivalents pass.
@@ -75,6 +80,9 @@ class BrandAssets(unittest.TestCase):
         self.assertTrue(any(n.tag.endswith("}path") for n in wordmark.iter()))
         tile = ET.parse(ROOT / "assets/brand/termfetch-tile.svg").getroot()
         self.assertEqual(tile.get("viewBox"), "0 0 16 16")
+        app = ET.parse(ROOT / "assets/brand/termfetch-app-icon.svg").getroot()
+        self.assertEqual(app.get("viewBox"), "0 0 1024 1024")
+        self.assertEqual(len(rects(app)), len(rects(tile)))
 
     def test_packaging_and_embedded_asset_references_exist(self):
         desktop = (ROOT / "assets/brand/termfetch-studio.desktop").read_text()
@@ -84,7 +92,7 @@ class BrandAssets(unittest.TestCase):
                        "packaging/aur/termfetch-studio/PKGBUILD", "packaging/aur/termfetch-studio-bin/PKGBUILD",
                        "packaging/rpm/termfetch-studio.spec", ".github/workflows/release.yml"):
             text = (ROOT / recipe).read_text()
-            self.assertIn("assets/brand/termfetch-symbol.svg", text)
+            self.assertIn("assets/brand/termfetch-app-icon.svg", text)
             self.assertIn("/icons/hicolor/scalable/apps/termfetch-studio.svg", text)
             self.assertIn("/applications/termfetch-studio.desktop", text)
         installer = (ROOT / "src/adapters/installer.rs").read_text()

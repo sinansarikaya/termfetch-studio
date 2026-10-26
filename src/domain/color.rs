@@ -218,6 +218,32 @@ impl TryFrom<String> for ColorValue {
     }
 }
 
+const CUBE: [u8; 6] = [0, 95, 135, 175, 215, 255];
+
+fn dist((r, g, b): (u8, u8, u8), (r2, g2, b2): (u8, u8, u8)) -> u32 {
+    let d = |a: u8, b: u8| (a as i32 - b as i32).pow(2) as u32;
+    d(r, r2) + d(g, g2) + d(b, b2)
+}
+
+/// Nearest xterm-256 index: the 6x6x6 cube (16-231) or the grey ramp (232-255).
+pub fn nearest_256(r: u8, g: u8, b: u8) -> u8 {
+    let level = |v: u8| {
+        (0..CUBE.len())
+            .min_by_key(|&i| (CUBE[i] as i32 - v as i32).abs())
+            .unwrap() as u8
+    };
+    let (ri, gi, bi) = (level(r), level(g), level(b));
+    let cube = (CUBE[ri as usize], CUBE[gi as usize], CUBE[bi as usize]);
+    let avg = (r as u32 + g as u32 + b as u32) / 3;
+    let gi_ = (avg.saturating_sub(3) / 10).min(23) as u8;
+    let grey = 8 + 10 * gi_;
+    if dist((r, g, b), (grey, grey, grey)) < dist((r, g, b), cube) {
+        232 + gi_
+    } else {
+        16 + 36 * ri + 6 * gi + bi
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -248,5 +274,16 @@ mod tests {
     #[test]
     fn sgr_for_hex() {
         assert_eq!(ColorValue::Hex("#ff0001".into()).sgr(), "38;2;255;0;1");
+    }
+
+    #[test]
+    fn maps_to_cube_and_grey_ramp() {
+        assert_eq!(nearest_256(0, 0, 0), 16);
+        assert_eq!(nearest_256(255, 255, 255), 231);
+        assert_eq!(nearest_256(255, 0, 0), 196);
+        assert_eq!(nearest_256(0x80, 0x80, 0x80), 244);
+        // Studio navy canvas stays a dark colour, not black or grey noise.
+        let navy = nearest_256(0x0b, 0x0f, 0x1a);
+        assert!(navy == 233 || navy == 16 || navy == 17, "{navy}");
     }
 }

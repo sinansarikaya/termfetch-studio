@@ -114,6 +114,8 @@ fn every_cell_is_legible_on_every_theme_and_screen() {
         let settings = Settings {
             theme: theme.id.clone(),
             ui_follow_theme: follow,
+            // Mock specs keep the rendered text independent of this machine.
+            demo_mode: true,
             ..Settings::default()
         };
         let geo = TermGeometry::from_window(W, H, 1800, 900);

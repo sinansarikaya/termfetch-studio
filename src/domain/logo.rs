@@ -93,6 +93,21 @@ pub fn builtin_logos(paths: &Paths) -> Vec<LogoItem> {
                 .into(),
             file_path: None,
         },
+        LogoItem {
+            id: "apple".into(),
+            name: "Apple macOS 🍎".into(),
+            group: LogoGroup::DistroAscii,
+            kind: LogoKind::Ascii,
+            art: r#"        .:'
+    __ :'__
+ .'`__`-'__``.
+:__________.-'
+:_________:
+ :_________`-;
+  `.__.-.__.'"#
+                .into(),
+            file_path: None,
+        },
         // ==========================================
         // 2. POP CULTURE & ANIME ASCII LOGOS
         // ==========================================

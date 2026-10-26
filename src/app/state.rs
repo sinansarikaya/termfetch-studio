@@ -305,6 +305,9 @@ pub struct AppState {
     pub host_colors_applied: bool,
     /// Apply also sets up the shell startup block and the terminal scheme (set by the app, not by tests).
     pub system_setup: bool,
+    /// The terminal has no image protocol, so image logos are block-drawn and grow to
+    /// the height of the info text for detail (set by the app, not by tests).
+    pub block_logos: bool,
     /// The install command was shown; a second `i` runs it.
     pub pending_install: bool,
     pub geo: TermGeometry,
@@ -388,6 +391,7 @@ impl AppState {
             sixel: SixelState::default(),
             host_colors_applied: false,
             system_setup: false,
+            block_logos: false,
             pending_install: false,
             geo,
             doctor: Vec::new(),

@@ -25,7 +25,7 @@ const text=readFileSync(here+'src/lib/studio.ts','utf8').replace("import catalog
 const js=ts.transpileModule(text,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText;
 const studio=await import('data:text/javascript;base64,'+Buffer.from(js).toString('base64'));
 const {defaults,buildConfig,getPreset,colors,jsonc}=studio;
-assert.equal(snapshot.themes.length,30);assert.equal(snapshot.modules.length,25);assert.equal(snapshot.logos.length,30);
+assert.equal(snapshot.themes.length,30);assert.equal(snapshot.modules.length,25);assert.equal(snapshot.logos.length,31);
 assert.deepEqual([defaults.theme,defaults.preset,defaults.logo,defaults.logo_size,defaults.demo_mode],['catppuccin-mocha','full','arch','medium',true]);
 let combinations=0;
 for(const theme of snapshot.themes)for(const preset of snapshot.presets)for(const demo_mode of [true,false]){

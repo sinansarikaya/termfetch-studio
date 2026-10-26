@@ -13,7 +13,15 @@ fn app(name: &str) -> (AppState, std::path::PathBuf) {
     let _ = std::fs::remove_dir_all(&root);
     let geo = TermGeometry::from_window(180, 45, 1800, 900);
     (
-        AppState::new(Paths::with_root(&root), Settings::default(), geo),
+        AppState::new(
+            Paths::with_root(&root),
+            // Mock specs keep the rendered text independent of this machine.
+            Settings {
+                demo_mode: true,
+                ..Settings::default()
+            },
+            geo,
+        ),
         root,
     )
 }
@@ -205,9 +213,12 @@ fn image_logos_render_from_decode_pool_without_blocking() {
         println!("{out}");
     }
     let preview = preview_text(&t, state.preview_body);
+    // Quadrant blocks, or TermFetch Blocks octants when run inside Terminal.app.
     assert!(
-        preview.contains('▀'),
-        "half-block image expected in preview"
+        preview
+            .chars()
+            .any(|c| "▀▄▌▐▘▝▖▗▚▞▛▜▙▟█".contains(c) || ('\u{100000}'..='\u{1000ff}').contains(&c)),
+        "block-drawn image expected in preview"
     );
     assert!(preview.contains("cyberdeck"));
     let _ = std::fs::remove_dir_all(root);
