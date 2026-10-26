@@ -99,7 +99,7 @@ pub fn render_header(f: &mut Frame, area: Rect, state: &AppState) {
 
     let mut left = vec![
         Span::styled(
-            " >_ ",
+            "TF· ",
             Style::new()
                 .fg(pal.primary)
                 .bg(pal.raised)

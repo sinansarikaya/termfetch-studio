@@ -1,0 +1,101 @@
+#0 building with "default" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 1.12kB done
+#1 DONE 0.0s
+
+#2 resolve image config for docker-image://docker.io/docker/dockerfile:1
+#2 DONE 0.6s
+
+#3 docker-image://docker.io/docker/dockerfile:1@sha256:4edf897a3ffa55b89f906fc8cc78afdb3f1834cc9c7083565e611a8a7d5fe99e
+#3 resolve docker.io/docker/dockerfile:1@sha256:4edf897a3ffa55b89f906fc8cc78afdb3f1834cc9c7083565e611a8a7d5fe99e 0.0s done
+#3 CACHED
+
+#4 [internal] load metadata for docker.io/nginxinc/nginx-unprivileged:stable-alpine@sha256:f5116ed4606f3eb015dd4a8e28cb9b351476dc0ad4bc6e9f93b19cec130cdf03
+#4 DONE 0.0s
+
+#5 [internal] load metadata for docker.io/library/node:24-alpine@sha256:06d7adf3e0ef61a13f1d28682726366f97a15aa1888c934d3ecec86c33918b53
+#5 DONE 0.0s
+
+#6 [internal] load .dockerignore
+#6 transferring context: 315B done
+#6 DONE 0.0s
+
+#7 [termfetch-studio-builder  1/10] FROM docker.io/library/node:24-alpine@sha256:06d7adf3e0ef61a13f1d28682726366f97a15aa1888c934d3ecec86c33918b53
+#7 resolve docker.io/library/node:24-alpine@sha256:06d7adf3e0ef61a13f1d28682726366f97a15aa1888c934d3ecec86c33918b53 0.0s done
+#7 DONE 0.0s
+
+#8 [termfetch-studio-web 1/3] FROM docker.io/nginxinc/nginx-unprivileged:stable-alpine@sha256:f5116ed4606f3eb015dd4a8e28cb9b351476dc0ad4bc6e9f93b19cec130cdf03
+#8 resolve docker.io/nginxinc/nginx-unprivileged:stable-alpine@sha256:f5116ed4606f3eb015dd4a8e28cb9b351476dc0ad4bc6e9f93b19cec130cdf03 0.0s done
+#8 DONE 0.0s
+
+#9 [internal] load build context
+#9 transferring context: 7.17kB done
+#9 DONE 0.0s
+
+#10 [termfetch-studio-builder  5/10] COPY Cargo.toml ./
+#10 CACHED
+
+#11 [termfetch-studio-builder  2/10] WORKDIR /termfetch-studio
+#11 CACHED
+
+#12 [termfetch-studio-builder  3/10] COPY website/package.json website/package-lock.json ./website/
+#12 CACHED
+
+#13 [termfetch-studio-builder  4/10] RUN --mount=type=cache,target=/root/.npm npm ci --prefix website
+#13 CACHED
+
+#14 [termfetch-studio-builder  6/10] COPY src/domain/ ./src/domain/
+#14 CACHED
+
+#15 [termfetch-studio-builder  7/10] COPY src/adapters/fastfetch/config.rs ./src/adapters/fastfetch/config.rs
+#15 CACHED
+
+#16 [termfetch-studio-builder  8/10] COPY assets/brand/ ./assets/brand/
+#16 CACHED
+
+#17 [termfetch-studio-builder  9/10] COPY website/ ./website/
+#17 DONE 0.1s
+
+#18 [termfetch-studio-builder 10/10] RUN npm run build --prefix website
+#18 0.544 
+#18 0.544 > termfetch-studio-website@0.0.0 prebuild
+#18 0.544 > node scripts/sync-brand.mjs
+#18 0.544 
+#18 0.572 Shared brand synchronized to /termfetch-studio/website/public/brand/
+#18 0.576 
+#18 0.576 > termfetch-studio-website@0.0.0 build
+#18 0.576 > node check-catalog.mjs && tsc -b && vite build
+#18 0.576 
+#18 0.860 Catalog drift checks and 360 Fastfetch configuration combinations passed.
+#18 2.290 vite v7.3.7 building client environment for production...
+#18 2.336 transforming...
+#18 3.342 ✓ 46 modules transformed.
+#18 3.438 rendering chunks...
+#18 3.443 computing gzip size...
+#18 3.450 dist/index.html                   1.77 kB │ gzip:   0.69 kB
+#18 3.450 dist/assets/index-CkbWhksA.css   18.28 kB │ gzip:   4.70 kB
+#18 3.450 dist/assets/index-BKQr7uUT.js   317.24 kB │ gzip: 101.06 kB
+#18 3.450 ✓ built in 1.14s
+#18 3.484 npm notice
+#18 3.484 npm notice New major version of npm available! 11.19.1 -> 12.2.1
+#18 3.484 npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.1
+#18 3.484 npm notice To update run: npm install -g npm@12.2.1
+#18 3.484 npm notice
+#18 DONE 3.6s
+
+#19 [termfetch-studio-web 2/3] COPY --chown=101:101 deploy/termfetch-studio-nginx.conf /etc/nginx/conf.d/default.conf
+#19 CACHED
+
+#20 [termfetch-studio-web 3/3] COPY --from=termfetch-studio-builder --chown=101:101 /termfetch-studio/website/dist/ /usr/share/nginx/html/
+#20 DONE 0.1s
+
+#21 exporting to image
+#21 exporting layers 0.1s done
+#21 exporting manifest sha256:227b6584297ad87235bfe566dfaa4ad61130f9aacc62257f01b89203df4205d7 done
+#21 exporting config sha256:59ccd1f96aaf7f72d700bf36b4c3fa087f83b31050697c923ad8391fff65db63 done
+#21 exporting attestation manifest sha256:e7629fbb63ce54f0cb748ca2b35eaa5ffa5d7789233ea4931812661169d7d186 0.0s done
+#21 exporting manifest list sha256:d5503c610aa8004abeec967b3a8a88da93c28b69619f2604ddaca66d0e355ed3 done
+#21 naming to docker.io/library/termfetch-studio-web:review done
+#21 unpacking to docker.io/library/termfetch-studio-web:review 0.0s done
+#21 DONE 0.2s

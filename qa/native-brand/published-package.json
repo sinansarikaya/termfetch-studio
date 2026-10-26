@@ -1,0 +1,16 @@
+{
+  "status": "Pass",
+  "archive": "termfetch-studio-v2.0.0-x86_64-unknown-linux-gnu.tar.gz",
+  "sha256": "6ce95895c551679e40386ffc4cbc7e7e4aadcfbe993f8acbfa5c6acb4256047c",
+  "checks": [
+    {
+      "recipe": "packaging/aur/PKGBUILD-bin",
+      "status": "Pass"
+    },
+    {
+      "recipe": "packaging/aur/termfetch-studio-bin/PKGBUILD",
+      "status": "Pass"
+    }
+  ],
+  "note": "Actual published v2.0.0 archive, no host install; output staged only in temporary directories."
+}

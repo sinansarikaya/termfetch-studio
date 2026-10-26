@@ -1,0 +1,39 @@
+{
+  "status": "Pass",
+  "scope": "Native shared branding, launcher and package integration; Docker/Nginx/Compose and website CI configuration. Website application source is reviewed separately.",
+  "findings": [],
+  "resolved_findings": [
+    {
+      "severity": "P1",
+      "issue": "AUR and standalone RPM recipes referenced published v2.0.0 archives but unconditionally required brand files that those archives do not contain.",
+      "resolution": "All four AUR recipes now conditionally install the paired symbol and desktop entry. RPM uses a paired conditional install and a generated optional brand file list for %files -f. Current published archives remain packageable; future release archives still enforce brand asset presence.",
+      "evidence": ["packaging/aur/PKGBUILD", "packaging/aur/PKGBUILD-bin", "packaging/aur/termfetch-studio/PKGBUILD", "packaging/aur/termfetch-studio-bin/PKGBUILD", "packaging/rpm/termfetch-studio.spec", ".github/workflows/release.yml"]
+    },
+    {
+      "severity": "P2",
+      "issue": "Unrelated email redaction placeholders replaced public AUR maintainer metadata.",
+      "resolution": "The original maintainer metadata is restored in all four AUR files.",
+      "evidence": ["packaging/aur/PKGBUILD", "packaging/aur/PKGBUILD-bin", "packaging/aur/termfetch-studio/PKGBUILD", "packaging/aur/termfetch-studio-bin/PKGBUILD"]
+    }
+  ],
+  "reviewed_behavior": [
+    "SVG geometry and PNG/ICO/ICNS generation share the same source; transparent and monochrome variants are coherent.",
+    "Linux icon installation is idempotent and refuses foreign icon collisions; removal preserves modified icons.",
+    "Windows standalone installer carries an embedded ICO, shortcuts use a stable installed icon, and Windows Terminal profile changes preserve unrelated profiles and existing backup behavior.",
+    "Windows resource embedding checks CARGO_CFG_TARGET_OS at build-script runtime and is a build-only dependency.",
+    "Docker build includes Rust catalog and brand inputs, pins base image digests, and configures nonroot UID101 on port8080 with a health endpoint.",
+    "Compose contains only the namespaced termfetch-studio-web service, read-only root filesystem and temporary storage; it introduces no shared proxy, database or network override.",
+    "Nginx configuration has SPA fallback, explicit missing-asset 404s, compatible CSP, HTML revalidation, hashed asset caching and graceful shutdown.",
+    "Website CI and deployment documentation match the monorepo build and namespaced deployment model."
+  ],
+  "checks": [
+    {"command": "git diff --check", "status": "Pass", "execution": "Run by independent reviewer; exit0."},
+    {"command": "cargo test --locked", "status": "Pass", "execution": "Leader evidence inspected:111 Rust tests.", "evidence": "qa/native-brand/cargo-test.log"},
+    {"command": "python3 -m unittest discover -s tests -p test_brand_assets.py", "status": "Pass", "execution": "Leader evidence inspected:3 tests.", "evidence": "qa/native-brand/assets.log"}
+  ],
+  "limitations": [
+    "This is source and recorded-evidence review, not a fresh native Windows/macOS display test.",
+    "Windows target linking and Explorer/Terminal rendering still require native Windows CI or QA; macOS .command remains a Terminal document rather than an app bundle.",
+    "Full final website container build and live deployment smoke checks remain the leader's next validation step after website integration."
+  ]
+}

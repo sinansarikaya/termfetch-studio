@@ -10,30 +10,37 @@ Cross-platform terminal customization and Fastfetch theme studio — built in Ru
 
 ## Installation
 
-Run `termfetch` after installing. The first start sets up everything for you: the fastfetch configs, the shell startup line, and (on Windows) the cmd prompt, Windows Terminal color scheme and profile, or (on Linux and macOS) the menu launcher. Running it again changes nothing.
+The verified public release is [v2.0.0](https://github.com/sinansarikaya/termfetch-studio/releases/tag/v2.0.0). This checkout is source version 2.1.0 and includes newer installer and branding work that is not in those downloads. The rest of this README describes current source unless a published release is named explicitly.
+
+Keep the extracted `assets` directory beside the executable. Install Fastfetch separately for native output.
 
 ### 🪟 Windows
-- **From a release zip:** extract it and double-click `install.cmd`. It installs TermFetch for your user (no admin rights), adds `termfetch` to your PATH, creates Start Menu shortcuts (*TermFetch* and *TermFetch Settings*), and installs fastfetch and Windows Terminal with winget when they are missing.
-- **Already extracted or built from source:** `termfetch-studio install` does the same from the exe.
-- **Scoop** and **WinGet** packages are being prepared; see [`packaging/`](./packaging).
+
+- **Published v2.0.0:** extract [the Windows x64 ZIP](https://github.com/sinansarikaya/termfetch-studio/releases/download/v2.0.0/termfetch-studio-v2.0.0-x86_64-pc-windows-msvc.zip), keep its bundled assets and run `termfetch-studio.exe`. This release does not include the newer `install.cmd` installer.
+- **Current source:** after building, `termfetch-studio install` installs for the current user, adds the command to PATH and creates Start Menu shortcuts. It can install missing Fastfetch and Windows Terminal dependencies with winget. This installer is not yet part of a verified published app release.
+- **Scoop** and **WinGet** channels are pending publication; see [`packaging/`](./packaging).
 
 ### 🍎 macOS
-- **Homebrew** (tap in preparation): `brew install termfetch` — installs `termfetch` and fastfetch. On first start a *TermFetch.command* launcher is added to `~/Applications`.
-- **From a release tarball:** extract `termfetch-studio-v2.1.0-apple-darwin-universal.tar.gz`, put `termfetch-studio` on your PATH, and install fastfetch with `brew install fastfetch`.
+
+- **Homebrew:** the TermFetch tap/formula is pending publication; no TermFetch install command is available here yet.
+- **Published v2.0.0:** extract [the universal macOS archive](https://github.com/sinansarikaya/termfetch-studio/releases/download/v2.0.0/termfetch-studio-v2.0.0-apple-darwin-universal.tar.gz), put `termfetch-studio` on PATH, and install the separate Fastfetch dependency with `brew install fastfetch`.
 
 ### 🐧 Linux
-- **Arch Linux (AUR):** `yay -S termfetch-studio-bin` (prebuilt) or `yay -S termfetch-studio` (from source).
-- **Debian / Ubuntu / Fedora / openSUSE:** the `.deb` and `.rpm` packages on the release page.
-- **Any distribution:** the static musl tarball `termfetch-studio-v2.1.0-x86_64-unknown-linux-musl.tar.gz`, or the glibc one. Put `termfetch-studio` on your PATH and install fastfetch from your package manager.
-- A *TermFetch* entry is added to your application menu on first start (with a *Settings* action).
+
+- **Arch Linux (AUR):** source and binary recipes are being prepared; registry publication is pending. Use the archives or build from source for now.
+- **Debian / Ubuntu / Fedora / openSUSE:** `.deb` and `.rpm` packages are on [the v2.0.0 release page](https://github.com/sinansarikaya/termfetch-studio/releases/tag/v2.0.0).
+- **Published v2.0.0 archives:** use `termfetch-studio-v2.0.0-x86_64-unknown-linux-musl.tar.gz` or the glibc archive from that release page. Put the executable on PATH and install Fastfetch from your package manager.
 
 ### 🛠️ Build from source
+
 ```bash
 git clone https://github.com/sinansarikaya/termfetch-studio.git
 cd termfetch-studio
 cargo build --release
 ./target/release/termfetch-studio
 ```
+
+In current source, first start sets up Fastfetch configs and platform shell/terminal integration. Run `termfetch` after installation; a menu launcher is added on Linux/macOS. These newer integration details should not be assumed to exist in the older v2.0.0 archives.
 
 Assets are discovered automatically at runtime (first match wins): `$TERMFETCH_STUDIO_ASSETS`,
 `<exe dir>/assets`, `<exe dir>/../share/termfetch-studio/assets`,
@@ -145,6 +152,22 @@ src/
 ├── adapters/            # fastfetch config/runner, backup, doctor, atomic fs
 └── tui/                 # layout, sidebar, preview, screens
 ```
+
+## Website
+
+The application website is maintained in [`website/`](./website), alongside the
+Rust app so its interactive demo and shared brand stay in sync.
+
+```bash
+npm ci --prefix website
+npm run dev --prefix website
+npm run build --prefix website
+npm run lint --prefix website
+npm run check --prefix website  # headed browser regression after building
+```
+
+See the [website guide](./website/README.md), [shared brand](./docs/brand.md) and
+[Docker / Dokploy deployment](./docs/website-deployment.md) for setup and maintenance.
 
 ## License
 

@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://termfetch-studio.sinansarikaya.dev/sitemap.xml

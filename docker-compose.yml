@@ -1,0 +1,18 @@
+name: termfetch-studio
+services:
+  termfetch-studio-web:
+    image: termfetch-studio-web:${TERMFETCH_STUDIO_IMAGE_TAG:-local}
+    build:
+      context: .
+      dockerfile: Dockerfile
+    expose:
+      - "8080"
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    stop_grace_period: 10s

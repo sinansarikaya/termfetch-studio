@@ -1,0 +1,12 @@
+    Checking miniz_oxide v0.9.1
+    Checking miniz_oxide v0.8.9
+    Checking zune-core v0.5.3
+    Checking fdeflate v0.3.7
+   Compiling termfetch-studio-v2 v2.1.0 (/home/sinan/termfetch-studio)
+    Checking zune-jpeg v0.5.15
+    Checking exr v1.74.2
+    Checking flate2 v1.1.10
+    Checking png v0.18.1
+    Checking tiff v0.11.3
+    Checking image v0.25.10
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 3.15s

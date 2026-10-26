@@ -11,6 +11,11 @@ DIST_DIR="$ROOT_DIR/dist"
 echo "=== TermFetch Studio v$VERSION Release Packaging ==="
 mkdir -p "$DIST_DIR"
 
+# Generated assets must be committed before creating source/release archives.
+for asset in termfetch-symbol.svg termfetch.ico termfetch.icns termfetch-studio.desktop; do
+    test -s "$ROOT_DIR/assets/brand/$asset"
+done
+
 # 1. Build release binary if not present
 if [ ! -f "$ROOT_DIR/target/release/termfetch-studio" ]; then
     echo "Building release binary..."

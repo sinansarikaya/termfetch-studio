@@ -1,3 +1,4 @@
 /target
 /dist
 /deb_build
+__pycache__/

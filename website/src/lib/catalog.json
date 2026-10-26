@@ -1,0 +1,1255 @@
+{
+  "version": "2.1.0",
+  "themes": [
+    {
+      "id": "catppuccin-mocha",
+      "name": "Catppuccin Mocha ☕",
+      "primary": "#89b4fa",
+      "secondary": "#f5c2e7",
+      "accent": "#a6e3a1",
+      "background": "#1e1e2e",
+      "text": "#cdd6f4",
+      "category": "Community",
+      "groups": {
+        "os": "#89b4fa",
+        "desktop": "#cba6f7",
+        "hardware": "#f9e2af",
+        "network": "#a6e3a1",
+        "time": "#94e2d5"
+      }
+    },
+    {
+      "id": "catppuccin-latte",
+      "name": "Catppuccin Latte 🥛",
+      "primary": "#1e66f5",
+      "secondary": "#ea76cb",
+      "accent": "#40a02b",
+      "background": "#eff1f5",
+      "text": "#4c4f69",
+      "category": "Community",
+      "groups": {
+        "os": "#1e66f5",
+        "desktop": "#8839ef",
+        "hardware": "#df8e1d",
+        "network": "#40a02b",
+        "time": "#179299"
+      }
+    },
+    {
+      "id": "rose-pine",
+      "name": "Rosé Pine 🌲",
+      "primary": "#ebbcba",
+      "secondary": "#c4a7e7",
+      "accent": "#9ccfd8",
+      "background": "#191724",
+      "text": "#e0def4",
+      "category": "Community",
+      "groups": {
+        "os": "#ebbcba",
+        "desktop": "#c4a7e7",
+        "hardware": "#f6c177",
+        "network": "#9ccfd8",
+        "time": "#31748f"
+      }
+    },
+    {
+      "id": "kanagawa",
+      "name": "Kanagawa 🌊",
+      "primary": "#7e9cd8",
+      "secondary": "#957fb8",
+      "accent": "#76946a",
+      "background": "#1f1f28",
+      "text": "#dcd7ba",
+      "category": "Community",
+      "groups": {
+        "os": "#7e9cd8",
+        "desktop": "#957fb8",
+        "hardware": "#dca561",
+        "network": "#76946a",
+        "time": "#6a9589"
+      }
+    },
+    {
+      "id": "everforest",
+      "name": "Everforest Dark 🍃",
+      "primary": "#a7c080",
+      "secondary": "#d699b6",
+      "accent": "#83c092",
+      "background": "#2d353b",
+      "text": "#d3c6aa",
+      "category": "Community",
+      "groups": {
+        "os": "#a7c080",
+        "desktop": "#7fbbb3",
+        "hardware": "#dbbc7f",
+        "network": "#83c092",
+        "time": "#e69875"
+      }
+    },
+    {
+      "id": "dracula",
+      "name": "Dracula 🧛",
+      "primary": "#bd93f9",
+      "secondary": "#ff79c6",
+      "accent": "#50fa7b",
+      "background": "#282a36",
+      "text": "#f8f8f2",
+      "category": "Dark",
+      "groups": {
+        "os": "#bd93f9",
+        "desktop": "#ff79c6",
+        "hardware": "#f1fa8c",
+        "network": "#50fa7b",
+        "time": "#8be9fd"
+      }
+    },
+    {
+      "id": "nord",
+      "name": "Nord Aurora ❄️",
+      "primary": "#81a1c1",
+      "secondary": "#88c0d0",
+      "accent": "#a3be8c",
+      "background": "#2e3440",
+      "text": "#d8dee9",
+      "category": "Dark",
+      "groups": {
+        "os": "#81a1c1",
+        "desktop": "#b48ead",
+        "hardware": "#ebcb8b",
+        "network": "#a3be8c",
+        "time": "#88c0d0"
+      }
+    },
+    {
+      "id": "tokyo-night",
+      "name": "Tokyo Night 🌃",
+      "primary": "#7aa2f7",
+      "secondary": "#bb9af7",
+      "accent": "#9ece6a",
+      "background": "#1a1b26",
+      "text": "#c0caf5",
+      "category": "Dark",
+      "groups": {
+        "os": "#7aa2f7",
+        "desktop": "#bb9af7",
+        "hardware": "#e0af68",
+        "network": "#9ece6a",
+        "time": "#7dcfff"
+      }
+    },
+    {
+      "id": "gruvbox-dark",
+      "name": "Gruvbox Dark 📦",
+      "primary": "#d79921",
+      "secondary": "#458588",
+      "accent": "#98971a",
+      "background": "#282828",
+      "text": "#ebdbb2",
+      "category": "Dark",
+      "groups": {
+        "os": "#d79921",
+        "desktop": "#b16286",
+        "hardware": "#fabd2f",
+        "network": "#98971a",
+        "time": "#689d6a"
+      }
+    },
+    {
+      "id": "one-dark",
+      "name": "One Dark 🌌",
+      "primary": "#61afef",
+      "secondary": "#c678dd",
+      "accent": "#98c379",
+      "background": "#282c34",
+      "text": "#abb2bf",
+      "category": "Dark",
+      "groups": {
+        "os": "#61afef",
+        "desktop": "#c678dd",
+        "hardware": "#e5c07b",
+        "network": "#98c379",
+        "time": "#56b6c2"
+      }
+    },
+    {
+      "id": "synthwave",
+      "name": "Synthwave '84 🎸",
+      "primary": "#36f9f6",
+      "secondary": "#ff7edb",
+      "accent": "#72f1b8",
+      "background": "#2a2139",
+      "text": "#ffffff",
+      "category": "Dark",
+      "groups": {
+        "os": "#36f9f6",
+        "desktop": "#ff7edb",
+        "hardware": "#fed330",
+        "network": "#72f1b8",
+        "time": "#fe4450"
+      }
+    },
+    {
+      "id": "oceanic-next",
+      "name": "Oceanic Next 🌊",
+      "primary": "#6699cc",
+      "secondary": "#5fb3b3",
+      "accent": "#99c794",
+      "background": "#1b2b34",
+      "text": "#c0c5ce",
+      "category": "Dark",
+      "groups": {
+        "os": "#6699cc",
+        "desktop": "#c594c5",
+        "hardware": "#fac863",
+        "network": "#99c794",
+        "time": "#ec5f67"
+      }
+    },
+    {
+      "id": "monokai-pro",
+      "name": "Monokai Pro 👾",
+      "primary": "#fc9867",
+      "secondary": "#ab9df2",
+      "accent": "#a9dc76",
+      "background": "#2d2a2e",
+      "text": "#fcfcfa",
+      "category": "Dark",
+      "groups": {
+        "os": "#fc9867",
+        "desktop": "#ab9df2",
+        "hardware": "#ffd866",
+        "network": "#a9dc76",
+        "time": "#78dce8"
+      }
+    },
+    {
+      "id": "palenight",
+      "name": "Material Palenight 🔮",
+      "primary": "#82aaff",
+      "secondary": "#c792ea",
+      "accent": "#c3e88d",
+      "background": "#292d3e",
+      "text": "#a6accd",
+      "category": "Dark",
+      "groups": {
+        "os": "#82aaff",
+        "desktop": "#c792ea",
+        "hardware": "#ffcb6b",
+        "network": "#c3e88d",
+        "time": "#89ddff"
+      }
+    },
+    {
+      "id": "monochrome",
+      "name": "Monochrome Minimal 🖤",
+      "primary": "#ffffff",
+      "secondary": "#cccccc",
+      "accent": "#888888",
+      "background": "#000000",
+      "text": "#ffffff",
+      "category": "Dark",
+      "groups": {
+        "os": "#ffffff",
+        "desktop": "#dddddd",
+        "hardware": "#aaaaaa",
+        "network": "#888888",
+        "time": "#666666"
+      }
+    },
+    {
+      "id": "solarized-light",
+      "name": "Solarized Light ☀️",
+      "primary": "#b58900",
+      "secondary": "#268bd2",
+      "accent": "#2aa198",
+      "background": "#fdf6e3",
+      "text": "#657b83",
+      "category": "Light",
+      "groups": {
+        "os": "#b58900",
+        "desktop": "#6c71c4",
+        "hardware": "#cb4b16",
+        "network": "#859900",
+        "time": "#2aa198"
+      }
+    },
+    {
+      "id": "ayu-light",
+      "name": "Ayu Light 🌤️",
+      "primary": "#ff9940",
+      "secondary": "#399ee6",
+      "accent": "#86b300",
+      "background": "#fafafa",
+      "text": "#5c6166",
+      "category": "Light",
+      "groups": {
+        "os": "#ff9940",
+        "desktop": "#a37acc",
+        "hardware": "#f2ae49",
+        "network": "#86b300",
+        "time": "#4cbf99"
+      }
+    },
+    {
+      "id": "gruvbox-light",
+      "name": "Gruvbox Light 📜",
+      "primary": "#b57614",
+      "secondary": "#076678",
+      "accent": "#79740e",
+      "background": "#fbf1c7",
+      "text": "#3c3836",
+      "category": "Light",
+      "groups": {
+        "os": "#b57614",
+        "desktop": "#8f3f71",
+        "hardware": "#af3a03",
+        "network": "#79740e",
+        "time": "#427b58"
+      }
+    },
+    {
+      "id": "one-light",
+      "name": "One Light 💡",
+      "primary": "#4078f2",
+      "secondary": "#a626a4",
+      "accent": "#50a14f",
+      "background": "#fafafa",
+      "text": "#383a42",
+      "category": "Light",
+      "groups": {
+        "os": "#4078f2",
+        "desktop": "#a626a4",
+        "hardware": "#c18401",
+        "network": "#50a14f",
+        "time": "#0184bc"
+      }
+    },
+    {
+      "id": "sakura",
+      "name": "Sakura Cherry 🌸",
+      "primary": "#ff69b4",
+      "secondary": "#ff1493",
+      "accent": "#98d8c8",
+      "background": "#2b2129",
+      "text": "#fff0f5",
+      "category": "Pastel",
+      "groups": {
+        "os": "#ff69b4",
+        "desktop": "#ffb7c5",
+        "hardware": "#ffd1dc",
+        "network": "#98fb98",
+        "time": "#e6e6fa"
+      }
+    },
+    {
+      "id": "lavender",
+      "name": "Lavender Dream 💜",
+      "primary": "#9370db",
+      "secondary": "#ba55d3",
+      "accent": "#b19cd9",
+      "background": "#262235",
+      "text": "#f5f3ff",
+      "category": "Pastel",
+      "groups": {
+        "os": "#9370db",
+        "desktop": "#ba55d3",
+        "hardware": "#dcd0ff",
+        "network": "#b19cd9",
+        "time": "#e6e6fa"
+      }
+    },
+    {
+      "id": "candy",
+      "name": "Candy Pastel 🍬",
+      "primary": "#ff85ad",
+      "secondary": "#d9b3ff",
+      "accent": "#c2f0c2",
+      "background": "#2e2530",
+      "text": "#ffe6f0",
+      "category": "Pastel",
+      "groups": {
+        "os": "#ff85ad",
+        "desktop": "#d9b3ff",
+        "hardware": "#ffe0b2",
+        "network": "#c2f0c2",
+        "time": "#b3e5fc"
+      }
+    },
+    {
+      "id": "matrix",
+      "name": "Matrix 💚",
+      "primary": "#00ff00",
+      "secondary": "#00aa00",
+      "accent": "#003300",
+      "background": "#000000",
+      "text": "#00ff00",
+      "category": "PopCulture",
+      "groups": {
+        "os": "#00ff00",
+        "desktop": "#00ff66",
+        "hardware": "#55ff55",
+        "network": "#008f11",
+        "time": "#00dd33"
+      }
+    },
+    {
+      "id": "cyberpunk",
+      "name": "Cyberpunk 2077 🌆",
+      "primary": "#ffee00",
+      "secondary": "#ff003c",
+      "accent": "#00ffff",
+      "background": "#0a0e27",
+      "text": "#00ffff",
+      "category": "PopCulture",
+      "groups": {
+        "os": "#ffee00",
+        "desktop": "#ff003c",
+        "hardware": "#ff7700",
+        "network": "#00ff9f",
+        "time": "#00b8ff"
+      }
+    },
+    {
+      "id": "naruto",
+      "name": "Naruto Uzumaki 🍜",
+      "primary": "#ff4500",
+      "secondary": "#ff8c00",
+      "accent": "#4169e1",
+      "background": "#1c140a",
+      "text": "#ffefd5",
+      "category": "PopCulture",
+      "groups": {
+        "os": "#ff4500",
+        "desktop": "#ff8c00",
+        "hardware": "#ffd700",
+        "network": "#4169e1",
+        "time": "#20b2aa"
+      }
+    },
+    {
+      "id": "pokemon",
+      "name": "Pokemon Pikachu ⚡",
+      "primary": "#ffde00",
+      "secondary": "#ff0000",
+      "accent": "#0066cc",
+      "background": "#1f1d0a",
+      "text": "#ffffff",
+      "category": "PopCulture",
+      "groups": {
+        "os": "#ffde00",
+        "desktop": "#ff0000",
+        "hardware": "#ffa500",
+        "network": "#00ff00",
+        "time": "#0066cc"
+      }
+    },
+    {
+      "id": "spiderman",
+      "name": "Spider-Man 🕷️",
+      "primary": "#c41e3a",
+      "secondary": "#0051ba",
+      "accent": "#0066ff",
+      "background": "#140508",
+      "text": "#e8e8e8",
+      "category": "PopCulture",
+      "groups": {
+        "os": "#c41e3a",
+        "desktop": "#0051ba",
+        "hardware": "#ff4444",
+        "network": "#0066ff",
+        "time": "#ffffff"
+      }
+    },
+    {
+      "id": "doom",
+      "name": "Doom Slayer 👹",
+      "primary": "#ff0000",
+      "secondary": "#8b0000",
+      "accent": "#8b4513",
+      "background": "#080101",
+      "text": "#ff3333",
+      "category": "PopCulture",
+      "groups": {
+        "os": "#ff0000",
+        "desktop": "#8b0000",
+        "hardware": "#ff5500",
+        "network": "#8b4513",
+        "time": "#b22222"
+      }
+    },
+    {
+      "id": "valorant",
+      "name": "Valorant Radiant 🔥",
+      "primary": "#ff4655",
+      "secondary": "#53fca8",
+      "accent": "#3fa8c9",
+      "background": "#0f1923",
+      "text": "#ece8e1",
+      "category": "PopCulture",
+      "groups": {
+        "os": "#ff4655",
+        "desktop": "#53fca8",
+        "hardware": "#3fa8c9",
+        "network": "#ffffff",
+        "time": "#e83d4c"
+      }
+    },
+    {
+      "id": "minecraft",
+      "name": "Minecraft Overworld ⛏️",
+      "primary": "#7bc043",
+      "secondary": "#00bfff",
+      "accent": "#3c2415",
+      "background": "#182012",
+      "text": "#ffffff",
+      "category": "PopCulture",
+      "groups": {
+        "os": "#7bc043",
+        "desktop": "#00bfff",
+        "hardware": "#d4af37",
+        "network": "#4682b4",
+        "time": "#8a2be2"
+      }
+    }
+  ],
+  "presets": [
+    {
+      "id": "full",
+      "name": "Full Info",
+      "description": "Everything: system, desktop, hardware, network, time & media",
+      "sections": [
+        [
+          "os",
+          "kernel",
+          "packages",
+          "shell"
+        ],
+        [
+          "wm",
+          "de",
+          "wmtheme",
+          "icons",
+          "cursor",
+          "terminal",
+          "terminalfont"
+        ],
+        [
+          "host",
+          "cpu",
+          "gpu",
+          "memory",
+          "swap",
+          "disk",
+          "battery",
+          "display"
+        ],
+        [
+          "localip",
+          "publicip",
+          "wifi"
+        ],
+        [
+          "datetime",
+          "uptime",
+          "media"
+        ]
+      ],
+      "color_dots": false
+    },
+    {
+      "id": "minimal",
+      "name": "Minimal",
+      "description": "Distraction-free essentials: OS, kernel, shell, uptime",
+      "sections": [
+        [
+          "os",
+          "kernel",
+          "shell",
+          "uptime"
+        ]
+      ],
+      "color_dots": true
+    },
+    {
+      "id": "focused",
+      "name": "Focused",
+      "description": "Daily glance: system, terminal and core hardware",
+      "sections": [
+        [
+          "os",
+          "kernel",
+          "packages",
+          "uptime"
+        ],
+        [
+          "terminal",
+          "shell"
+        ],
+        [
+          "cpu",
+          "memory",
+          "disk"
+        ]
+      ],
+      "color_dots": true
+    },
+    {
+      "id": "developer",
+      "name": "Developer",
+      "description": "Toolchain view: system, terminal/WM, hardware and network",
+      "sections": [
+        [
+          "os",
+          "kernel",
+          "packages",
+          "shell"
+        ],
+        [
+          "terminal",
+          "terminalfont",
+          "de",
+          "wm"
+        ],
+        [
+          "cpu",
+          "gpu",
+          "memory",
+          "swap",
+          "disk"
+        ],
+        [
+          "localip",
+          "publicip"
+        ]
+      ],
+      "color_dots": true
+    },
+    {
+      "id": "gaming",
+      "name": "Gaming",
+      "description": "Rig showcase: GPU, CPU, display, battery and Wi-Fi",
+      "sections": [
+        [
+          "os",
+          "kernel",
+          "uptime"
+        ],
+        [
+          "cpu",
+          "gpu",
+          "memory",
+          "swap",
+          "disk",
+          "display",
+          "battery"
+        ],
+        [
+          "localip",
+          "wifi"
+        ]
+      ],
+      "color_dots": true
+    },
+    {
+      "id": "custom",
+      "name": "Custom Modules",
+      "description": "Your own module selection and order from the Module Builder",
+      "sections": [
+        [
+          "os",
+          "kernel",
+          "shell"
+        ],
+        [
+          "uptime"
+        ]
+      ],
+      "color_dots": true
+    }
+  ],
+  "modules": [
+    {
+      "id": "os",
+      "label": "Operating System",
+      "icon": "󰣇",
+      "description": "Distribution name, release version and system architecture",
+      "group": "os",
+      "demo": "Arch Linux x86_64"
+    },
+    {
+      "id": "kernel",
+      "label": "Kernel",
+      "icon": "󰌢",
+      "description": "Operating system kernel version and build architecture",
+      "group": "os",
+      "demo": "Linux 6.12.8-zen1-1-zen"
+    },
+    {
+      "id": "packages",
+      "label": "Packages",
+      "icon": "󰏖",
+      "description": "Total installed packages across all detected package managers",
+      "group": "os",
+      "demo": "1337 (pacman), 42 (flatpak)"
+    },
+    {
+      "id": "shell",
+      "label": "Shell",
+      "icon": "󰆍",
+      "description": "Active login or interactive shell name and version",
+      "group": "os",
+      "demo": "zsh 5.9"
+    },
+    {
+      "id": "wm",
+      "label": "Window Manager",
+      "icon": "󰖲",
+      "description": "Current window manager or compositor (e.g. Hyprland, Sway, i3)",
+      "group": "desktop",
+      "demo": "Hyprland (Wayland)"
+    },
+    {
+      "id": "de",
+      "label": "Desktop Environment",
+      "icon": "󱂬",
+      "description": "Desktop environment (e.g. GNOME, KDE Plasma, XFCE)",
+      "group": "desktop",
+      "demo": "none"
+    },
+    {
+      "id": "wmtheme",
+      "label": "WM Theme",
+      "icon": "󰉼",
+      "description": "Active window decoration and border theme",
+      "group": "desktop",
+      "demo": "Catppuccin Mocha"
+    },
+    {
+      "id": "icons",
+      "label": "Icon Theme",
+      "icon": "󰀻",
+      "description": "Current desktop icon theme",
+      "group": "desktop",
+      "demo": "Papirus-Dark"
+    },
+    {
+      "id": "cursor",
+      "label": "Cursor Theme",
+      "icon": "󰘔",
+      "description": "System mouse cursor theme and configured size",
+      "group": "desktop",
+      "demo": "Bibata-Modern-Ice"
+    },
+    {
+      "id": "terminal",
+      "label": "Terminal",
+      "icon": "󰆍",
+      "description": "Terminal emulator name and release version",
+      "group": "desktop",
+      "demo": "kitty 0.49.2"
+    },
+    {
+      "id": "terminalfont",
+      "label": "Terminal Font",
+      "icon": "󰛖",
+      "description": "Active font family and size used in the terminal",
+      "group": "desktop",
+      "demo": "JetBrainsMono Nerd Font (12pt)"
+    },
+    {
+      "id": "host",
+      "label": "Host",
+      "icon": "󰌢",
+      "description": "Motherboard model, system product name or chassis",
+      "group": "hardware",
+      "demo": "CyberDeck Hyperion Edition v2"
+    },
+    {
+      "id": "cpu",
+      "label": "CPU",
+      "icon": "󰻠",
+      "description": "Processor model, core and thread counts, and clock frequencies",
+      "group": "hardware",
+      "demo": "AMD Ryzen 9 7950X (32) @ 5.700GHz"
+    },
+    {
+      "id": "gpu",
+      "label": "GPU",
+      "icon": "󰢮",
+      "description": "Graphics card model, driver version and dedicated VRAM",
+      "group": "hardware",
+      "demo": "NVIDIA GeForce RTX 4090 (24GB VRAM)"
+    },
+    {
+      "id": "memory",
+      "label": "Memory",
+      "icon": "󰍛",
+      "description": "System RAM usage, total installed capacity and percentage",
+      "group": "hardware",
+      "demo": "16.42 GiB / 64.00 GiB (25%)"
+    },
+    {
+      "id": "swap",
+      "label": "Swap",
+      "icon": "󰓡",
+      "description": "Virtual swap partition usage and allocated capacity",
+      "group": "hardware",
+      "demo": "8.00 GiB / 16.00 GiB"
+    },
+    {
+      "id": "disk",
+      "label": "Disk",
+      "icon": "󰋊",
+      "description": "Root filesystem storage usage, free space and disk size",
+      "group": "hardware",
+      "demo": "512.00 GiB / 2.00 TiB (25%)"
+    },
+    {
+      "id": "battery",
+      "label": "Battery",
+      "icon": "󰁹",
+      "description": "Battery charge level, charging status and health",
+      "group": "hardware",
+      "demo": "100% [Full]"
+    },
+    {
+      "id": "display",
+      "label": "Display",
+      "icon": "󰍹",
+      "description": "Connected monitors, display resolutions and refresh rates",
+      "group": "hardware",
+      "demo": "3840x2160 @ 144Hz"
+    },
+    {
+      "id": "localip",
+      "label": "Local IP",
+      "icon": "󰩟",
+      "description": "Private IPv4/IPv6 address assigned to the primary interface",
+      "group": "network",
+      "demo": "192.168.1.100 / 24"
+    },
+    {
+      "id": "publicip",
+      "label": "Public IP",
+      "icon": "󰞉",
+      "description": "Public egress IP address and network gateway",
+      "group": "network",
+      "demo": "203.0.113.42"
+    },
+    {
+      "id": "wifi",
+      "label": "WiFi",
+      "icon": "󰖩",
+      "description": "Connected wireless network SSID, protocol and signal strength",
+      "group": "network",
+      "demo": "MyNetwork (802.11ac)"
+    },
+    {
+      "id": "datetime",
+      "label": "Date & Time",
+      "icon": "󰅐",
+      "description": "Current local date, time and timezone offset",
+      "group": "time",
+      "demo": "2026-10-24 17:05:00"
+    },
+    {
+      "id": "uptime",
+      "label": "Uptime",
+      "icon": "󰔚",
+      "description": "Time elapsed since system startup in hours and minutes",
+      "group": "time",
+      "demo": "4 hours, 20 mins"
+    },
+    {
+      "id": "media",
+      "label": "Media",
+      "icon": "󰎈",
+      "description": "Currently playing media track title, artist and music player",
+      "group": "time",
+      "demo": "Spotify - Daft Punk - Around the World"
+    }
+  ],
+  "logos": [
+    {
+      "id": "arch",
+      "name": "Arch Linux 📐",
+      "group": "DistroAscii",
+      "kind": "ascii",
+      "art": "       /\\\n      /  \\\n     /\\   \\\n    /      \\\n   /   ,,   \\\n  /   |  |  -\\\n /_-''    ''-_\\"
+    },
+    {
+      "id": "tux",
+      "name": "Tux Linux 🐧",
+      "group": "DistroAscii",
+      "kind": "ascii",
+      "art": "   .---.\n  /     \\\n  \\.@-@./\n  /`\\_/`\\\n //  _  \\\\\n| \\     )|_\n/`\\_`>  <_/ \\\n\\__/'---'\\__/"
+    },
+    {
+      "id": "pikachu-ascii",
+      "name": "Pikachu ⚡",
+      "group": "AnimePopAscii",
+      "kind": "ascii",
+      "art": "    \\.-./\n   =`.-.=`\n    /\\__/\\\n   / O O  \\\n  =\\_ Y _/=\"\n   `'---'`"
+    },
+    {
+      "id": "cat",
+      "name": "Cat 🐱",
+      "group": "AnimePopAscii",
+      "kind": "ascii",
+      "art": " /\\_/\\\n( o.o )\n > ^ <"
+    },
+    {
+      "id": "neko",
+      "name": "Neko Sleep 🎌",
+      "group": "AnimePopAscii",
+      "kind": "ascii",
+      "art": " |\\_/|\n=( °w° )=\n  )   (  //\n (__ __)//"
+    },
+    {
+      "id": "bunny",
+      "name": "Bunny 🐰",
+      "group": "AnimePopAscii",
+      "kind": "ascii",
+      "art": " () ()\n>(. .)<\n (\") (\")"
+    },
+    {
+      "id": "heart",
+      "name": "Heart 💖",
+      "group": "AnimePopAscii",
+      "kind": "ascii",
+      "art": "  **   **\n ***** *****\n*************\n ***********\n   *******\n     ***\n      *"
+    },
+    {
+      "id": "sakura",
+      "name": "Sakura Blossom 🌸",
+      "group": "AnimePopAscii",
+      "kind": "ascii",
+      "art": "   _ _\n  (_) (_)\n   (_) (_)\n    (_) (_)\n     (_) (_)\n      (_) (_)"
+    },
+    {
+      "id": "naruto",
+      "name": "Naruto Uzumaki 🍜",
+      "group": "AnimePopAscii",
+      "kind": "ascii",
+      "art": "  .-''''-.\n / -   -  \\\n|  @   @   |\n \\   ^    /\n  '-...-'"
+    },
+    {
+      "id": "pokeball",
+      "name": "Pokeball ⚾",
+      "group": "AnimePopAscii",
+      "kind": "ascii",
+      "art": "   .---.\n  /  _  \\\n |  (_)  |\n  \\ ___ /\n   '---'"
+    },
+    {
+      "id": "spider",
+      "name": "Spider-Man 🕷️",
+      "group": "AnimePopAscii",
+      "kind": "ascii",
+      "art": "   / _ \\\n \\_\\(_)/_/\n  _// \\\\_\n   /   \\"
+    },
+    {
+      "id": "dragon",
+      "name": "Dragon 🐉",
+      "group": "AnimePopAscii",
+      "kind": "ascii",
+      "art": "       __====-_  _-====___\n _--^^^#####//      \\\\#####^^^--_\n<#####*{{{{{{{  ||  }}}}}}}*#####>\n     /        ||        \\\n    /        //\\\\        \\"
+    },
+    {
+      "id": "creeper",
+      "name": "Creeper 💚",
+      "group": "AnimePopAscii",
+      "kind": "ascii",
+      "art": "   [■■■■■]\n   [■█■█■]\n   [■■█■■]\n   [■███■]\n   [■█■█■]"
+    },
+    {
+      "id": "star",
+      "name": "Star ⭐",
+      "group": "AnimePopAscii",
+      "kind": "ascii",
+      "art": "      *\n   *  |  *\n - - -O- - -\n   *  |  *\n      *"
+    },
+    {
+      "id": "rocket",
+      "name": "Rocket 🚀",
+      "group": "AnimePopAscii",
+      "kind": "ascii",
+      "art": "    /\\\n   |  |\n  / == \\\n |  ()  |\n/|      |\\\n |  ||  |\n    /\\\n   /  \\"
+    },
+    {
+      "id": "pikachu",
+      "name": "Pikachu (Hi-Res PNG) ⚡",
+      "group": "PresetImage",
+      "kind": "image",
+      "file": "pikachu.png"
+    },
+    {
+      "id": "eren-1",
+      "name": "Eren Yeager (AOT) ⚔️",
+      "group": "PresetImage",
+      "kind": "image",
+      "file": "eren-1.png"
+    },
+    {
+      "id": "eren-2",
+      "name": "Eren Titan Form 🔥",
+      "group": "PresetImage",
+      "kind": "image",
+      "file": "eren-2.png"
+    },
+    {
+      "id": "goku-1",
+      "name": "Son Goku (DBZ) 🥋",
+      "group": "PresetImage",
+      "kind": "image",
+      "file": "goku-1.png"
+    },
+    {
+      "id": "goku-2",
+      "name": "Goku Super Saiyan ⚡",
+      "group": "PresetImage",
+      "kind": "image",
+      "file": "goku-2.png"
+    },
+    {
+      "id": "goku-3",
+      "name": "Goku Ultra Instinct 🌌",
+      "group": "PresetImage",
+      "kind": "image",
+      "file": "goku-3.png"
+    },
+    {
+      "id": "kratos",
+      "name": "Kratos (God of War) 🪓",
+      "group": "PresetImage",
+      "kind": "image",
+      "file": "kratos.png"
+    },
+    {
+      "id": "link-(zelda)",
+      "name": "Link (Zelda) 🛡️",
+      "group": "PresetImage",
+      "kind": "image",
+      "file": "link-(zelda).png"
+    },
+    {
+      "id": "luffy-1",
+      "name": "Monkey D. Luffy 🍖",
+      "group": "PresetImage",
+      "kind": "image",
+      "file": "luffy-1.png"
+    },
+    {
+      "id": "luffy-2",
+      "name": "Luffy Gear 5 🏴‍☠️",
+      "group": "PresetImage",
+      "kind": "image",
+      "file": "luffy-2.png"
+    },
+    {
+      "id": "master-chief",
+      "name": "Master Chief (Halo) 🪐",
+      "group": "PresetImage",
+      "kind": "image",
+      "file": "master-chief.png"
+    },
+    {
+      "id": "pokeball",
+      "name": "Pokeball (Hi-Res PNG) ⚾",
+      "group": "PresetImage",
+      "kind": "image",
+      "file": "pokeball.png"
+    },
+    {
+      "id": "sonic",
+      "name": "Sonic The Hedgehog 🦔",
+      "group": "PresetImage",
+      "kind": "image",
+      "file": "sonic.png"
+    },
+    {
+      "id": "tanjiro",
+      "name": "Tanjiro Kamado (Demon Slayer) 🗡️",
+      "group": "PresetImage",
+      "kind": "image",
+      "file": "tanjiro.png"
+    },
+    {
+      "id": "custom-user-image",
+      "name": "Custom Image (custom.png)",
+      "group": "Custom",
+      "kind": "custom"
+    }
+  ],
+  "demo": {
+    "user_host": "cyberdeck@matrix-station",
+    "os": "Arch Linux x86_64",
+    "host": "CyberDeck Hyperion Edition v2",
+    "kernel": "Linux 6.12.8-zen1-1-zen",
+    "uptime": "4 hours, 20 mins",
+    "shell": "zsh 5.9",
+    "terminal": "kitty 0.49.2",
+    "cpu": "AMD Ryzen 9 7950X (32) @ 5.700GHz",
+    "gpu": "NVIDIA GeForce RTX 4090 (24GB VRAM)",
+    "memory": "16.42 GiB / 64.00 GiB (25%)",
+    "local_ip": "192.168.1.100 / 24"
+  },
+  "defaults": {
+    "theme": "catppuccin-mocha",
+    "preset": "full",
+    "logo": "arch",
+    "logo_size": "medium",
+    "demo_mode": true,
+    "custom_modules": [
+      "os",
+      "kernel",
+      "shell",
+      "uptime"
+    ],
+    "icon_color": "theme",
+    "text_color": "theme",
+    "group_colors": {
+      "os": "inherit",
+      "desktop": "inherit",
+      "hardware": "inherit",
+      "network": "inherit",
+      "time": "inherit"
+    },
+    "apply_terminal_colors": true,
+    "run_fastfetch_on_exit": true,
+    "ui_follow_theme": false
+  },
+  "palette": [
+    {
+      "value": "theme",
+      "label": "Theme"
+    },
+    {
+      "value": "default",
+      "label": "Default"
+    },
+    {
+      "value": "31",
+      "label": "Red"
+    },
+    {
+      "value": "32",
+      "label": "Green"
+    },
+    {
+      "value": "33",
+      "label": "Yellow"
+    },
+    {
+      "value": "34",
+      "label": "Blue"
+    },
+    {
+      "value": "35",
+      "label": "Magenta"
+    },
+    {
+      "value": "36",
+      "label": "Cyan"
+    },
+    {
+      "value": "37",
+      "label": "White"
+    },
+    {
+      "value": "90",
+      "label": "Bright Black"
+    },
+    {
+      "value": "91",
+      "label": "Bright Red"
+    },
+    {
+      "value": "92",
+      "label": "Bright Green"
+    },
+    {
+      "value": "93",
+      "label": "Bright Yellow"
+    },
+    {
+      "value": "94",
+      "label": "Bright Blue"
+    },
+    {
+      "value": "95",
+      "label": "Bright Magenta"
+    },
+    {
+      "value": "96",
+      "label": "Bright Cyan"
+    },
+    {
+      "value": "97",
+      "label": "Bright White"
+    },
+    {
+      "value": "#ff8c00",
+      "label": "Orange"
+    },
+    {
+      "value": "#ff7f50",
+      "label": "Coral"
+    },
+    {
+      "value": "#ff6347",
+      "label": "Tomato"
+    },
+    {
+      "value": "#ffd700",
+      "label": "Gold"
+    },
+    {
+      "value": "#adff2f",
+      "label": "Lime"
+    },
+    {
+      "value": "#40e0d0",
+      "label": "Turquoise"
+    },
+    {
+      "value": "#00bfa5",
+      "label": "Teal"
+    },
+    {
+      "value": "#87ceeb",
+      "label": "Sky"
+    },
+    {
+      "value": "#4169e1",
+      "label": "Royal Blue"
+    },
+    {
+      "value": "#6a5acd",
+      "label": "Slate"
+    },
+    {
+      "value": "#8a2be2",
+      "label": "Violet"
+    },
+    {
+      "value": "#da70d6",
+      "label": "Orchid"
+    },
+    {
+      "value": "#ff69b4",
+      "label": "Pink"
+    },
+    {
+      "value": "#dc143c",
+      "label": "Crimson"
+    },
+    {
+      "value": "#e6e6fa",
+      "label": "Lavender"
+    },
+    {
+      "value": "#c0c0c0",
+      "label": "Silver"
+    }
+  ]
+}

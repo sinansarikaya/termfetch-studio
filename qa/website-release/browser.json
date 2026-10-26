@@ -1,0 +1,18 @@
+{
+  "status": "Pass",
+  "assertions": [
+    "Rust defaults, reactive theme/preset/ASCII logo and valid ANSI JSONC",
+    "Bundled image catalog, explicit image path/protocol, size and automatic fallback",
+    "Module enable/disable, order and adopting current preset",
+    "Semantic live edit/apply/cancel/reset, draft export guard and demo-off config",
+    "Local apply/restore, invalid and malformed storage rejection, actual JSONC download",
+    "Scoped section/apply/demo/output/help shortcuts; input typing is preserved",
+    "Direct/reload routes, released/source versions, six verified assets, four pending channels, Docs anchor and skip link",
+    "All bundled logo and shared brand assets, crawler files, 320/390/768/1440px overflow, mobile empty state and keyboard focus"
+  ],
+  "errors": [],
+  "headless": false,
+  "startedAt": "2026-10-26T04:04:05.599Z",
+  "target": "http://127.0.0.1:18080",
+  "completedAt": "2026-10-26T04:04:09.151Z"
+}

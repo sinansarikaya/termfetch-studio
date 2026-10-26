@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name=TermFetch Studio
+Comment=Customize your terminal, your way
+Exec=termfetch-studio
+Icon=termfetch-studio
+Terminal=true
+Categories=Utility;
+Actions=Settings;
+
+[Desktop Action Settings]
+Name=Settings
+Exec=termfetch-studio settings

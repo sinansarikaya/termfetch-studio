@@ -1,0 +1,19 @@
+
+> termfetch-studio-website@0.0.0 prebuild
+> node scripts/sync-brand.mjs
+
+Shared brand synchronized to /home/sinan/termfetch-studio/website/public/brand/
+
+> termfetch-studio-website@0.0.0 build
+> node check-catalog.mjs && tsc -b && vite build
+
+Catalog drift checks and 360 Fastfetch configuration combinations passed.
+vite v7.3.7 building client environment for production...
+transforming...
+✓ 46 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   1.77 kB │ gzip:   0.69 kB
+dist/assets/index-CkbWhksA.css   18.28 kB │ gzip:   4.70 kB
+dist/assets/index-BKQr7uUT.js   317.24 kB │ gzip: 101.06 kB
+✓ built in 1.01s

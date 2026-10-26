@@ -1,0 +1,32 @@
+{
+  "status": "Pass",
+  "cargo_test_count": 111,
+  "checks": [
+    {
+      "command": "cargo test --locked",
+      "status": "Pass",
+      "evidence": "qa/native-brand/cargo-test.log"
+    },
+    {
+      "command": "cargo fmt --all -- --check",
+      "status": "Pass",
+      "evidence": "qa/native-brand/format.log"
+    },
+    {
+      "command": "python3 -m unittest discover -s tests -p test_brand_assets.py",
+      "status": "Pass",
+      "evidence": "qa/native-brand/assets.log"
+    },
+    {
+      "command": "llvm-rc /fo /tmp/termfetch-icon.res /tmp/termfetch-icon.rc",
+      "status": "Pass",
+      "output_bytes": 2472,
+      "evidence": "qa/native-brand/resource-compile.log"
+    }
+  ],
+  "limitations": [
+    "Linux full Rust tests executed; Windows/macOS native rendering unverified.",
+    "LLVM RC compiles the ICO resource, but Windows EXE linking/display still needs Windows CI."
+  ],
+  "origin": "Leader executed checks after worker Cargo PATH failure; all workers remain Codex."
+}

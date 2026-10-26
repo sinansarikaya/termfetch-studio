@@ -98,6 +98,20 @@ if ((Resolve-Path -LiteralPath $Source).Path -ieq $target) {
     Done $target
 }
 
+# Embedded installers carry the ICO; archive installers locate the packaged asset.
+$iconPath = Join-Path $InstallDir 'termfetch.ico'
+$embeddedIcon = '__TERMFETCH_ICON_BASE64__'
+if ($embeddedIcon -ne ('__TERMFETCH_' + 'ICON_BASE64__')) {
+    [IO.File]::WriteAllBytes($iconPath, [Convert]::FromBase64String($embeddedIcon))
+} else {
+    $iconSource = @(
+        (Join-Path $PSScriptRoot 'assets\brand\termfetch.ico'),
+        (Join-Path $PSScriptRoot '..\assets\brand\termfetch.ico'),
+        (Join-Path (Split-Path $Source) 'assets\brand\termfetch.ico')
+    ) | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+    if ($iconSource) { Copy-Item -LiteralPath $iconSource -Destination $iconPath -Force }
+}
+
 # 5. PATH (user scope, no admin rights needed).
 if (-not $SkipPath) {
     Step 'PATH'
@@ -134,6 +148,7 @@ if (-not $SkipShortcut) {
         $shortcut.Arguments = $item.Args
         $shortcut.WorkingDirectory = $env:USERPROFILE
         $shortcut.Description = $item.Desc
+        if (Test-Path -LiteralPath $iconPath) { $shortcut.IconLocation = "$iconPath,0" }
         $shortcut.Save()
         Done $lnk
     }
