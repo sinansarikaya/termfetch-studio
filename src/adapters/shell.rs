@@ -307,6 +307,8 @@ mod tests {
         );
     }
 
+    // The app bundle exists only on macOS; Windows would join the path with `\`.
+    #[cfg(unix)]
     #[test]
     fn app_bundle_block_puts_commands_on_path_and_runs_the_adapter() {
         let dir = Path::new("/Applications/TermFetch Studio.app/Contents/MacOS");
