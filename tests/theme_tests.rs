@@ -5,7 +5,7 @@ use termfetch_studio_v2::domain::theme::get_builtin_themes;
 #[test]
 fn test_builtin_themes_load_and_have_valid_colors() {
     let themes = get_builtin_themes();
-    assert_eq!(themes.len(), 30, "Should contain all 30 themes");
+    assert_eq!(themes.len(), 40, "Should contain all 40 themes");
 
     for theme in &themes {
         assert!(!theme.id.is_empty(), "Theme id must not be empty");

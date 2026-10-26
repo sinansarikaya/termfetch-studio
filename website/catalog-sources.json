@@ -1,6 +1,6 @@
 {
   "Cargo.toml": "4a9073606334c1b501f5d6f8dbe858ce7d427a78387a81b10eb434675ec0a6f6",
-  "src/domain/theme.rs": "c493ef6d8af7aac057fa8016b80a54cbdcd254b591a8bbad017d610c041567b8",
+  "src/domain/theme.rs": "f1a166917462b1c2693c8cf7613df17502126ae58c9a7b37ee6c57f64764c51e",
   "src/domain/preset.rs": "cad4be4620291e698448986c7b4a7c95b088382764c1635b7eeaba463dde02df",
   "src/domain/logo.rs": "740e04afb042074f53d28820ba110f99840f78e44ac5e1d931baf52d6df95d7f",
   "src/domain/settings.rs": "4e4d1a0943644b57048cdcb07b5423445c0e18b7dc8404cd684bce0df26f880d",

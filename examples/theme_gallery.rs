@@ -5,7 +5,8 @@ use ratatui::{buffer::Buffer, layout::Rect, style::Color};
 use termfetch_studio_v2::{domain::theme::get_builtin_themes, tui::widgets::ui::draw_thumbnail};
 fn main() {
     let themes = get_builtin_themes();
-    let mut atlas = RgbImage::from_pixel(6 * 204, 5 * 108, Rgb([14, 17, 29]));
+    let rows = themes.len().div_ceil(6) as u32;
+    let mut atlas = RgbImage::from_pixel(6 * 204, rows * 108, Rgb([14, 17, 29]));
     for (i, theme) in themes.iter().enumerate() {
         let area = Rect::new(0, 0, 64, 16);
         let mut buf = Buffer::empty(area);

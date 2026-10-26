@@ -12,7 +12,7 @@ export const FAQ_ITEMS = [
   },
   {
     question: "How many themes and presets are included?",
-    answer: "The current source catalog contains 30 themes and six built-in presets: Full Info, Minimal, Focused, Developer, Gaming and Custom Modules. Full Info contains 25 modules; Custom Modules lets you choose their order and selection.",
+    answer: "The current source catalog contains 40 themes and six built-in presets: Full Info, Minimal, Focused, Developer, Gaming and Custom Modules. Full Info contains 25 modules; Custom Modules lets you choose their order and selection.",
   },
   {
     question: "Which operating systems can I download it for?",
@@ -41,8 +41,8 @@ export const FAQ_ITEMS = [
 ] as const;
 
 export const ROUTES = [
-  { path: "/", name: "Home", title: "TermFetch Studio — Fastfetch themes, image logos and live preview", description: "Make Fastfetch your own with 30 themes, Full Info and custom layouts, image logos and semantic colors. Try the interactive studio for Linux, macOS and Windows." },
-  { path: "/themes", name: "Themes", title: "30 Fastfetch themes and color palettes | TermFetch Studio", description: "Explore Catppuccin, Nord, Tokyo Night, Synthwave and more Fastfetch palettes. Compare real colors and try a theme in the interactive TermFetch Studio demo." },
+  { path: "/", name: "Home", title: "TermFetch Studio — Fastfetch themes, image logos and live preview", description: "Make Fastfetch your own with 40 themes, Full Info and custom layouts, image logos and semantic colors. Try the interactive studio for Linux, macOS and Windows." },
+  { path: "/themes", name: "Themes", title: "40 Fastfetch themes and color palettes | TermFetch Studio", description: "Explore Catppuccin, Nord, Tokyo Night, Synthwave and more Fastfetch palettes. Compare real colors and try a theme in the interactive TermFetch Studio demo." },
   { path: "/presets", name: "Presets", title: "Fastfetch presets: Full Info, Developer and Gaming | TermFetch Studio", description: "Compare Full Info with 25 modules, Minimal, Focused, Developer, Gaming and Custom Modules. Build a Fastfetch layout with your own colors and logo." },
   { path: "/downloads", name: "Downloads", title: "Download TermFetch Studio for Windows, macOS and Linux", description: "Download verified TermFetch Studio v2.0.0 archives, DEB and RPM packages with SHA-256 checksums. Check the status of Homebrew, WinGet, Scoop and AUR." },
   { path: "/docs", name: "Documentation", title: "Fastfetch customization documentation | TermFetch Studio", description: "Learn how themes, presets, image logos, semantic colors and demo mode work. Understand browser exports and the native TermFetch Studio workflow." },

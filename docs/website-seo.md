@@ -20,7 +20,7 @@ entry and writes an HTML document for each route:
 | Canonical route | Reader intent |
 | --- | --- |
 | `/` | Understand the product and try the native-style browser studio |
-| `/themes` | Compare the 30 source theme palettes |
+| `/themes` | Compare the 40 source theme palettes |
 | `/presets` | Compare Full Info, Minimal, Focused, Developer, Gaming and Custom Modules |
 | `/downloads` | Find verified release files, checksums and package-channel status |
 | `/docs` | Understand customization concepts and browser/native boundaries |

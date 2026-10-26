@@ -39,7 +39,7 @@ primary-source rationale and verification.
 `src/lib/catalog.json` is a reviewed snapshot extracted from the Rust theme,
 preset, module, logo and settings sources. `catalog-sources.json` records the
 source hashes; `check-catalog.mjs` fails when those files drift. It also checks
-360 theme/preset/demo combinations and color, ordering and logo export rules.
+480 theme/preset/demo combinations and color, ordering and logo export rules.
 Run the build from a full repository checkout, because these source files are
 required inputs. Review source changes before refreshing hashes or the catalog.
 

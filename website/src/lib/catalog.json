@@ -376,6 +376,176 @@
       }
     },
     {
+      "id": "cotton-candy",
+      "name": "Cotton Candy 🍭",
+      "primary": "#d6408a",
+      "secondary": "#9a5cc9",
+      "accent": "#2f8f80",
+      "background": "#fff0f6",
+      "text": "#6b3a55",
+      "category": "Pastel",
+      "groups": {
+        "os": "#d6408a",
+        "desktop": "#9a5cc9",
+        "hardware": "#c8642a",
+        "network": "#2f8f80",
+        "time": "#3f7fc4"
+      }
+    },
+    {
+      "id": "strawberry-milk",
+      "name": "Strawberry Milk 🍓",
+      "primary": "#d23a68",
+      "secondary": "#a5509c",
+      "accent": "#3f8a4f",
+      "background": "#fff5f7",
+      "text": "#5e3442",
+      "category": "Pastel",
+      "groups": {
+        "os": "#d23a68",
+        "desktop": "#a5509c",
+        "hardware": "#c2661c",
+        "network": "#3f8a4f",
+        "time": "#4a76b8"
+      }
+    },
+    {
+      "id": "dollhouse",
+      "name": "Dollhouse Pink 💖",
+      "primary": "#d6157f",
+      "secondary": "#a83fc4",
+      "accent": "#13897a",
+      "background": "#fff0f8",
+      "text": "#5c1f45",
+      "category": "Pastel",
+      "groups": {
+        "os": "#d6157f",
+        "desktop": "#a83fc4",
+        "hardware": "#c4501f",
+        "network": "#13897a",
+        "time": "#3a6fd0"
+      }
+    },
+    {
+      "id": "marshmallow",
+      "name": "Marshmallow Cloud 🍡",
+      "primary": "#c9488a",
+      "secondary": "#7f5fc8",
+      "accent": "#2f8a72",
+      "background": "#fdf7fb",
+      "text": "#4e3a4a",
+      "category": "Pastel",
+      "groups": {
+        "os": "#c9488a",
+        "desktop": "#7f5fc8",
+        "hardware": "#bb6a26",
+        "network": "#2f8a72",
+        "time": "#3d7ab8"
+      }
+    },
+    {
+      "id": "peach-blossom",
+      "name": "Peach Blossom 🍑",
+      "primary": "#d4593f",
+      "secondary": "#c2457e",
+      "accent": "#4b8c5a",
+      "background": "#fff4ec",
+      "text": "#5b3a32",
+      "category": "Pastel",
+      "groups": {
+        "os": "#d4593f",
+        "desktop": "#c2457e",
+        "hardware": "#b07612",
+        "network": "#4b8c5a",
+        "time": "#6a68c4"
+      }
+    },
+    {
+      "id": "lilac-mist",
+      "name": "Lilac Mist 💐",
+      "primary": "#7d4fd0",
+      "secondary": "#c24a8e",
+      "accent": "#2f8a7a",
+      "background": "#f6f0ff",
+      "text": "#46385e",
+      "category": "Pastel",
+      "groups": {
+        "os": "#7d4fd0",
+        "desktop": "#c24a8e",
+        "hardware": "#b8691f",
+        "network": "#2f8a7a",
+        "time": "#3f78c4"
+      }
+    },
+    {
+      "id": "mint-macaron",
+      "name": "Mint Macaron 🧁",
+      "primary": "#1f8a6a",
+      "secondary": "#c94a86",
+      "accent": "#2e7fb8",
+      "background": "#eefaf4",
+      "text": "#2f4a42",
+      "category": "Pastel",
+      "groups": {
+        "os": "#1f8a6a",
+        "desktop": "#c94a86",
+        "hardware": "#b2701c",
+        "network": "#2e7fb8",
+        "time": "#8458c8"
+      }
+    },
+    {
+      "id": "kawaii",
+      "name": "Kawaii Bow 🎀",
+      "primary": "#ffa6c9",
+      "secondary": "#c5a3ff",
+      "accent": "#a8e6cf",
+      "background": "#2a1f2d",
+      "text": "#ffe9f3",
+      "category": "Pastel",
+      "groups": {
+        "os": "#ffa6c9",
+        "desktop": "#c5a3ff",
+        "hardware": "#ffd3a5",
+        "network": "#a8e6cf",
+        "time": "#9fd8ff"
+      }
+    },
+    {
+      "id": "unicorn",
+      "name": "Unicorn Dream 🦄",
+      "primary": "#f7a8d8",
+      "secondary": "#b8a4ff",
+      "accent": "#9ef0e0",
+      "background": "#261f33",
+      "text": "#f7eeff",
+      "category": "Pastel",
+      "groups": {
+        "os": "#f7a8d8",
+        "desktop": "#b8a4ff",
+        "hardware": "#fff3a3",
+        "network": "#9ef0e0",
+        "time": "#a3d8ff"
+      }
+    },
+    {
+      "id": "rose-quartz",
+      "name": "Rose Quartz 💗",
+      "primary": "#f4a7bb",
+      "secondary": "#e0b0ff",
+      "accent": "#b5e3c4",
+      "background": "#2b2228",
+      "text": "#f6e7ee",
+      "category": "Pastel",
+      "groups": {
+        "os": "#f4a7bb",
+        "desktop": "#e0b0ff",
+        "hardware": "#f7cfa6",
+        "network": "#b5e3c4",
+        "time": "#a9cdf2"
+      }
+    },
+    {
       "id": "matrix",
       "name": "Matrix 💚",
       "primary": "#00ff00",

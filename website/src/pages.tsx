@@ -141,7 +141,7 @@ export function Docs({ gettingStarted = false }: { gettingStarted?: boolean }) {
           <section>
             <h2>Themes set the visual foundation.</h2>
             <p>
-              The 30 source palettes define a background, readable text, accents
+              The 40 source palettes define a background, readable text, accents
               and five semantic groups: OS, desktop, hardware, network and time.
               Use a complete theme first, then override individual groups when
               you want a particular contrast.

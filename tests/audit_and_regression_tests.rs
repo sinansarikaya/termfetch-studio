@@ -30,12 +30,12 @@ fn test_app(prefix: &str) -> (AppState, std::path::PathBuf) {
 #[test]
 fn pixel_art_gallery_and_compact_profiles_are_distinct() {
     let themes = get_builtin_themes();
-    assert_eq!(themes.len(), 30);
+    assert_eq!(themes.len(), 40);
 
     let gallery_area = Rect::new(0, 0, 64, 16);
     let compact_area = Rect::new(0, 0, 26, 5);
 
-    // Verify all 30 themes render cleanly without panics
+    // Verify all 40 themes render cleanly without panics
     for t in &themes {
         let mut gbuf = Buffer::empty(gallery_area);
         let mut cbuf = Buffer::empty(compact_area);
