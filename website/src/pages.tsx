@@ -247,12 +247,13 @@ export function Docs({ gettingStarted = false }: { gettingStarted?: boolean }) {
         <p>
           <Link to="/downloads">Download published v{release.version}</Link> or
           build source v{catalog.version}. The current source defaults to
-          Catppuccin Mocha, Full Info, Arch ASCII, Medium image sizing and demo
-          mode on. An older release may differ.
+          Catppuccin Mocha, Full Info, Medium image sizing and real system data.
+          The default logo is Apple on macOS and Arch on other platforms.
+          Use --demo for privacy-safe sample specs. An older release may differ.
         </p>
         <pre tabIndex={0}>
           {
-            "termfetch-studio\ntermfetch-studio --no-demo\ntermfetch-studio doctor"
+            "termfetch-studio --demo\ntermfetch-studio\ntermfetch-studio doctor"
           }
         </pre>
         <p>
@@ -286,8 +287,8 @@ export function Docs({ gettingStarted = false }: { gettingStarted?: boolean }) {
         <h2>03 / Browser boundaries</h2>
         <p>
           Apply locally stores the selection in local storage. Restore browser
-          save explicitly reloads it; new sessions start with the Rust defaults.
-          Clearing site data removes that save.
+          save explicitly reloads it; new sessions start with the curated Full Info
+          showcase and sample data. Clearing site data removes that save.
         </p>
         <p>
           Preview values are privacy-safe Rust demo fixtures. No hardware

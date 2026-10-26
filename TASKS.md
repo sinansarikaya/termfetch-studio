@@ -47,3 +47,12 @@ None.
 - In progress: actual SSR/SSG HTML and per-route metadata/schema/crawler files for SEO/GEO; no rankingguarantees or unpublishedpackageclaims.
 - In progress: freshcurrentinstalledapp DEMO recordings and better naturalTurkishvoice; oldPiper voice rejected. Videoagent mustshowvoicesamplesbeforefullnewrenders.
 - Three concurrent Codex specialists are justified for separate UI, search/prerender and voice/video production ownership. Allkeepuseroriginalsystemspecs out ofmedia.
+
+### Revision 2 final checks
+
+- Native-style three-pane demo, Full Info with all 25 colored module rows, theme/preset/image galleries and rich landing implemented.
+- Eight prerendered pages, unique metadata/canonical, truthful JSON-LD and real noindex404 verified in Docker.
+- User's upstream macOS DMG/app changes through27ad1fe preserved via rebase. Browser stays on sample specs; native default-real-data wording corrected.
+- Preset deleteCustom→toggle→reorder→adoptFull→apply→downloadJSONC→restore regression passes; no browser/hydration/network errors.
+- New natural Emel videos under youtube/.../revision-2/renders are complete, cropped correctly, demo-only, no upload.
+- Remaining: independent source review, final push/deploy and live checks.

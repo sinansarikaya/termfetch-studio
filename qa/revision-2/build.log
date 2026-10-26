@@ -1,0 +1,41 @@
+
+> termfetch-studio-website@0.0.0 prebuild
+> node scripts/sync-brand.mjs
+
+Shared brand synchronized to /home/sinan/termfetch-studio/website/public/brand/
+
+> termfetch-studio-website@0.0.0 build
+> node check-catalog.mjs && tsc -b && vite build && node scripts/prerender.mjs && node scripts/check-seo.mjs
+
+Catalog drift checks and 360 Fastfetch configuration combinations passed.
+vite v7.3.7 building client environment for production...
+transforming...
+✓ 50 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   1.25 kB │ gzip:   0.61 kB
+dist/assets/index-BfZhdoie.css   56.02 kB │ gzip:  12.41 kB
+dist/assets/index-CzgLVcey.js   347.96 kB │ gzip: 109.78 kB
+✓ built in 996ms
+Prerendered 8 indexable routes and a noindex 404 page.
+{
+  "status": "Pass",
+  "target": "built static HTML",
+  "checkedAt": "2026-10-26T14:26:04.288Z",
+  "checks": [
+    "Robots, sitemap and optional llms.txt describe the actual public origin and route set",
+    "/: substantial JS-less HTML, unique metadata, canonical/social cards, linked routes, accessible images and truthful structured data",
+    "/themes: substantial JS-less HTML, unique metadata, canonical/social cards, linked routes, accessible images and truthful structured data",
+    "/presets: substantial JS-less HTML, unique metadata, canonical/social cards, linked routes, accessible images and truthful structured data",
+    "/downloads: substantial JS-less HTML, unique metadata, canonical/social cards, linked routes, accessible images and truthful structured data",
+    "/docs: substantial JS-less HTML, unique metadata, canonical/social cards, linked routes, accessible images and truthful structured data",
+    "/docs/getting-started: substantial JS-less HTML, unique metadata, canonical/social cards, linked routes, accessible images and truthful structured data",
+    "/releases: substantial JS-less HTML, unique metadata, canonical/social cards, linked routes, accessible images and truthful structured data",
+    "/faq: substantial JS-less HTML, unique metadata, canonical/social cards, linked routes, accessible images and truthful structured data",
+    "Unknown pages have a substantial noindex 404 document (HTTP 404 checked when --base is used)"
+  ],
+  "limitations": [
+    "These are technical/content checks, not a ranking, indexing or AI-citation guarantee.",
+    "Browser hydration, visual fidelity, keyboard and responsive checks are covered separately by the headed browser regression."
+  ]
+}

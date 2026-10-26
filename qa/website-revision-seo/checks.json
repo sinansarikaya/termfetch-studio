@@ -1,7 +1,7 @@
 {
   "status": "Pass",
   "target": "built static HTML",
-  "checkedAt": "2026-10-26T14:22:45.050Z",
+  "checkedAt": "2026-10-26T14:26:04.288Z",
   "checks": [
     "Robots, sitemap and optional llms.txt describe the actual public origin and route set",
     "/: substantial JS-less HTML, unique metadata, canonical/social cards, linked routes, accessible images and truthful structured data",
