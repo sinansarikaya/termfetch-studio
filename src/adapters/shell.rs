@@ -35,7 +35,7 @@ fn powershell_line(exe: Option<&Path>, config: &Path) -> String {
     };
     let cfg = quote(config);
     format!(
-        "if ({guard}) {{ if ($env:WT_SESSION) {{ {cmd} -c '{cfg}' }} else {{ {cmd} -c '{cfg}' --logo-type builtin }} }}"
+        "if ({guard}) {{ if ($env:WT_SESSION -or (Get-Process -Name WindowsTerminal -ErrorAction SilentlyContinue)) {{ {cmd} -c '{cfg}' }} else {{ {cmd} -c '{cfg}' --logo-type builtin }} }}"
     )
 }
 
@@ -277,7 +277,7 @@ mod tests {
     fn powershell_picks_the_logo_per_host() {
         let line = powershell_line(None, Path::new(CFG));
         assert!(line.contains("Get-Command fastfetch"));
-        assert!(line.contains("if ($env:WT_SESSION)"));
+        assert!(line.contains("if ($env:WT_SESSION -or (Get-Process -Name WindowsTerminal"));
         assert!(line.contains("--logo-type builtin"));
         let exe = Path::new(r"C:\WinGet\fastfetch.exe");
         let line = powershell_line(Some(exe), Path::new(CFG));
