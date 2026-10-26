@@ -1,0 +1,179 @@
+   Compiling termfetch-studio-v2 v2.1.0 (/home/sinan/termfetch-studio)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.66s
+     Running unittests src/lib.rs (target/debug/deps/termfetch_studio_v2-3cf8bafe5145004d)
+
+running 60 tests
+test adapters::cmd_autorun::tests::line_checks_fastfetch_exists_and_picks_the_logo ... ok
+test adapters::cmd_autorun::tests::parses_reg_query_output ... ok
+test adapters::cmd_autorun::tests::only_our_line_is_ever_replaced ... ok
+test adapters::cmd_autorun::tests::unsafe_paths_are_refused ... ok
+test adapters::desktop::tests::entry_has_main_exec_and_settings_action ... ok
+test adapters::desktop::tests::quotes_in_paths_are_escaped ... ok
+test adapters::desktop::tests::command_launcher_is_written_once_and_only_removed_when_ours ... ok
+test adapters::fastfetch::runner::tests::parses_probe_lines ... ok
+test adapters::fsutil::tests::formats_known_timestamp ... ok
+test adapters::desktop::tests::write_is_idempotent ... ok
+test adapters::install::tests::linux_maps_distro_families_to_their_package_manager ... ok
+test adapters::install::tests::macos_uses_brew_when_present ... ok
+test adapters::install::tests::windows_prefers_winget_then_scoop ... ok
+test adapters::fsutil::tests::atomic_write_replaces_content ... ok
+test adapters::native_info::tests::rejects_non_json_output ... ok
+test adapters::native_info::tests::parses_query_output_into_module_values ... ok
+test adapters::shell::tests::posix_targets_follow_the_login_shell ... ok
+test adapters::shell::tests::creates_missing_profile_directories ... ok
+test adapters::shell::tests::powershell_picks_the_logo_per_host ... ok
+test adapters::shell::tests::block_is_added_once_and_keeps_existing_lines ... ok
+test adapters::shell::tests::windows_targets_follow_documents_folder ... ok
+test adapters::shell::tests::remove_block_keeps_the_rest_of_the_file ... ok
+test adapters::sysinfo::tests::parses_os_release_and_offsets ... ok
+test adapters::shell::tests::stale_block_is_replaced_and_surrounding_text_kept ... ok
+test adapters::wt_terminal::tests::invalid_json_is_left_untouched ... ok
+test adapters::wt_terminal::tests::remove_takes_only_our_profile_and_scheme ... ok
+test adapters::wt_terminal::tests::profile_is_added_once_and_other_profiles_stay ... ok
+test adapters::wt_terminal::tests::adds_scheme_sets_default_and_keeps_the_rest ... ok
+test adapters::wt_terminal::tests::second_run_is_a_no_op_and_updates_in_place ... ok
+test domain::color::tests::cycle_wraps_and_includes_inherit_for_groups ... ok
+test domain::color::tests::sgr_for_hex ... ok
+test domain::color::tests::parses_all_palette_entries ... ok
+test imaging::kitty::tests::id_roundtrips_through_rgb ... ok
+test imaging::kitty::tests::placeholder_is_one_cell_wide ... ok
+test imaging::sixel::tests::run_length_uses_repeat_for_long_runs ... ok
+test imaging::sixel::tests::palette_keeps_the_dominant_colours ... ok
+test imaging::kitty::tests::transmit_is_chunked ... ok
+test imaging::sixel::tests::encodes_header_palette_and_bands ... ok
+test imaging::sixel::tests::state_only_repaints_when_slot_changes ... ok
+test domain::settings::tests::roundtrip_and_partial_files ... ok
+test imaging::tests::respects_bounds_and_ratio_for_many_shapes ... ok
+test domain::contrast::tests::ensure_reaches_target_on_both_polarities ... ok
+test imaging::tests::uses_real_cell_size ... ok
+test domain::contrast::tests::known_ratios ... ok
+test tui::widgets::header::tests::version_is_shortened ... ok
+test tui::screens::dashboard::tests::wrap_respects_width_and_line_count ... ok
+test imaging::tests::config_bounds_follow_terminal ... ok
+test tui::widgets::preview::wrapping_tests::long_identifiers_and_unicode_survive_wrapping ... ok
+test imaging::tests::square_image_on_1x2_cells_is_twice_as_wide ... ok
+test imaging::sixel::tests::transparent_pixels_blend_onto_background ... ok
+test imaging::tests::halfblock_grid_dimensions ... ok
+test app::reducer::tests::colors_cycle_and_reset ... ok
+test app::reducer::tests::quit_without_changes_writes_nothing ... ok
+test app::reducer::tests::browsing_changes_preview_but_not_saved_state ... ok
+test app::reducer::tests::backup_restore_roundtrip ... ok
+test app::reducer::tests::demo_toggle_persists_and_regenerates ... ok
+test app::reducer::tests::module_builder_toggle_and_reorder ... ok
+test app::reducer::tests::quit_autosaves_unsaved_changes_to_both_configs ... ok
+test imaging::kitty::tests::encodes_in_background_and_uploads_once ... ok
+test imaging::pool::tests::decodes_in_background_and_caches_grids ... ok
+
+test result: ok. 60 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+
+     Running unittests src/main.rs (target/debug/deps/termfetch_studio-dc178cc7cf25a871)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/audit_and_regression_tests.rs (target/debug/deps/audit_and_regression_tests-25890acd810898d9)
+
+running 7 tests
+test undo_redo_stack_depth_and_sequential_restore ... ok
+test safe_apply_creates_pre_apply_backup ... ok
+test state_isolation_browsing_vs_modifying_vs_applied ... ok
+test pixel_art_gallery_and_compact_profiles_are_distinct ... ok
+test long_fastfetch_lines_wrap_without_overflow ... ok
+test broken_or_missing_logo_does_not_panic ... ok
+test responsive_terminals_render_without_panics ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.16s
+
+     Running tests/brand_integration.rs (target/debug/deps/brand_integration-f0c2f9a728faec80)
+
+running 5 tests
+test installer_has_embedded_icon_and_shortcut_assignment ... ok
+test desktop_uninstall_keeps_modified_icon ... ok
+test invalid_terminal_settings_do_not_create_an_icon ... ok
+test desktop_installs_embedded_icon_and_removes_only_ours ... ok
+test terminal_profile_uses_embedded_png_and_cleanup_preserves_other_profiles ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/cli_tests.rs (target/debug/deps/cli_tests-906e618f9671f399)
+
+running 2 tests
+test apply_subcommand_parses_selection ... ok
+test demo_flags_toggle_both_ways ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/config_tests.rs (target/debug/deps/config_tests-37fc30dab0832a39)
+
+running 6 tests
+test ascii_logo_uses_file_type_with_theme_colour ... ok
+test colour_settings_override_theme ... ok
+test foreign_fastfetch_config_is_backed_up_before_first_overwrite ... ok
+test title_has_no_key_and_demo_mode_controls_formats ... ok
+test image_logo_config_is_valid_and_written_atomically_to_both_targets ... ok
+test generated_config_runs_in_fastfetch_when_available ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.32s
+
+     Running tests/contrast_tests.rs (target/debug/deps/contrast_tests-29d66f6d2fcb8e99)
+
+running 3 tests
+test light_themes_are_detected_as_light ... ok
+test palette_meets_wcag_on_all_themes ... ok
+test every_cell_is_legible_on_every_theme_and_screen ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 11.01s
+
+     Running tests/cross_platform_tests.rs (target/debug/deps/cross_platform_tests-c092ce6628b6575c)
+
+running 8 tests
+test test_fastfetch_binary_resolution_with_env_override ... ok
+test test_image_protocol_detection ... ok
+test test_atomic_write_cross_platform_overwrites_and_cleans_up ... ok
+test test_probe_output_parser_with_crlf_and_lf ... ok
+test test_sysinfo_icons_and_wallclock_offsets ... ok
+test test_paths_sandboxing_and_targets ... ok
+test test_real_vs_mock_fastfetch_execution ... ok
+test test_headless_pty_terminal_render_lifecycle ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running tests/theme_tests.rs (target/debug/deps/theme_tests-5001b3260e1624f2)
+
+running 7 tests
+test test_all_categories_represented ... ok
+test test_all_logos_and_images_present ... ok
+test test_demo_specs_not_empty_and_privacy_safe ... ok
+test test_builtin_presets_match_original_installer ... ok
+test test_theme_ids_unique ... ok
+test test_builtin_themes_load_and_have_valid_colors ... ok
+test test_preset_image_paths_are_discovered_not_hardcoded ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/tui_render_tests.rs (target/debug/deps/tui_render_tests-6345c6a8e13e980b)
+
+running 13 tests
+test builtin_presets_can_be_renamed_and_deleted_with_confirmation ... ok
+test custom_ascii_gallery_does_not_import_generated_logo_cache ... ok
+test preset_copy_rename_and_confirmed_delete_persist ... ok
+test dashboard_matches_the_studio_layout ... ok
+test theme_search_filters_navigation_and_supports_empty_results ... ok
+test focus_preview_expands_and_restores_with_keyboard_and_mouse ... ok
+test dashboard_keyboard_flow_and_options_dropdown ... ok
+test all_quick_actions_have_click_targets_at_standard_and_compact_sizes ... ok
+test thumbnails_are_deterministic_crisp_and_theme_specific ... ok
+test every_screen_renders_at_every_size ... ok
+test kitty_mode_uploads_full_resolution_and_draws_placeholders ... ok
+test sixel_mode_places_the_logo_over_blank_cells ... ok
+test image_logos_render_from_decode_pool_without_blocking ... ok
+
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.60s
+
+   Doc-tests termfetch_studio_v2
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

@@ -1,0 +1,48 @@
+{
+  "status": "Pass",
+  "build": "Pass",
+  "lint": "Pass",
+  "catalog_combinations": 360,
+  "headed_browser": {
+    "status": "Pass",
+    "assertions": [
+      "Rust defaults, reactive theme/preset/ASCII logo and valid ANSI JSONC",
+      "Bundled image catalog, explicit image path/protocol, size and automatic fallback",
+      "Module enable/disable, order and adopting current preset",
+      "Semantic live edit/apply/cancel/reset, draft export guard and demo-off config",
+      "Local apply/restore, invalid and malformed storage rejection, actual JSONC download",
+      "Scoped section/apply/demo/output/help shortcuts; input typing is preserved",
+      "Direct/reload routes, released/source versions, six verified assets, four pending channels, Docs anchor and skip link",
+      "All bundled logo and shared brand assets, crawler files, 320/390/768/1440px overflow, mobile empty state and keyboard focus"
+    ],
+    "errors": [],
+    "headless": false,
+    "startedAt": "2026-10-26T03:55:55.937Z",
+    "target": "http://127.0.0.1:18080",
+    "completedAt": "2026-10-26T03:55:59.158Z"
+  },
+  "npm_vulnerabilities": {
+    "info": 0,
+    "low": 0,
+    "moderate": 0,
+    "high": 0,
+    "critical": 0,
+    "total": 0
+  },
+  "visual_review": "Desktop and mobile screenshots inspected; clean settled selected navigation matches editor.",
+  "evidence": [
+    "website/qa/build.log",
+    "website/qa/lint.log",
+    "website/qa/browser-production.log",
+    "website/qa/browser-verification.json",
+    "website/qa/desktop-window.txt",
+    "website/qa/studio-desktop.png",
+    "website/qa/studio-mobile.png",
+    "website/qa/studio-trace.zip"
+  ],
+  "limitations": [
+    "Browser preview geometry and image protocols are approximations; native app is not executed by the website.",
+    "No native Windows/macOS support claim is inferred from browser checks.",
+    "Published v2.0.0 asset URLs were verified via GitHub by leader; browser test verifies those exact links without downloading remote binaries."
+  ]
+}

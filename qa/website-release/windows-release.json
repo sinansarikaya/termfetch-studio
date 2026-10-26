@@ -1,0 +1,7 @@
+{
+  "release": "v2.0.0",
+  "archive": "termfetch-studio-v2.0.0-x86_64-pc-windows-msvc.zip",
+  "sha256": "59f11489ee32f211c4473269158ea24c051e0399f5b2fc8dca477c83ce928113",
+  "contains_install_cmd": false,
+  "claim": "Extract archive and run executable; newer installer is current source only."
+}

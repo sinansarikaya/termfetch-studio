@@ -1,0 +1,77 @@
+{
+  "status": "Pass",
+  "image": "sha256:d5503c610aa8004abeec967b3a8a88da93c28b69619f2604ddaca66d0e355ed3",
+  "user": "101:101",
+  "readonly": true,
+  "health": "healthy",
+  "routes": [
+    {
+      "path": "/healthz",
+      "status": 200
+    },
+    {
+      "path": "/",
+      "status": 200
+    },
+    {
+      "path": "/downloads",
+      "status": 200
+    },
+    {
+      "path": "/docs",
+      "status": 200
+    },
+    {
+      "path": "/docs/getting-started",
+      "status": 200
+    },
+    {
+      "path": "/releases",
+      "status": 200
+    },
+    {
+      "path": "/brand/termfetch-symbol.svg",
+      "status": 200
+    },
+    {
+      "path": "/brand/termfetch.ico",
+      "status": 200
+    },
+    {
+      "path": "/brand/apple-touch-icon.png",
+      "status": 200
+    },
+    {
+      "path": "/robots.txt",
+      "status": 200
+    },
+    {
+      "path": "/sitemap.xml",
+      "status": 200
+    },
+    {
+      "path": "/assets/missing.js",
+      "status": 404
+    }
+  ],
+  "script_asset": "/assets/index-BKQr7uUT.js",
+  "index_sha256": "dfd49666c6913c46664dd986b0085940cc55c9fd49e539482ba29e2161977afd",
+  "headers": {
+    "Server": "nginx",
+    "Date": "Mon, 26 Oct 2026 03:55:47 GMT",
+    "Content-Type": "text/html; charset=utf-8",
+    "Content-Length": "1770",
+    "Last-Modified": "Mon, 26 Oct 2026 03:54:46 GMT",
+    "Connection": "close",
+    "Vary": "Accept-Encoding",
+    "ETag": "\"6adecf06-6ea\"",
+    "Cache-Control": "no-cache",
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
+    "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'",
+    "Strict-Transport-Security": "max-age=31536000",
+    "Accept-Ranges": "bytes"
+  },
+  "note": "Actual final multi-stage production image, no bind-mounted app source; nginx CSP active."
+}

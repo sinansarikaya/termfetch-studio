@@ -7,7 +7,7 @@ authors = ["Sinan Sarıkaya"]
 description = "Cross-platform terminal customization and Fastfetch theme studio"
 readme = "README.md"
 repository = "https://github.com/sinansarikaya/termfetch-studio"
-homepage = "https://github.com/sinansarikaya/termfetch-studio"
+homepage = "https://termfetch-studio.sinansarikaya.dev"
 license = "MIT"
 keywords = ["fastfetch", "tui", "ratatui", "theme", "terminal"]
 categories = ["command-line-utilities"]
@@ -48,3 +48,6 @@ opt-level = 3
 opt-level = 3
 [profile.dev.package.zune-jpeg]
 opt-level = 3
+
+[build-dependencies]
+winresource = "0.1.34"

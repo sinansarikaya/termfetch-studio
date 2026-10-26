@@ -132,11 +132,14 @@ pub fn apply_scheme(path: &Path, colors: &Colors) -> Result<bool> {
 /// Add or update the "TermFetch" profile, so it can be opened from the new-tab menu.
 pub fn ensure_profile(path: &Path, exe: &Path) -> Result<bool> {
     let commandline = format!("\"{}\"", exe.display());
+    let icon = path.with_file_name("termfetch-studio-icon.png");
+    let bytes = include_bytes!("../../assets/brand/termfetch-64.png");
     let profile = json!({
         "name": PROFILE,
         "guid": PROFILE_GUID,
         "commandline": commandline,
         "hidden": false,
+        "icon": &icon,
     });
     edit_settings(path, |obj| {
         let list = obj
@@ -148,6 +151,13 @@ pub fn ensure_profile(path: &Path, exe: &Path) -> Result<bool> {
             .or_insert_with(|| json!([]))
             .as_array_mut()
             .context("\"profiles.list\" is not a list")?;
+        match std::fs::read(&icon) {
+            Ok(data) if data == bytes => {}
+            Ok(_) => bail!("{} exists and is not ours; left in place", icon.display()),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => std::fs::write(&icon, bytes)?,
+            Err(e) => return Err(e.into()),
+        }
+
         match list.iter().position(|p| p["guid"] == PROFILE_GUID) {
             Some(i) => list[i] = profile,
             None => list.push(profile),
@@ -159,7 +169,7 @@ pub fn ensure_profile(path: &Path, exe: &Path) -> Result<bool> {
 /// Remove the app's profile and scheme, and the default scheme if it is ours.
 /// Returns whether the file changed.
 pub fn remove(path: &Path) -> Result<bool> {
-    edit_settings(path, |obj| {
+    let changed = edit_settings(path, |obj| {
         if let Some(list) = obj
             .get_mut("profiles")
             .and_then(|p| p.get_mut("list"))
@@ -179,7 +189,14 @@ pub fn remove(path: &Path) -> Result<bool> {
             defaults.remove("colorScheme");
         }
         Ok(())
-    })
+    })?;
+    let icon = path.with_file_name("termfetch-studio-icon.png");
+    if std::fs::read(&icon)
+        .is_ok_and(|data| data == include_bytes!("../../assets/brand/termfetch-64.png"))
+    {
+        std::fs::remove_file(icon)?;
+    }
+    Ok(changed)
 }
 
 #[cfg(test)]

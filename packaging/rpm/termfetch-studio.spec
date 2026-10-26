@@ -25,7 +25,16 @@ install -m 755 termfetch-studio %{buildroot}%{_bindir}/termfetch-studio
 ln -sf termfetch-studio %{buildroot}%{_bindir}/termfetch
 cp -r assets %{buildroot}%{_datadir}/%{name}/
 
-%files
+# Existing v2.0.0 archives have no brand assets; future release builds check them.
+: > %{_builddir}/termfetch-studio-brand-files
+if [ -f assets/brand/termfetch-symbol.svg ] && [ -f assets/brand/termfetch-studio.desktop ]; then
+    install -D -m 644 assets/brand/termfetch-symbol.svg %{buildroot}%{_datadir}/icons/hicolor/scalable/apps/termfetch-studio.svg
+    install -D -m 644 assets/brand/termfetch-studio.desktop %{buildroot}%{_datadir}/applications/termfetch-studio.desktop
+    echo '%{_datadir}/icons/hicolor/scalable/apps/termfetch-studio.svg' >> %{_builddir}/termfetch-studio-brand-files
+    echo '%{_datadir}/applications/termfetch-studio.desktop' >> %{_builddir}/termfetch-studio-brand-files
+fi
+
+%files -f %{_builddir}/termfetch-studio-brand-files
 %{_bindir}/termfetch-studio
 %{_bindir}/termfetch
 %{_datadir}/%{name}/assets

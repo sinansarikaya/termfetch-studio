@@ -13,6 +13,7 @@ pub fn entry(exe: &Path) -> String {
          Name=TermFetch\n\
          Comment=Customize your terminal, your way\n\
          Exec=\"{exe}\"\n\
+         Icon=termfetch-studio\n\
          Terminal=true\n\
          Categories=Utility;\n\
          Actions=Settings;\n\
@@ -21,6 +22,23 @@ pub fn entry(exe: &Path) -> String {
          Name=Settings\n\
          Exec=\"{exe}\" settings\n"
     )
+}
+
+/// Embedded source also works for a standalone executable.
+pub const ICON: &str = include_str!("../../assets/brand/termfetch-symbol.svg");
+
+fn write_icon(path: &Path) -> Result<bool> {
+    match std::fs::read(path) {
+        Ok(data) if data == ICON.as_bytes() => return Ok(false),
+        Ok(_) => bail!("{} exists and is not ours; left in place", path.display()),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+        Err(e) => return Err(e.into()),
+    }
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    std::fs::write(path, ICON)?;
+    Ok(true)
 }
 
 /// Where the entry lives for the current user (XDG data home).
@@ -35,9 +53,12 @@ pub fn path() -> Option<PathBuf> {
 
 /// Write the entry when it differs. Returns whether the file changed.
 pub fn write(path: &Path, exe: &Path) -> Result<bool> {
-    let text = entry(exe);
+    // Keep the icon beside this user-owned launcher; package icons use the theme name.
+    let icon = path.with_extension("svg");
+    let icon_changed = write_icon(&icon)?;
+    let text = entry(exe).replace("Icon=termfetch-studio", &format!("Icon={}", icon.display()));
     if std::fs::read_to_string(path).is_ok_and(|t| t == text) {
-        return Ok(false);
+        return Ok(icon_changed);
     }
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)?;
@@ -85,6 +106,15 @@ pub fn remove_if_ours(path: &Path, marker: &str) -> Result<bool> {
     match std::fs::read_to_string(path) {
         Ok(text) if text.contains(marker) => {
             std::fs::remove_file(path)?;
+            if path
+                .file_name()
+                .is_some_and(|n| n == "termfetch-studio.desktop")
+            {
+                let icon = path.with_extension("svg");
+                if std::fs::read(&icon).is_ok_and(|data| data == ICON.as_bytes()) {
+                    std::fs::remove_file(icon)?;
+                }
+            }
             Ok(true)
         }
         Ok(_) => bail!("{} exists and is not ours; left in place", path.display()),
