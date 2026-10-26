@@ -1,7 +1,7 @@
 {
   "status": "Pass",
   "target": "http://127.0.0.1:18080",
-  "checkedAt": "2026-10-26T14:26:56.634Z",
+  "checkedAt": "2026-10-26T14:39:27.789Z",
   "checks": [
     "Robots, sitemap and optional llms.txt describe the actual public origin and route set",
     "/: substantial JS-less HTML, unique metadata, canonical/social cards, linked routes, accessible images and truthful structured data",

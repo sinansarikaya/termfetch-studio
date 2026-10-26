@@ -287,11 +287,22 @@ function Home() {
   useEffect(() => {
     const query = new URLSearchParams(location.search),
       found = LOOKS.find((item) => item.id === query.get("look")) || LOOKS[0];
-    const theme = query.get("theme");
-    const next =
+    const theme = query.get("theme"),
+      requestedPreset = query.get("preset");
+    let next =
       theme && catalog.themes.some((t) => t.id === theme)
         ? { ...found, id: "theme-" + theme, theme }
         : found;
+    if (
+      requestedPreset &&
+      catalog.presets.some((item) => item.id === requestedPreset)
+    ) {
+      next = {
+        ...next,
+        id: next.id + "-preset-" + requestedPreset,
+        preset: requestedPreset,
+      };
+    }
     let active = true;
     queueMicrotask(() => {
       if (active) setLook(next);
@@ -621,7 +632,7 @@ function Home() {
           {[
             {
               name: "Windows",
-              detail: "x64 ZIP · installer included",
+              detail: "x64 ZIP · extract/run EXE · Fastfetch separate",
               symbol: "⊞",
             },
             {
@@ -750,13 +761,7 @@ function PresetPage() {
                 );
               })}
             </div>
-            <Link
-              to={
-                "/?look=" +
-                (LOOKS.find((l) => l.preset === p.id)?.id || "neon") +
-                "#studio"
-              }
-            >
+            <Link to={"/?preset=" + encodeURIComponent(p.id) + "#studio"}>
               Explore in the studio →
             </Link>
           </article>

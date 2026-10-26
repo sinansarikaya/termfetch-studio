@@ -97,6 +97,56 @@ try {
  await app.getByRole('button', { name: 'Reset to native defaults', exact: true }).click();
  check('Deleting Custom Modules then toggling/reordering/adopting restores its definition; apply/export/restore retains all25modules without duplicate options or runtime errors');
 
+ // Exercise capacity through real copy actions, then verify saved data can be
+ // restored and the reserved Custom slot never forces an oversized library.
+ await section('Presets').click();
+ while (await select('Preset').locator('option').count() < 40) {
+  await app.getByRole('button', { name: 'Copy preset', exact: true }).click();
+ }
+ assert.equal(await app.getByRole('button', { name: 'Copy preset', exact: true }).isDisabled(), true);
+ assert.match(await app.getByRole('status').textContent(), /capacity reached/);
+ const copiedAtCapacity = await select('Preset').inputValue();
+ await app.getByRole('button', { name: /Apply setup locally/ }).click();
+ await select('Preset').selectOption('minimal'); await section('Settings').click();
+ await app.getByRole('button', { name: 'Restore browser save', exact: true }).click();
+ assert.equal(await select('Preset').inputValue(), copiedAtCapacity);
+ assert.match(await app.getByRole('status').textContent(), /capacity reached/);
+ assert.equal(await select('Preset').locator('option').count(), 40);
+ const beforeCapacityDelete = JSON.parse(await page.evaluate(() => localStorage.getItem('termfetch-browser-export')));
+ await section('Presets').click(); await select('Preset').selectOption('custom');
+ await app.getByRole('button', { name: 'Delete preset', exact: true }).click();
+ await app.getByLabel('Type yes to delete preset', { exact: true }).fill('yes');
+ await app.getByRole('button', { name: 'Confirm delete preset', exact: true }).click();
+ assert.equal(await select('Preset').locator('option').count(), 39);
+ assert.equal(await app.getByRole('button', { name: 'Copy preset', exact: true }).isDisabled(), true);
+ await app.locator('.native-preset-list > button[aria-pressed="true"]').focus();
+ await page.keyboard.press('d');
+ assert.equal(await select('Preset').locator('option').count(), 39);
+ assert.match(await app.getByRole('status').textContent(), /slot is reserved for Custom Modules/);
+ await section('Modules').click(); await app.getByRole('checkbox', { name: /CPU/ }).check();
+ assert.equal(await select('Preset').inputValue(), 'custom');
+ assert.equal(await select('Preset').locator('option').count(), 40);
+ assert.equal(await select('Preset').locator('option[value="custom"]').count(), 1);
+ await select('Preset').selectOption('full');
+ await app.getByRole('button', { name: 'Use current preset as a starting point', exact: true }).click();
+ await app.getByRole('button', { name: /Apply setup locally/ }).click();
+ const restoredAtCapacity = JSON.parse(await page.evaluate(() => localStorage.getItem('termfetch-browser-export')));
+ assert.equal(restoredAtCapacity.preset_library.length, 40);
+ assert.deepEqual(restoredAtCapacity.preset_library.filter(p => p.id !== 'custom').map(p => p.id).sort(), beforeCapacityDelete.preset_library.filter(p => p.id !== 'custom').map(p => p.id).sort());
+ await section('Settings').click(); await select('Preset').selectOption('minimal');
+ await app.getByRole('button', { name: 'Restore browser save', exact: true }).click();
+ assert.equal(await select('Preset').inputValue(), 'custom');
+ assert.equal((await output()).modules.filter(m => m.keyWidth).length, 25);
+ // An older/external full library with no Custom reservation is rejected,
+ // preserving the current valid library instead of dropping any user preset.
+ await page.evaluate(raw => { const s = JSON.parse(raw); s.preset = 'full'; s.preset_library = s.preset_library.filter(p => p.id !== 'custom'); s.preset_library.push({ ...s.preset_library[0], id: 'external-extra', name: 'External extra' }); localStorage.setItem('termfetch-browser-export', JSON.stringify(s)); }, JSON.stringify(restoredAtCapacity));
+ await app.getByRole('button', { name: 'Restore browser save', exact: true }).click();
+ assert.match(await app.getByRole('status').textContent(), /invalid/);
+ assert.equal(await select('Preset').inputValue(), 'custom');
+ assert.equal(await select('Preset').locator('option').count(), 40);
+ await app.getByRole('button', { name: 'Reset to native defaults', exact: true }).click();
+ check('Realcopycapacity40 applies/restores; deletingCustomreservesaslot, keyboardcopyguardholds39, moduleactivationrestores40withoutdroppinguserpresets; external40-withoutCustomrejected');
+
  await select('Theme').selectOption('nord'); await select('Preset').selectOption('minimal'); await select('Logo').selectOption('cat');
  assert.equal((await output()).logo.type, 'data'); assert.equal((await output()).modules.filter(m => m.keyWidth).length, 4);
  await section('Modules').click(); await app.getByRole('checkbox', { name: /CPU/ }).check(); await app.getByRole('button', { name: 'Move CPU up', exact: true }).click(); assert.deepEqual((await output()).modules.filter(m => m.keyWidth).map(m => m.type), ['os', 'kernel', 'shell', 'cpu', 'uptime']);
@@ -124,6 +174,24 @@ try {
 
  await page.goto(base + '/?theme=nord#studio', { waitUntil: 'networkidle' }); await page.waitForFunction(() => document.querySelector('.native-options select[aria-label="Theme"]')?.value === 'nord'); assert.equal(await select('Preset').inputValue(), 'full');
  await page.goto(base + '/?look=minimal#studio', { waitUntil: 'networkidle' }); await page.waitForFunction(() => document.querySelector('.native-options select[aria-label="Preset"]')?.value === 'minimal');
+
+ for (const [presetId, name, count] of [['focused', 'Focused', 9], ['custom', 'Custom Modules', 4]]) {
+  await page.goto(base + '/presets', { waitUntil: 'networkidle' });
+  await page.locator('.preset-comparison > article').filter({ has: page.getByRole('heading', { name, exact: true }) }).getByRole('link', { name: 'Explore in the studio →', exact: true }).click();
+  assert.equal(new URL(page.url()).searchParams.get('preset'), presetId);
+  await page.waitForFunction(id => document.querySelector('.native-options select[aria-label="Preset"]')?.value === id, presetId);
+  await select('Output').selectOption('jsonc');
+  assert.equal((await output()).modules.filter(m => m.keyWidth).length, count);
+  await page.reload({ waitUntil: 'networkidle' });
+  await page.waitForFunction(id => document.querySelector('.native-options select[aria-label="Preset"]')?.value === id, presetId);
+  await select('Output').selectOption('jsonc');
+  assert.equal((await output()).modules.filter(m => m.keyWidth).length, count);
+ }
+ await page.goto(base + '/?preset=not-a-valid-preset', { waitUntil: 'networkidle' });
+ assert.equal(await select('Preset').inputValue(), 'full');
+ assert.match(await page.locator('.platform-cards > a').filter({ hasText: 'Windows' }).textContent(), /extract\/run EXE.*Fastfetch separate/);
+ assert.equal(await page.getByText('installer included', { exact: false }).count(), 0);
+ check('Focused/Customcardsnavigateexplicitvalidatedpresetqueryandexport9/4modules; directreloadhydratescleanly, invalidpresetignored, WindowsZIPmanualrun/Fastfetchcopytruthful');
  for (const route of ['/themes', '/presets', '/downloads', '/docs', '/docs/getting-started', '/releases', '/faq']) { await page.goto(base + route, { waitUntil: 'networkidle' }); await page.getByRole('heading', { level: 1 }).waitFor(); assert.equal(new URL(await page.locator('link[rel=canonical]').getAttribute('href')).pathname, route); }
  await page.goto(base + '/themes'); assert.equal(await page.locator('.marketing-theme-card').count(), 30);
  await page.goto(base + '/downloads'); assert.equal(await page.locator('.download-card').count(), 6); assert.equal(await page.locator('tbody .pending').count(), 4);

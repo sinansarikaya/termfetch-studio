@@ -1,10 +1,10 @@
 {
   "status": "Pass",
-  "image": "sha256:52053714c47dabc024a1650244729b192df1074a28905fb95bde5ea948b411eb",
+  "image": "sha256:2c991adbf4689735d8b92cfe0def1201984632a752e22617a2db31a394b611d1",
   "user": "101:101",
   "readonly": true,
   "health": "healthy",
-  "index_sha256": "b2eff16ac5dde9c38da99871b905a7a5237cb3ca8c30c4669e7086a61c9f15d9",
+  "index_sha256": "715c8393816a5528cbc25f5fc274912e719a21283d7b5c41dd6be906738a7641",
   "local_dist_matches": true,
   "upstream_app_base": "27ad1fe",
   "checked_at": "2026-10-26T14:28:34.237137+00:00"
