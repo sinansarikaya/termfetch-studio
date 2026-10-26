@@ -113,7 +113,10 @@ fn image_logo_config_is_valid_and_written_atomically_to_both_targets() {
 fn title_has_no_key_and_demo_mode_controls_formats() {
     let themes = get_builtin_themes();
     let full = &get_builtin_presets()[0];
-    let mut s = Settings::default();
+    let mut s = Settings {
+        demo_mode: true,
+        ..Default::default()
+    };
 
     let demo = parse(
         &to_jsonc(

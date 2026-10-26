@@ -99,6 +99,10 @@ jobs:
           fi
         shell: bash
 
+      - name: Build macOS DMG (app bundle with fastfetch included)
+        if: matrix.is_macos_universal
+        run: ./scripts/build-macos-dmg.sh --skip-build
+
       - name: Prepare Release Archive Directory
         shell: bash
         run: |
@@ -131,7 +135,7 @@ jobs:
           test -d "$ARCHIVE_DIR/assets"
           test -s "$ARCHIVE_DIR/assets/brand/termfetch.ico"
           test -s "$ARCHIVE_DIR/assets/brand/termfetch.icns"
-          test -s "$ARCHIVE_DIR/assets/brand/termfetch-symbol.svg"
+          test -s "$ARCHIVE_DIR/assets/brand/termfetch-app-icon.svg"
           test -f "$ARCHIVE_DIR/LICENSE"
           test -f "$ARCHIVE_DIR/README.md"
 
@@ -160,7 +164,7 @@ jobs:
           sed "s/Version: .*/Version: $VERSION/" packaging/debian/control > "$PKG_DIR/DEBIAN/control"
           cp "target/${{ matrix.target }}/release/${{ matrix.binary }}" "$PKG_DIR/usr/bin/"
           cp -r assets "$PKG_DIR/usr/share/termfetch-studio/"
-          install -D -m 644 assets/brand/termfetch-symbol.svg "$PKG_DIR/usr/share/icons/hicolor/scalable/apps/termfetch-studio.svg"
+          install -D -m 644 assets/brand/termfetch-app-icon.svg "$PKG_DIR/usr/share/icons/hicolor/scalable/apps/termfetch-studio.svg"
           install -D -m 644 assets/brand/termfetch-studio.desktop "$PKG_DIR/usr/share/applications/termfetch-studio.desktop"
           dpkg-deb --build --root-owner-group "$PKG_DIR" "dist/termfetch-studio_${VERSION}_amd64.deb"
 

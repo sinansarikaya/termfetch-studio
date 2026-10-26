@@ -1,4 +1,4 @@
-//! Aspect-ratio-correct image sizing and half-block rasterisation.
+//! Aspect-ratio-correct image sizing and block-character rasterisation.
 
 pub mod kitty;
 mod kitty_diacritics;
@@ -122,33 +122,243 @@ pub fn config_logo_cells(dims: (u32, u32), max: (u16, u16), geo: &TermGeometry) 
     fit_image_cells(dims.0, dims.1, geo.cell, bound_w, bound_h)
 }
 
-/// An image rasterised for `▀` half-block rendering: `w` cells wide and `h`
-/// cells tall, i.e. `w` x `2h` RGBA pixels.
+/// One drawn cell: `ch` painted in `fg` over `bg`; `bg: None` keeps the terminal's own.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Block {
+    pub ch: char,
+    pub fg: (u8, u8, u8),
+    pub bg: Option<(u8, u8, u8)>,
+}
+
+/// Quadrant glyph per foreground mask: bit 0 top-left, 1 top-right, 2 bottom-left,
+/// 3 bottom-right.
+const QUADRANTS: [char; 16] = [
+    ' ', '▘', '▝', '▀', '▖', '▌', '▞', '▛', '▗', '▚', '▐', '▜', '▄', '▙', '▟', '█',
+];
+
+/// First code point of the TermFetch Blocks font (`assets/fonts/TermFetchBlocks.ttf`):
+/// octant pattern `m` is drawn by U+100000 + m.
+pub const OCTANT_BASE: u32 = 0x10_0000;
+
+/// How finely a cell is divided.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Shape {
+    /// 2 x 2 per cell with the standard quadrant characters; works with any font.
+    Quadrant,
+    /// 2 x 4 per cell with the TermFetch Blocks font.
+    Octant,
+}
+
+impl Shape {
+    /// Sub-pixels per cell (columns, rows).
+    pub fn grid(self) -> (u16, u16) {
+        match self {
+            Self::Quadrant => (2, 2),
+            Self::Octant => (2, 4),
+        }
+    }
+
+    /// Glyph whose foreground covers `mask` (bit `row * 2 + col`).
+    pub fn glyph(self, mask: u8) -> char {
+        match self {
+            Self::Quadrant => QUADRANTS[usize::from(mask & 15)],
+            Self::Octant => char::from_u32(OCTANT_BASE + u32::from(mask)).unwrap_or(' '),
+        }
+    }
+
+    /// Octants where the TermFetch Blocks font is installed and the terminal has no
+    /// image protocol of its own (Terminal.app); quadrants elsewhere.
+    pub fn detect() -> Self {
+        static SHAPE: std::sync::OnceLock<Shape> = std::sync::OnceLock::new();
+        *SHAPE.get_or_init(|| {
+            let apple = std::env::var("TERM_PROGRAM").is_ok_and(|p| p == "Apple_Terminal");
+            let font = std::env::var_os("HOME").is_some_and(|h| {
+                Path::new(&h)
+                    .join("Library/Fonts/TermFetchBlocks.ttf")
+                    .is_file()
+            });
+            if apple && font {
+                Self::Octant
+            } else {
+                Self::Quadrant
+            }
+        })
+    }
+}
+
+/// An image rasterised for block-character rendering: `w` x `h` cells, each sampled as
+/// a small grid of RGBA pixels (see [`Shape`]) and drawn with the glyph and two colours
+/// that fit it best.
 #[derive(Debug, Clone)]
-pub struct HalfblockGrid {
+pub struct BlockGrid {
     pub w: u16,
     pub h: u16,
+    pub shape: Shape,
+    /// `w * cols` x `h * rows` pixels, row-major.
     pub px: Vec<[u8; 4]>,
 }
 
-impl HalfblockGrid {
-    pub fn from_image(img: &RgbaImage, w: u16, h: u16) -> Self {
-        let (w, h) = (w.max(1), h.max(1));
-        let scaled = image::imageops::resize(
-            img,
-            u32::from(w),
-            u32::from(h) * 2,
-            image::imageops::FilterType::CatmullRom,
-        );
-        let px = scaled.pixels().map(|p| p.0).collect();
-        Self { w, h, px }
+/// Resize with premultiplied alpha, so transparent pixels do not darken soft edges.
+fn resize_premultiplied(img: &RgbaImage, w: u32, h: u32) -> RgbaImage {
+    let mut pre = img.clone();
+    for p in pre.pixels_mut() {
+        let a = u16::from(p.0[3]);
+        for c in &mut p.0[..3] {
+            *c = ((u16::from(*c) * a + 127) / 255) as u8;
+        }
+    }
+    let mut out = image::imageops::resize(&pre, w, h, image::imageops::FilterType::CatmullRom);
+    for p in out.pixels_mut() {
+        let a = u16::from(p.0[3]);
+        for c in &mut p.0[..3] {
+            if let Some(v) = (u16::from(*c) * 255 + a / 2).checked_div(a) {
+                *c = v.min(255) as u8;
+            }
+        }
+    }
+    out
+}
+
+/// Per-mask colour statistics of up to eight pixels, so every pattern is scored in one
+/// pass: the squared error of a group is `sum(c^2) - sum(c)^2 / n` per channel.
+struct Stats {
+    px: [(u8, u8, u8); 8],
+    len: usize,
+}
+
+impl Stats {
+    fn new(px: impl Iterator<Item = (u8, u8, u8)>) -> Self {
+        let mut s = Self {
+            px: [(0, 0, 0); 8],
+            len: 0,
+        };
+        for p in px.take(8) {
+            s.px[s.len] = p;
+            s.len += 1;
+        }
+        s
     }
 
-    /// (top, bottom) pixel for a cell.
-    pub fn cell(&self, x: u16, y: u16) -> ([u8; 4], [u8; 4]) {
-        let w = usize::from(self.w);
-        let (x, y) = (usize::from(x), usize::from(y));
-        (self.px[2 * y * w + x], self.px[(2 * y + 1) * w + x])
+    /// Split into two colour groups (2-means from the two most different pixels); the
+    /// mask of the first group, or `all` for a flat cell.
+    fn two_means(&self, all: u8) -> u8 {
+        let px = &self.px[..self.len];
+        let d = |a: (u8, u8, u8), b: (u8, u8, u8)| {
+            let c = |x: u8, y: u8| (i32::from(x) - i32::from(y)).pow(2) as u32;
+            c(a.0, b.0) + c(a.1, b.1) + c(a.2, b.2)
+        };
+        let (mut fg, mut bg) = (0..px.len())
+            .flat_map(|i| (i + 1..px.len()).map(move |j| (i, j)))
+            .max_by_key(|&(i, j)| d(px[i], px[j]))
+            .map_or((px[0], px[0]), |(i, j)| (px[i], px[j]));
+        let mut mask = all;
+        for _ in 0..2 {
+            mask = px
+                .iter()
+                .enumerate()
+                .filter(|(_, p)| d(**p, fg) <= d(**p, bg))
+                .fold(0, |m, (i, _)| m | 1 << i);
+            if mask == all || mask == 0 {
+                return all;
+            }
+            (fg, bg) = (self.group(mask, true).0, self.group(mask, false).0);
+        }
+        mask
+    }
+
+    /// Mean colour and squared error of the pixels in (`on`) or out of `mask`.
+    fn group(&self, mask: u8, on: bool) -> ((u8, u8, u8), u64) {
+        let (mut n, mut sum, mut sq) = (0u64, [0u64; 3], 0u64);
+        for (i, &(r, g, b)) in self.px[..self.len].iter().enumerate() {
+            if (mask >> i & 1 == 1) == on {
+                n += 1;
+                for (k, c) in [r, g, b].into_iter().enumerate() {
+                    let c = u64::from(c);
+                    sum[k] += c;
+                    sq += c * c;
+                }
+            }
+        }
+        if n == 0 {
+            return ((0, 0, 0), 0);
+        }
+        let err = sq - sum.iter().map(|s| s * s / n).sum::<u64>();
+        let mean = sum.map(|s| (s / n) as u8);
+        ((mean[0], mean[1], mean[2]), err)
+    }
+}
+
+impl BlockGrid {
+    pub fn from_image(img: &RgbaImage, w: u16, h: u16, shape: Shape) -> Self {
+        let (w, h) = (w.max(1), h.max(1));
+        let (sx, sy) = shape.grid();
+        let scaled = resize_premultiplied(img, u32::from(w * sx), u32::from(h * sy));
+        let px = scaled.pixels().map(|p| p.0).collect();
+        Self { w, h, shape, px }
+    }
+
+    /// The pixels of a cell, row by row.
+    pub fn pixels(&self, x: u16, y: u16) -> Vec<[u8; 4]> {
+        let (sx, sy) = self.shape.grid();
+        let w = usize::from(self.w * sx);
+        let (x, y) = (usize::from(x * sx), usize::from(y * sy));
+        (0..usize::from(sy))
+            .flat_map(|dy| (0..usize::from(sx)).map(move |dx| (dx, dy)))
+            .map(|(dx, dy)| self.px[(y + dy) * w + x + dx])
+            .collect()
+    }
+
+    /// The best block for a cell: the glyph and two colours closest to its pixels. With
+    /// `bg` the pixels are blended onto it; without, transparent pixels keep the
+    /// terminal's background (one colour on the opaque part) and a fully transparent cell
+    /// is `None`.
+    pub fn cell(&self, x: u16, y: u16, bg: Option<(u8, u8, u8)>) -> Option<Block> {
+        let px = self.pixels(x, y);
+        let all = ((1u16 << px.len()) - 1) as u8;
+        let opaque = px.iter().all(|p| p[3] >= 128);
+        let stats = match bg {
+            Some(bg) => Some(Stats::new(px.iter().map(|&p| blend(p, bg)))),
+            // Without a known background only fully opaque cells get two colours.
+            None if opaque => Some(Stats::new(px.iter().map(|p| (p[0], p[1], p[2])))),
+            None => None,
+        };
+        if let Some(stats) = stats {
+            let mask = if stats.len <= 4 {
+                // Full block first, so a flat cell stays one solid glyph on ties.
+                (1..=all)
+                    .rev()
+                    .map(|mask| (stats.group(mask, true).1 + stats.group(mask, false).1, mask))
+                    .min_by_key(|t| t.0)?
+                    .1
+            } else {
+                stats.two_means(all)
+            };
+            let fg = stats.group(mask, true).0;
+            let back = if mask == all {
+                fg
+            } else {
+                stats.group(mask, false).0
+            };
+            return Some(Block {
+                ch: self.shape.glyph(mask),
+                fg,
+                bg: Some(back),
+            });
+        }
+        let mask = px
+            .iter()
+            .enumerate()
+            .filter(|(_, p)| p[3] >= 128)
+            .fold(0u8, |m, (i, _)| m | 1 << i);
+        if mask == 0 {
+            return None;
+        }
+        let stats = Stats::new(px.iter().map(|p| (p[0], p[1], p[2])));
+        Some(Block {
+            ch: self.shape.glyph(mask),
+            fg: stats.group(mask, true).0,
+            bg: None,
+        })
     }
 }
 
@@ -221,11 +431,82 @@ mod tests {
     }
 
     #[test]
-    fn halfblock_grid_dimensions() {
+    fn block_grid_dimensions() {
         let img = RgbaImage::from_pixel(64, 64, image::Rgba([255, 0, 0, 255]));
-        let g = HalfblockGrid::from_image(&img, 12, 6);
-        assert_eq!(g.px.len(), 12 * 12);
-        assert_eq!(g.cell(11, 5).0, [255, 0, 0, 255]);
+        let g = BlockGrid::from_image(&img, 12, 6, Shape::Quadrant);
+        assert_eq!(g.px.len(), 24 * 12);
+        let o = BlockGrid::from_image(&img, 12, 6, Shape::Octant);
+        assert_eq!(o.px.len(), 24 * 24);
+        let cell = g.cell(11, 5, Some((0, 0, 0))).unwrap();
+        assert_eq!((cell.fg, cell.bg), ((255, 0, 0), Some((255, 0, 0))));
         assert_eq!(blend([0, 0, 0, 0], (1, 2, 3)), (1, 2, 3));
+    }
+
+    fn grid(px: [[u8; 4]; 4]) -> BlockGrid {
+        BlockGrid {
+            w: 1,
+            h: 1,
+            shape: Shape::Quadrant,
+            px: px.to_vec(),
+        }
+    }
+
+    #[test]
+    fn octants_resolve_quarter_height_detail() {
+        let (red, blue) = ([255, 0, 0, 255], [0, 0, 255, 255]);
+        // Top quarter red, the rest blue: only octants can draw this exactly.
+        let g = BlockGrid {
+            w: 1,
+            h: 1,
+            shape: Shape::Octant,
+            px: vec![red, red, blue, blue, blue, blue, blue, blue],
+        };
+        let cell = g.cell(0, 0, Some((0, 0, 0))).unwrap();
+        let fits =
+            |m: u32, f, b| cell.ch as u32 == OCTANT_BASE + m && cell.fg == f && cell.bg == Some(b);
+        assert!(
+            fits(0b11, (255, 0, 0), (0, 0, 255)) || fits(0b1111_1100, (0, 0, 255), (255, 0, 0))
+        );
+        assert_eq!(Shape::Quadrant.glyph(0b1001), '▚');
+    }
+
+    #[test]
+    fn quadrants_follow_the_shape_inside_a_cell() {
+        let (red, blue) = ([255, 0, 0, 255], [0, 0, 255, 255]);
+        // Left column red, right column blue: a vertical split, not a top/bottom one.
+        let cell = grid([red, blue, red, blue])
+            .cell(0, 0, Some((0, 0, 0)))
+            .unwrap();
+        assert!(
+            (cell.ch, cell.fg, cell.bg) == ('▌', (255, 0, 0), Some((0, 0, 255)))
+                || (cell.ch, cell.fg, cell.bg) == ('▐', (0, 0, 255), Some((255, 0, 0)))
+        );
+        let diagonal = grid([red, blue, blue, red])
+            .cell(0, 0, Some((0, 0, 0)))
+            .unwrap();
+        assert!(matches!(diagonal.ch, '▚' | '▞'));
+    }
+
+    #[test]
+    fn transparent_pixels_keep_the_terminal_background() {
+        let (red, clear) = ([255, 0, 0, 255], [0, 0, 0, 0]);
+        let cell = grid([red, clear, clear, clear]).cell(0, 0, None).unwrap();
+        assert_eq!((cell.ch, cell.fg, cell.bg), ('▘', (255, 0, 0), None));
+        assert_eq!(grid([clear; 4]).cell(0, 0, None), None);
+        // Opaque cells keep their detail: two colours even without a background.
+        let blue = [0, 0, 255, 255];
+        let split = grid([red, red, blue, blue]).cell(0, 0, None).unwrap();
+        assert!(matches!(split.ch, '▀' | '▄') && split.bg.is_some());
+    }
+
+    #[test]
+    fn resizing_does_not_darken_soft_edges() {
+        let mut img = RgbaImage::from_pixel(8, 1, image::Rgba([0, 0, 0, 0]));
+        for x in 0..4 {
+            img.put_pixel(x, 0, image::Rgba([255, 255, 0, 255]));
+        }
+        let out = resize_premultiplied(&img, 3, 1);
+        let edge = out.get_pixel(1, 0).0;
+        assert!(edge[3] > 0 && edge[0] > 200 && edge[1] > 200, "{edge:?}");
     }
 }

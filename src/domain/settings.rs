@@ -128,9 +128,15 @@ impl Default for Settings {
         Self {
             theme: "catppuccin-mocha".into(),
             preset: "full".into(),
-            logo: "arch".into(),
+            // The local system's own logo; real specs, not the privacy demo.
+            logo: if cfg!(target_os = "macos") {
+                "apple"
+            } else {
+                "arch"
+            }
+            .into(),
             logo_size: LogoSize::Medium,
-            demo_mode: true,
+            demo_mode: false,
             icon_color: ColorValue::Theme,
             text_color: ColorValue::Theme,
             group_colors: GroupColors::default(),
@@ -199,7 +205,11 @@ mod tests {
         std::fs::write(&p, r#"{"theme":"nord"}"#).unwrap();
         let partial = Settings::load(&p).unwrap();
         assert_eq!(partial.theme, "nord");
-        assert!(partial.demo_mode, "missing fields fall back to defaults");
+        assert_eq!(
+            partial.demo_mode,
+            Settings::default().demo_mode,
+            "missing fields fall back to defaults"
+        );
 
         let mut r = Settings::default();
         for t in ["a", "b", "a", "c", "d", "e", "f", "g", "h", "i"] {

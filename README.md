@@ -22,6 +22,7 @@ Keep the extracted `assets` directory beside the executable. Install Fastfetch s
 
 ### 🍎 macOS
 
+- **DMG (current source):** open `termfetch-studio-v<version>-macos-universal.dmg`, drag **TermFetch Studio** into **Applications** and open it from Launchpad or Spotlight. Fastfetch is bundled inside the app, so there is nothing else to install. The first start sets up the Fastfetch config, runs it in every new shell and puts `termfetch` on PATH. The app opens in the terminal you use most (iTerm2, Ghostty, kitty, WezTerm or Terminal.app) and adapts to it: images use the terminal's own protocol, and Terminal.app, which has none, gets block-drawn logos, 256 colours and a "TermFetch" profile with the theme colours. Terminal.app logos are drawn with the bundled TermFetch Blocks font, eight sub-cells per character. Until the app is notarized, macOS asks once: choose **System Settings → Privacy & Security → Open Anyway**. Build the DMG yourself with `scripts/build-macos-dmg.sh` (universal Apple Silicon + Intel). To uninstall, run `termfetch uninstall`, then drag the app to the Trash.
 - **Homebrew:** the TermFetch tap/formula is pending publication; no TermFetch install command is available here yet.
 - **Published v2.0.0:** extract [the universal macOS archive](https://github.com/sinansarikaya/termfetch-studio/releases/download/v2.0.0/termfetch-studio-v2.0.0-apple-darwin-universal.tar.gz), put `termfetch-studio` on PATH, and install the separate Fastfetch dependency with `brew install fastfetch`.
 

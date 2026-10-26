@@ -10,19 +10,20 @@ use crossterm::{
     terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
 use ratatui::{Terminal, backend::CrosstermBackend, buffer::Buffer, layout::Rect};
-use std::io::{self, BufRead, Write, stdout};
-use std::path::PathBuf;
+use std::io::{self, BufRead, IsTerminal, Write, stdout};
+use std::path::{Path, PathBuf};
 use std::{panic, time::Duration};
 
 use termfetch_studio_v2::adapters::backup;
 use termfetch_studio_v2::adapters::cmd_autorun;
 use termfetch_studio_v2::adapters::desktop;
 use termfetch_studio_v2::adapters::doctor::{self, Level};
-use termfetch_studio_v2::adapters::fastfetch::{config, runner};
+use termfetch_studio_v2::adapters::fastfetch::{adapt, config, runner};
 use termfetch_studio_v2::adapters::install;
 use termfetch_studio_v2::adapters::installer;
 use termfetch_studio_v2::adapters::setup;
 use termfetch_studio_v2::adapters::shell;
+use termfetch_studio_v2::adapters::terminal_app;
 use termfetch_studio_v2::adapters::wt_terminal;
 use termfetch_studio_v2::app::actions::Action;
 use termfetch_studio_v2::app::reducer::reduce;
@@ -38,6 +39,7 @@ use termfetch_studio_v2::imaging::kitty;
 use termfetch_studio_v2::imaging::pool::ImagePool;
 use termfetch_studio_v2::imaging::sixel;
 use termfetch_studio_v2::paths::Paths;
+use termfetch_studio_v2::tui::color_depth;
 use termfetch_studio_v2::tui::render::render_ui;
 use termfetch_studio_v2::tui::widgets::preview::{
     ImageState, LogoRaster, PreviewModel, buffer_to_ansi, draw_preview,
@@ -168,6 +170,7 @@ fn print_preview(paths: &Paths, s: &Settings) {
         info_loading: false,
         image,
         geo,
+        fill: false,
     };
     let width = geo.cols.clamp(60, 140);
     let lines = model.lines().len() as u16;
@@ -177,9 +180,7 @@ fn print_preview(paths: &Paths, s: &Settings) {
     let (cw, ch) = model.logo_cells((width, height));
     let grid = logo.existing_image().and_then(|p| pool.grid(p, cw, ch));
     let mut buf = Buffer::empty(area);
-    let raster = grid
-        .as_deref()
-        .map_or(LogoRaster::None, LogoRaster::Halfblock);
+    let raster = grid.as_deref().map_or(LogoRaster::None, LogoRaster::Blocks);
     draw_preview(&mut buf, area, &model, raster, None);
     print!("{}", buffer_to_ansi(&buf));
 }
@@ -270,6 +271,11 @@ fn run_cli(cli: &Cli, paths: &Paths) -> Result<Option<i32>> {
             if let Some(path) = desktop::command_path().filter(|_| cfg!(target_os = "macos")) {
                 report_launcher(&path, desktop::remove_if_ours(&path, desktop::COMMAND_MARK));
             }
+            match terminal_app::remove(&paths.config_dir) {
+                Ok(true) => println!("✓ Terminal.app default profile restored"),
+                Ok(false) => {}
+                Err(e) => println!("! Terminal.app profile not restored: {e:#}"),
+            }
             if cfg!(windows) {
                 println!("✓ {}", cmd_autorun::remove(cmd_autorun::KEY));
                 for path in wt_terminal::settings_files() {
@@ -284,14 +290,21 @@ fn run_cli(cli: &Cli, paths: &Paths) -> Result<Option<i32>> {
                 }
                 return Ok(Some(installer::run_script(&["-Uninstall"])?));
             }
-            println!("Remove the program itself with the package manager you installed it with.");
+            if let Some(dir) = termfetch_studio_v2::paths::app_bundle_bin_dir() {
+                let app = dir.join("../..").canonicalize().unwrap_or(dir);
+                println!("Drag {} to the Trash to remove the app.", app.display());
+            } else {
+                println!(
+                    "Remove the program itself with the package manager you installed it with."
+                );
+            }
         }
         Command::Run => {
             let cfg = paths.studio_config();
             if !cfg.exists() {
                 bail!("no studio config yet - run `termfetch-studio apply` first");
             }
-            runner::run_live(&cfg)?;
+            run_in_terminal(paths, &load_settings(paths).unwrap_or_default(), &cfg)?;
         }
         Command::Demo { state } => {
             let mut s = load_settings(paths)?;
@@ -383,6 +396,28 @@ fn run_cli(cli: &Cli, paths: &Paths) -> Result<Option<i32>> {
         Command::Doctor => return Ok(Some(if print_doctor(paths) { 0 } else { 1 })),
     }
     Ok(Some(0))
+}
+
+/// Run fastfetch in this terminal: the theme colours first where the terminal takes
+/// them, then `config` adapted to what the terminal can show.
+fn run_in_terminal(
+    paths: &Paths,
+    settings: &Settings,
+    config: &Path,
+) -> Result<std::process::ExitStatus> {
+    let caps = adapt::Caps::detect();
+    if settings.apply_terminal_colors
+        && caps.osc_colors
+        && io::stdout().is_terminal()
+        && let Some(t) = get_builtin_themes()
+            .into_iter()
+            .find(|t| t.id == settings.theme)
+    {
+        print!("{}", t.osc_sequences());
+        io::stdout().flush()?;
+    }
+    let cfg = adapt::prepare(config, &paths.cache_dir, &caps).unwrap_or(config.to_path_buf());
+    runner::run_live(&cfg)
 }
 
 // ---------------------------------------------------------------------------
@@ -539,7 +574,9 @@ fn live_fastfetch(terminal: &mut Tui, state: &mut AppState) -> Result<()> {
     restore_terminal(terminal)?;
     print!("\x1b[2J\x1b[H");
     io::stdout().flush()?;
-    let status = runner::run_live(&cfg);
+    let caps = adapt::Caps::detect();
+    let status = adapt::prepare(&cfg, &state.paths.cache_dir, &caps)
+        .and_then(|adapted| runner::run_live(&adapted));
     print!(
         "\n\x1b[2m  Live fastfetch preview ({}) · press Enter to return to TermFetch Studio…\x1b[0m",
         cfg.display()
@@ -589,15 +626,23 @@ fn run_effects(terminal: &mut Tui, state: &mut AppState) -> Result<()> {
     Ok(())
 }
 
+/// Render the UI, reduced to 256 colours on terminals without truecolor.
+fn render(f: &mut ratatui::Frame, state: &mut AppState) {
+    render_ui(f, state);
+    if color_depth::needs_256() {
+        color_depth::downsample(f.buffer_mut());
+    }
+}
+
 /// Draw one frame. A sixel image cannot be erased cell by cell, so when the image
 /// on screen has to change the screen is cleared, repainted and the image placed on top.
 fn draw_frame(terminal: &mut Tui, state: &mut AppState) -> Result<()> {
     state.sixel.begin_frame();
-    terminal.draw(|f| render_ui(f, state))?;
+    terminal.draw(|f| render(f, state))?;
     if state.sixel.is_stale() {
         terminal.clear()?;
         state.sixel.begin_frame();
-        terminal.draw(|f| render_ui(f, state))?;
+        terminal.draw(|f| render(f, state))?;
         if let Some(seq) = state.sixel.place() {
             write_raw(&seq)?;
         }
@@ -753,6 +798,7 @@ fn main() -> Result<()> {
     } else {
         state.sixel.enabled = sixel::detect();
     }
+    state.block_logos = state.kitty.is_none() && !state.sixel.enabled;
     if let Some(e) = load_err {
         state.set_status(
             StatusKind::Warn,
@@ -786,7 +832,7 @@ fn fastfetch_on_exit(state: &AppState) {
         return;
     }
     let _ = io::stdout().flush();
-    match runner::run_live(&cfg) {
+    match run_in_terminal(&state.paths, &state.saved, &cfg) {
         Ok(s) if !s.success() => eprintln!("\x1b[31mfastfetch exited with {s}\x1b[0m"),
         Err(e) => eprintln!("\x1b[31m{e:#}\x1b[0m"),
         Ok(_) => {}
