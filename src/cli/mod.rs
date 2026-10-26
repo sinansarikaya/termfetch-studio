@@ -2,7 +2,7 @@ use clap::{Args, Parser, Subcommand, ValueEnum};
 
 #[derive(Parser, Debug)]
 #[command(
-    name = "termfetch-studio",
+    name = "termfetch",
     author = "Sinan Sarıkaya",
     version,
     about = "Cross-platform terminal customization and Fastfetch theme studio"

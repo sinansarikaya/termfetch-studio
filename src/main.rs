@@ -95,19 +95,19 @@ fn load_settings(paths: &Paths) -> Result<Settings> {
 fn apply_selection(cat: &Catalogue, s: &mut Settings, sel: &Selection) -> Result<()> {
     if let Some(t) = &sel.theme {
         if !cat.themes.iter().any(|x| &x.id == t) {
-            bail!("unknown theme '{t}' (see `termfetch-studio list themes`)");
+            bail!("unknown theme '{t}' (see `termfetch list themes`)");
         }
         s.theme = t.clone();
     }
     if let Some(p) = &sel.preset {
         if !cat.presets.iter().any(|x| &x.id == p) {
-            bail!("unknown preset '{p}' (see `termfetch-studio list presets`)");
+            bail!("unknown preset '{p}' (see `termfetch list presets`)");
         }
         s.preset = p.clone();
     }
     if let Some(l) = &sel.logo {
         if !cat.logos.iter().any(|x| &x.id == l) {
-            bail!("unknown logo '{l}' (see `termfetch-studio list logos`)");
+            bail!("unknown logo '{l}' (see `termfetch list logos`)");
         }
         s.logo = l.clone();
     }
@@ -302,7 +302,7 @@ fn run_cli(cli: &Cli, paths: &Paths) -> Result<Option<i32>> {
         Command::Run => {
             let cfg = paths.studio_config();
             if !cfg.exists() {
-                bail!("no studio config yet - run `termfetch-studio apply` first");
+                bail!("no studio config yet - run `termfetch apply` first");
             }
             run_in_terminal(paths, &load_settings(paths).unwrap_or_default(), &cfg)?;
         }
@@ -741,7 +741,7 @@ fn relaunch_in_windows_terminal() -> bool {
     if !wt.is_file() {
         return false;
     }
-    // Forward the arguments too, so `termfetch-studio settings` still opens Settings.
+    // Forward the arguments too, so `termfetch settings` still opens Settings.
     std::process::Command::new(wt)
         .args(["-w", "new", "--"])
         .arg(exe)

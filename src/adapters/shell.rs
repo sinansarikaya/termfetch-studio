@@ -48,7 +48,7 @@ fn posix_line(exe: Option<&Path>, config: &Path) -> String {
     format!("{cmd} -c '{cfg}'")
 }
 
-/// Block of the macOS app: its commands go on PATH and `termfetch-studio run` adapts
+/// Block of the macOS app: its commands go on PATH and `termfetch run` adapts
 /// fastfetch to the terminal. Skipped quietly once the app has been deleted.
 pub fn bundle_lines(bin_dir: &Path, fish: bool) -> String {
     let q = |p: &Path| {

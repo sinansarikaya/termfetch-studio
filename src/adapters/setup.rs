@@ -31,6 +31,14 @@ pub fn integrate(config: &Path, theme: &Theme, terminal_colors: bool) -> Vec<Str
             }
         }
     }
+    #[cfg(unix)]
+    if let Some(app) = &app {
+        match desktop::link_short_command(app) {
+            Ok(true) => out.push("`termfetch` command added".into()),
+            Ok(false) => {}
+            Err(e) => out.push(format!("`termfetch` command not added: {e:#}")),
+        }
+    }
     if let (true, Some(app), Some(path)) = (cfg!(target_os = "linux"), &app, desktop::path()) {
         match desktop::write(&path, app) {
             Ok(true) => out.push("application menu entry added".into()),

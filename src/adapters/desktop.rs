@@ -101,6 +101,22 @@ pub fn write_command(path: &Path) -> Result<bool> {
     Ok(true)
 }
 
+/// The short command: a `termfetch` symlink beside a plain `termfetch-studio` binary
+/// (cargo install, ~/.local/bin, tarballs). Packages ship their own link; anything
+/// already named `termfetch` is left alone. Returns whether the link was created.
+#[cfg(unix)]
+pub fn link_short_command(exe: &Path) -> Result<bool> {
+    if exe.file_name().is_none_or(|n| n != "termfetch-studio") {
+        return Ok(false);
+    }
+    let link = exe.with_file_name("termfetch");
+    if link.symlink_metadata().is_ok() {
+        return Ok(false);
+    }
+    std::os::unix::fs::symlink("termfetch-studio", &link)?;
+    Ok(true)
+}
+
 /// Remove a file only when it is ours (it carries our marker). Returns whether it was removed.
 pub fn remove_if_ours(path: &Path, marker: &str) -> Result<bool> {
     match std::fs::read_to_string(path) {
@@ -163,6 +179,29 @@ echo mine
             remove_if_ours(&file, COMMAND_MARK).is_err(),
             "someone else's file stays"
         );
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn short_command_links_once_and_keeps_existing_files() {
+        let dir = std::env::temp_dir().join(format!("tfs-short-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let exe = dir.join("termfetch-studio");
+        std::fs::write(&exe, "binary").unwrap();
+        assert!(link_short_command(&exe).unwrap());
+        assert!(!link_short_command(&exe).unwrap());
+        let link = dir.join("termfetch");
+        assert_eq!(
+            std::fs::read_link(&link).unwrap(),
+            Path::new("termfetch-studio")
+        );
+        std::fs::remove_file(&link).unwrap();
+        std::fs::write(&link, "someone else's").unwrap();
+        assert!(!link_short_command(&exe).unwrap());
+        assert_eq!(std::fs::read_to_string(&link).unwrap(), "someone else's");
+        assert!(!link_short_command(&dir.join("other-name")).unwrap());
         let _ = std::fs::remove_dir_all(dir);
     }
 

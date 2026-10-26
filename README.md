@@ -49,15 +49,15 @@ Assets are discovered automatically at runtime (first match wins): `$TERMFETCH_S
 
 ### 🗑️ Uninstall
 - `termfetch uninstall` removes what TermFetch added to your shell startup, launcher and (on Windows) cmd prompt, Windows Terminal profile and colors. Your original Windows Terminal settings are kept in `settings.json.termfetch-backup`.
-- On Windows, `termfetch-studio uninstall` also removes the install folder, the PATH entry and the Start Menu shortcuts. On Linux and macOS, remove the program with the package manager you used.
+- On Windows, `termfetch uninstall` also removes the install folder, the PATH entry and the Start Menu shortcuts. On Linux and macOS, remove the program with the package manager you used.
 
 ---
 
 ## TUI
 
 ```bash
-termfetch-studio            # uses the saved demo setting
-termfetch-studio --no-demo  # start with real specs
+termfetch            # uses the saved demo setting
+termfetch --no-demo  # start with real specs
 ```
 
 Layout (the "Studio" design): a header bar with brand, fastfetch status,
@@ -103,18 +103,20 @@ Force a mode with `TERMFETCH_STUDIO_GRAPHICS=kitty` or `=halfblock`.
 
 ## CLI
 
+`termfetch` is the short command; `termfetch-studio` keeps working as the full name. Packages install both, and a plain binary install adds the `termfetch` link next to itself on first start.
+
 ```bash
 termfetch apply --theme nord --preset developer --logo pikachu --logo-size large
-termfetch-studio preview --theme dracula --preset minimal      # ANSI preview to stdout
-termfetch-studio demo on|off|toggle|status
-termfetch-studio list themes|presets|logos|modules|colors
-termfetch-studio backup create|list|restore <name>|delete <name>
-termfetch-studio run          # fastfetch with the studio config
-termfetch-studio settings     # open the Settings screen
-termfetch-studio setup        # write configs and the shell/system integration again
-termfetch-studio install      # Windows: install for this user (same as install.cmd)
-termfetch-studio uninstall    # remove what TermFetch added to this system
-termfetch-studio doctor       # also: --doctor
+termfetch preview --theme dracula --preset minimal      # ANSI preview to stdout
+termfetch demo on|off|toggle|status
+termfetch list themes|presets|logos|modules|colors
+termfetch backup create|list|restore <name>|delete <name>
+termfetch run          # fastfetch with the studio config
+termfetch settings     # open the Settings screen
+termfetch setup        # write configs and the shell/system integration again
+termfetch install      # Windows: install for this user (same as install.cmd)
+termfetch uninstall    # remove what TermFetch added to this system
+termfetch doctor       # also: --doctor
 ```
 
 ## Files
