@@ -10,7 +10,7 @@ Cross-platform terminal customization and Fastfetch theme studio — built in Ru
 
 ## Installation
 
-The verified public release is [v2.0.0](https://github.com/sinansarikaya/termfetch-studio/releases/tag/v2.0.0). This checkout is source version 2.1.0 and includes newer installer and branding work that is not in those downloads. The rest of this README describes current source unless a published release is named explicitly.
+The verified public release is [v2.0.0](https://github.com/sinansarikaya/termfetch-studio/releases/tag/v2.0.0). This checkout is source version 2.1.1 and includes newer installer and branding work that is not in those downloads. The rest of this README describes current source unless a published release is named explicitly.
 
 Keep the extracted `assets` directory beside the executable. Install Fastfetch separately for native output.
 
