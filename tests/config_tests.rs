@@ -251,7 +251,10 @@ fn generated_config_runs_in_fastfetch_when_available() {
     let logos = builtin_logos(&paths);
     let geo = TermGeometry::from_window(160, 48, 1600, 960);
     for preset in &presets {
-        let s = Settings::default();
+        let s = Settings {
+            demo_mode: true,
+            ..Settings::default()
+        };
         let text = config::render(&themes[0], preset, &logos[0], &s, &paths, &geo).unwrap();
         let file = root.join(format!("{}.jsonc", preset.id));
         std::fs::write(&file, text).unwrap();

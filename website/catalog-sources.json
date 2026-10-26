@@ -1,10 +1,10 @@
 {
-  "Cargo.toml": "5249d8fd5048d4161e105bb7824a42f3f7cb452c00c1989dc69f1bdf13129e00",
+  "Cargo.toml": "4a9073606334c1b501f5d6f8dbe858ce7d427a78387a81b10eb434675ec0a6f6",
   "src/domain/theme.rs": "c493ef6d8af7aac057fa8016b80a54cbdcd254b591a8bbad017d610c041567b8",
   "src/domain/preset.rs": "cad4be4620291e698448986c7b4a7c95b088382764c1635b7eeaba463dde02df",
-  "src/domain/logo.rs": "b7c0fd8b09fe32c37e6345db37aeae60e8356c69c7e0fbf8946c4acfb07ff908",
-  "src/domain/settings.rs": "fddae6ae92a091fd43739b154cf1f6d8c474d493e297a8747e43b4070793675f",
-  "src/domain/color.rs": "ccabd95eac962b982fac7d5625c7261e05a4ae539719167eb6cb89914fd5ab5f",
+  "src/domain/logo.rs": "740e04afb042074f53d28820ba110f99840f78e44ac5e1d931baf52d6df95d7f",
+  "src/domain/settings.rs": "4e4d1a0943644b57048cdcb07b5423445c0e18b7dc8404cd684bce0df26f880d",
+  "src/domain/color.rs": "5b80d6b772337e8ca87d7e950436f4a02d15688bb90424abacddad00ad78fbd5",
   "src/domain/style.rs": "18516d6b9192661c4358d42ba2cccb49294172b4a5bf7b5c16d107ad28c0eaa3",
   "src/adapters/fastfetch/config.rs": "1a709d985385407a2dad3ad4da5448142abbf200046583ef9cad420f15741e08"
 }

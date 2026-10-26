@@ -18,8 +18,10 @@ export function extract(sources) {
  const logos=[...logo.matchAll(/LogoItem \{\s*id: "([^"]+)"([\s\S]*?)file_path: None,/g)].filter(m=>m[2].includes('art: r#"')).map(m=>({id:m[1],name:field(m[2],'name'),group:m[2].match(/group: LogoGroup::(\w+)/)[1],kind:'ascii',art:m[2].match(/art: r#"([\s\S]*?)"#/)[1]}));
  for(const m of logo.matchAll(/\("([^"]+\.png)", "([^"]+)"\)/g)) logos.push({id:m[1].slice(0,-4),name:m[2],group:'PresetImage',kind:'image',file:m[1]});
  logos.push({id:'custom-user-image',name:'Custom Image (custom.png)',group:'Custom',kind:'custom'});
- const settings=sources['src/domain/settings.rs']; const defaults={theme:field(settings,'theme'),preset:field(settings,'preset'),logo:field(settings,'logo'),logo_size:'medium',demo_mode:true,custom_modules:custom,icon_color:'theme',text_color:'theme',group_colors:{os:'inherit',desktop:'inherit',hardware:'inherit',network:'inherit',time:'inherit'},apply_terminal_colors:true,run_fastfetch_on_exit:true,ui_follow_theme:false};
+ const settings=sources['src/domain/settings.rs']; // The app picks the Apple logo on macOS; the browser studio keeps the other platforms' default.
+ const platformLogo=settings.match(/\blogo:\s*if cfg!\([^)]*\)\s*\{\s*"[^"]*"\s*\}\s*else\s*\{\s*"([^"]*)"/);
+ const defaults={theme:field(settings,'theme'),preset:field(settings,'preset'),logo:platformLogo?platformLogo[1]:field(settings,'logo'),logo_size:'medium',demo_mode:true,custom_modules:custom,icon_color:'theme',text_color:'theme',group_colors:{os:'inherit',desktop:'inherit',hardware:'inherit',network:'inherit',time:'inherit'},apply_terminal_colors:true,run_fastfetch_on_exit:true,ui_follow_theme:false};
  const palette=[...sources['src/domain/color.rs'].matchAll(/\("([^"]+)", "([^"]+)"\)/g)].map(m=>({value:m[1],label:m[2]}));
- if(themes.length<20||presets.length!==6||modules.length!==25||logos.length!==30||modules.some(m=>!m.group||!m.demo)) throw Error('Catalog shape changed; update extractor.');
+ if(themes.length<20||presets.length!==6||modules.length!==25||logos.length!==31||modules.some(m=>!m.group||!m.demo)) throw Error('Catalog shape changed; update extractor.');
  return {version:sources['Cargo.toml'].match(/version = "([^"]+)"/)[1],themes,presets,modules,logos,demo,defaults,palette};
 }
