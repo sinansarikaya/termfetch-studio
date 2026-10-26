@@ -11,10 +11,12 @@
 - 111 Rust tests, 3 brand tests, 2 packaging tests with multiple fixtures, real published archive staging, Clippy and rustfmt passed.
 - Website build/lint, 360 catalog combinations, zero npm advisories and eight headed browser groups passed. Independent native/container review passed.
 
+- Final independent website acceptance recorded as website-release-acceptance.
+- Published through GitHub main and Dokploy MainServer at https://termfetch-studio.sinansarikaya.dev. HTTPS, routes, icons, redirects and live build identity verified.
+- GitHub Website CI and Linux/macOS/Windows CI Matrix passed for c00d932.
+
 ## In progress
 
-- Final website production image, source and evidence review.
-- GitHub push, Dokploy MainServer deployment to termfetch-studio.sinansarikaya.dev and live checks.
 - Separate Codex agent: Turkish horizontal/vertical OpenMontage promo in ~/youtube/videos/termfetch-studio-promo-20261026.
 
 ## Notes
