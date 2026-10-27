@@ -161,13 +161,24 @@ pub fn version() -> Option<String> {
 }
 
 /// Real values shown in the preview when demo mode is off.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
 pub struct RealInfo {
     pub title: Option<String>,
     pub values: HashMap<ModuleKind, String>,
 }
 
 impl RealInfo {
+    /// Values of the previous run, shown at once while the probe refreshes them.
+    pub fn load_cached(path: &Path) -> Option<Self> {
+        serde_json::from_slice(&std::fs::read(path).ok()?).ok()
+    }
+
+    pub fn save_cached(&self, path: &Path) {
+        if let Ok(data) = serde_json::to_vec(self) {
+            let _ = atomic_write(path, &data);
+        }
+    }
+
     pub fn get(&self, m: ModuleKind) -> Option<&str> {
         self.values.get(&m).map(String::as_str)
     }
