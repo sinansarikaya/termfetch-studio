@@ -187,7 +187,8 @@ pub fn render_sidebar(f: &mut Frame, area: Rect, state: &mut AppState) {
             Style::new().fg(pal.muted).bg(pal.bg),
         )),
     );
-    line_at(buf, text, 4, Line::from(theme_dots(theme, tw >= 15)));
+    // Under the art, across the full width, so the dots keep their spacing.
+    line_at(buf, c, 5, Line::from(theme_dots(theme, c.width >= 15)));
 
     // CURRENT PRESET
     let preset = state.current_preset();
