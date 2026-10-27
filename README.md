@@ -92,7 +92,6 @@ Force a mode with `TERMFETCH_STUDIO_GRAPHICS=kitty` or `=halfblock`.
 | `a` / `A` | apply theme to system: save settings and write both fastfetch configs |
 | `1`–`8` | jump to a screen (on the Dashboard stage `1`–`4` run the quick actions) |
 | `p` | run the real fastfetch with the current, unsaved selection |
-| `d` | toggle privacy demo mode (persisted, config regenerated) |
 | `s` | cycle image logo size (small / medium / large) |
 | `o` | cycle the preview output (terminal preview / generated config) |
 | `Space`, `J`/`K` | Modules: toggle / reorder modules |

@@ -1,4 +1,4 @@
-//! Renders all TUI screens and pixel art thumbnails to a JSON representation
+//! Renders all TUI screens and theme swatch thumbnails to a JSON representation
 //! for pixel-perfect screenshot generation.
 use ratatui::Terminal;
 use ratatui::backend::TestBackend;
@@ -13,7 +13,7 @@ use termfetch_studio_v2::domain::theme::get_builtin_themes;
 use termfetch_studio_v2::imaging::TermGeometry;
 use termfetch_studio_v2::paths::Paths;
 use termfetch_studio_v2::tui::render::render_ui;
-use termfetch_studio_v2::tui::widgets::ui::{draw_thumbnail, draw_thumbnail_compact};
+use termfetch_studio_v2::tui::widgets::ui::draw_thumbnail;
 
 #[derive(Serialize)]
 struct CellDump {
@@ -114,20 +114,20 @@ fn main() {
         let _ = std::fs::remove_dir_all(temp_dir);
     }
 
-    // Dump Gallery Thumbnails (64x16 each)
+    // Dump Gallery Thumbnails (26x6 each)
     let themes = get_builtin_themes();
     for t in &themes {
-        let area = Rect::new(0, 0, 64, 16);
+        let area = Rect::new(0, 0, 26, 6);
         let mut buf = Buffer::empty(area);
         draw_thumbnail(&mut buf, area, t);
         dumps.push(dump_buffer(&format!("gallery_{}", t.id), &buf));
     }
 
-    // Dump Compact Thumbnails (26x5 each)
+    // Dump Sidebar Thumbnails (9x3 each)
     for t in &themes {
-        let area = Rect::new(0, 0, 26, 5);
+        let area = Rect::new(0, 0, 9, 3);
         let mut buf = Buffer::empty(area);
-        draw_thumbnail_compact(&mut buf, area, t);
+        draw_thumbnail(&mut buf, area, t);
         dumps.push(dump_buffer(&format!("compact_{}", t.id), &buf));
     }
 

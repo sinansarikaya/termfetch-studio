@@ -10,12 +10,11 @@ use ratatui::{
     widgets::{Block, Borders, Widget},
 };
 
-const KEYS: [(&str, &str); 6] = [
+const KEYS: [(&str, &str); 5] = [
     ("?", "Navigate"),
     ("↕", "Move"),
     ("Enter", "Select"),
     ("Tab", "Next Section"),
-    ("d", "Demo Mode"),
     ("p", "Run Fastfetch"),
 ];
 
