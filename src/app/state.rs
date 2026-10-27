@@ -601,10 +601,13 @@ impl AppState {
 
     /// Probe real system values in the background (only needed with demo mode off).
     pub fn start_real_probe(&mut self) {
-        if self.real_info.is_some() || self.real_rx.is_some() {
+        if self.real_rx.is_some() {
             return;
         }
         let have_fastfetch = self.fastfetch_version.is_some();
+        let cached = self.paths.cache_dir.join("real-info.json");
+        self.real_info = RealInfo::load_cached(&cached);
+        let previous = self.real_info.clone().unwrap_or_default();
         let (tx, rx) = std::sync::mpsc::channel();
         let scratch = self.paths.cache_dir.join("probe.jsonc");
         std::thread::spawn(move || {
@@ -618,14 +621,24 @@ impl AppState {
                 .iter()
                 .partition(|m| m.timeout_ms().is_some());
             let mut info = runner::probe_real_info(&local, &scratch).unwrap_or_default();
+            // Keep the last public IP on screen until the lookup answers.
+            for m in &net {
+                if let Some(v) = previous.get(*m) {
+                    info.values.insert(*m, v.to_string());
+                }
+            }
             if tx.send(info.clone()).is_err() {
                 return;
             }
             let scratch = scratch.with_file_name("probe-net.jsonc");
             if let Ok(extra) = runner::probe_real_info(&net, &scratch) {
+                for m in &net {
+                    info.values.remove(m);
+                }
                 info.values.extend(extra.values);
-                let _ = tx.send(info);
             }
+            info.save_cached(&cached);
+            let _ = tx.send(info);
         });
         self.real_rx = Some(rx);
     }

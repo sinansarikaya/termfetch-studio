@@ -114,6 +114,37 @@ pub fn targets(
     out
 }
 
+/// Whether the startup file runs fastfetch (or TermFetch) on its own, outside
+/// the app's block. Aliases, conditions and comments do not count.
+fn runs_fetch_outside_block(text: &str) -> bool {
+    let mut inside = false;
+    text.lines().any(|line| {
+        let l = line.trim();
+        if l.starts_with(BEGIN) {
+            inside = true;
+        } else if l.starts_with(END) {
+            inside = false;
+            return false;
+        }
+        if inside {
+            return false;
+        }
+        let l = l
+            .trim_start_matches("exec ")
+            .trim_start_matches("command ")
+            .trim_start_matches("& ");
+        ["fastfetch", "termfetch", "termfetch-studio"]
+            .iter()
+            .any(|cmd| {
+                l.split_whitespace().next().is_some_and(|w| {
+                    w.trim_matches(['\'', '"'])
+                        .trim_end_matches(".exe")
+                        .ends_with(cmd)
+                })
+            })
+    })
+}
+
 /// Write the block to `path`: appended when missing, replaced when its content differs.
 /// Returns whether the file changed.
 pub fn add_block(path: &Path, line: &str) -> io::Result<bool> {
@@ -122,6 +153,10 @@ pub fn add_block(path: &Path, line: &str) -> io::Result<bool> {
         Err(e) if e.kind() == io::ErrorKind::NotFound => String::new(),
         Err(e) => return Err(e),
     };
+    // The user already starts fastfetch themselves: a second block would print it twice.
+    if runs_fetch_outside_block(&existing) {
+        return remove_block(path);
+    }
     let block = format!("{BEGIN}\n{line}\n{END}\n");
     let text = match (existing.find(BEGIN), existing.find(END)) {
         (Some(start), Some(end)) if end > start => {
@@ -183,7 +218,33 @@ pub fn integrate(config: &Path) -> io::Result<Vec<PathBuf>> {
             changed.push(target.path);
         }
     }
+    // Other shells the block was added to earlier (the login shell changed, or a
+    // terminal starts another shell): keep them current too.
+    if current_os() != Os::Windows {
+        for path in posix_startup_files(&home) {
+            let has_block = fs::read_to_string(&path).is_ok_and(|t| t.contains(BEGIN));
+            if !has_block || changed.contains(&path) {
+                continue;
+            }
+            let line = match &bin_dir {
+                Some(dir) => bundle_lines(dir, path.ends_with("config.fish")),
+                None => posix_line(exe.as_deref(), config),
+            };
+            if add_block(&path, &line)? {
+                changed.push(path);
+            }
+        }
+    }
     Ok(changed)
+}
+
+fn posix_startup_files(home: &Path) -> [PathBuf; 4] {
+    [
+        home.join(".bashrc"),
+        home.join(".bash_profile"),
+        home.join(".zshrc"),
+        home.join(".config").join("fish").join("config.fish"),
+    ]
 }
 
 /// Remove the app's block from `path`. Returns whether the file changed.
@@ -216,12 +277,7 @@ pub fn remove_all() -> io::Result<Vec<PathBuf>> {
         .ok_or_else(|| io::Error::other("home directory unknown"))?;
     let documents =
         directories::UserDirs::new().and_then(|u| u.document_dir().map(Path::to_path_buf));
-    let mut candidates = vec![
-        home.join(".bashrc"),
-        home.join(".bash_profile"),
-        home.join(".zshrc"),
-        home.join(".config").join("fish").join("config.fish"),
-    ];
+    let mut candidates = posix_startup_files(&home).to_vec();
     if let Some(docs) = documents {
         candidates.push(
             docs.join("PowerShell")
@@ -355,6 +411,33 @@ mod tests {
             fs::read_to_string(&file).unwrap(),
             format!("before\n{BEGIN}\nnew line\n{END}\nafter\n")
         );
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn own_fastfetch_startup_is_not_doubled() {
+        let dir = temp("own-fetch");
+        let file = dir.join("config.fish");
+        let own = "if type -q fastfetch\n    # comment fastfetch\n    fastfetch --config ~/x.jsonc\nend\nalias clear=\"clear; and fastfetch\"\n";
+        fs::write(&file, format!("{own}{BEGIN}\nfastfetch -c '/c'\n{END}\n")).unwrap();
+        assert!(
+            add_block(&file, "fastfetch -c '/c'").unwrap(),
+            "block removed"
+        );
+        assert_eq!(fs::read_to_string(&file).unwrap(), own);
+        assert!(
+            !add_block(&file, "fastfetch -c '/c'").unwrap(),
+            "and not added back"
+        );
+        // Aliases and conditions alone do not start fastfetch.
+        let only_alias = dir.join("zshrc");
+        fs::write(
+            &only_alias,
+            "alias ff=fastfetch\nif command -v fastfetch; then :; fi\n",
+        )
+        .unwrap();
+        assert!(add_block(&only_alias, "fastfetch").unwrap());
+        assert!(fs::read_to_string(&only_alias).unwrap().contains(BEGIN));
         let _ = fs::remove_dir_all(dir);
     }
 

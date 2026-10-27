@@ -112,6 +112,18 @@ fn is_swatch(
     if sym == "●" || sym == "▀" || sym == "▄" || is_theme_art(themes, &buf[(x, y)]) {
         return true;
     }
+    // The art's `cyberdeck@studio` title, in the theme's primary colour.
+    let cell = &buf[(x, y)];
+    if "cyberdeck@studio…".contains(sym)
+        && themes
+            .iter()
+            .any(|t| cell.bg == t.background_color() && cell.fg == t.primary_color())
+    {
+        let row: String = (0..W).map(|i| buf[(i, y)].symbol()).collect();
+        if row.contains("cyberdeck@stud") {
+            return true;
+        }
+    }
     match screen {
         Screen::Settings => {
             sym == "█"
