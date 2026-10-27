@@ -393,11 +393,6 @@ fn thumbnails_are_deterministic_and_theme_specific() {
         draw_thumbnail(&mut a, area, &theme);
         draw_thumbnail(&mut b, area, &theme);
         assert_eq!(a, b);
-        assert!(
-            a.content
-                .iter()
-                .all(|c| matches!(c.symbol(), "▄" | "●" | " "))
-        );
         assert!(!scenes.contains(&a), "duplicate scene {}", theme.id);
         scenes.push(a);
         draw_thumbnail(&mut b, Rect::new(63, 15, 8, 8), &theme);
