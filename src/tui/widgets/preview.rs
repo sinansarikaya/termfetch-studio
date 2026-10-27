@@ -120,14 +120,15 @@ impl PreviewModel<'_> {
         }
     }
 
-    fn value(&self, m: crate::domain::preset::ModuleKind) -> String {
+    /// `None` when fastfetch reported nothing: like fastfetch, the line is left out.
+    fn value(&self, m: crate::domain::preset::ModuleKind) -> Option<String> {
         if self.settings.demo_mode {
-            return m.demo_value().to_string();
+            return Some(m.demo_value().to_string());
         }
         match self.info.and_then(|i| i.get(m)) {
-            Some(v) => v.to_string(),
-            None if self.info_loading || self.info.is_none() => "…".into(),
-            None => "-".into(),
+            Some(v) => Some(v.to_string()),
+            None if self.info_loading || self.info.is_none() => Some("…".into()),
+            None => None,
         }
     }
 
@@ -191,11 +192,19 @@ impl PreviewModel<'_> {
             out.push(Line::default());
         }
 
-        for (i, section) in self.preset.sections.iter().enumerate() {
-            if i > 0 {
+        let mut first = true;
+        for section in &self.preset.sections {
+            let shown: Vec<_> = section
+                .iter()
+                .filter_map(|&m| self.value(m).map(|v| (m, v)))
+                .collect();
+            if shown.is_empty() {
+                continue;
+            }
+            if !std::mem::take(&mut first) {
                 out.push(Line::default());
             }
-            for &m in section {
+            for (m, value) in shown {
                 let colors = style::module_colors(self.theme, self.settings, m.group());
                 let key = module_key(m);
                 let lead = key.width() + SEPARATOR.width();
@@ -211,10 +220,7 @@ impl PreviewModel<'_> {
                     ),
                     Span::styled(SEPARATOR, base),
                     Span::styled(" ".repeat(pad), base),
-                    Span::styled(
-                        self.value(m),
-                        Style::new().fg(colors.output.tui_color(fg)).bg(bg),
-                    ),
+                    Span::styled(value, Style::new().fg(colors.output.tui_color(fg)).bg(bg)),
                 ]));
             }
         }
