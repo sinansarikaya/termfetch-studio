@@ -1,19 +1,15 @@
 //! Themes: a scrollable grid of thumbnail cards.
 
 use crate::app::state::{AppState, Focus, Hit};
-use crate::tui::palette::Palette;
 use crate::tui::widgets::list::{panel, screen_frame};
-use crate::tui::widgets::ui::{card, draw_thumbnail, ellipsize, fill, line_at, theme_dots};
+use crate::tui::widgets::ui::{THEME_CARD_H, THEME_CARD_W, draw_theme_card, line_at};
 use ratatui::{
     Frame,
     layout::{Constraint, Layout, Rect},
-    style::{Modifier, Style},
+    style::Style,
     text::{Line, Span},
     widgets::Widget,
 };
-
-const CARD_MIN_W: u16 = 30;
-const CARD_H: u16 = 11;
 
 pub fn render_themes(f: &mut Frame, area: Rect, state: &mut AppState) {
     let pal = state.palette();
@@ -51,9 +47,9 @@ pub fn render_themes(f: &mut Frame, area: Rect, state: &mut AppState) {
         width: inner.width.saturating_sub(2),
         height: inner.height.saturating_sub(2),
     };
-    let cols = usize::from((inner.width + 1) / (CARD_MIN_W + 1)).max(1);
-    let card_h = if inner.height >= CARD_H {
-        CARD_H
+    let cols = usize::from((inner.width + 1) / (THEME_CARD_W + 1)).max(1);
+    let card_h = if inner.height >= THEME_CARD_H {
+        THEME_CARD_H
     } else {
         inner.height
     };
@@ -90,62 +86,15 @@ pub fn render_themes(f: &mut Frame, area: Rect, state: &mut AppState) {
             } else {
                 pal.border
             };
-            let block = card(&pal, sel)
-                .style(Style::new().bg(pal.raised).fg(pal.fg))
-                .border_style(Style::new().fg(border).bg(pal.surface));
-            let ti = block.inner(rect);
-            block.render(rect, f.buffer_mut());
-            let thumb_h = ti.height.saturating_sub(2).min(7);
-            draw_thumbnail(
+            draw_theme_card(
                 f.buffer_mut(),
-                Rect {
-                    height: thumb_h,
-                    ..ti
-                },
+                rect,
+                &pal,
                 t,
+                border,
+                sel,
+                (t.id == applied).then_some(" ✓ applied"),
             );
-            if t.id == applied && ti.width >= 10 && thumb_h > 0 {
-                line_at(
-                    f.buffer_mut(),
-                    Rect {
-                        x: ti.right() - 10,
-                        width: 10,
-                        ..ti
-                    },
-                    0,
-                    Line::from(Span::styled(
-                        " ✓ applied",
-                        Palette::pill(pal.accent_fill).add_modifier(Modifier::BOLD),
-                    )),
-                );
-            }
-            let tw = usize::from(ti.width.saturating_sub(1));
-            let name_bg = if sel { pal.sel_bg } else { pal.raised };
-            let name_row = Rect {
-                y: ti.y + thumb_h,
-                height: 1,
-                ..ti
-            };
-            fill(
-                f.buffer_mut(),
-                name_row.intersection(ti),
-                Style::new().bg(name_bg),
-            );
-            line_at(
-                f.buffer_mut(),
-                ti,
-                thumb_h,
-                Line::from(Span::styled(
-                    format!(" {}", ellipsize(&t.name, tw.saturating_sub(1))),
-                    Style::new()
-                        .fg(if sel { pal.primary } else { pal.fg })
-                        .bg(name_bg)
-                        .add_modifier(Modifier::BOLD),
-                )),
-            );
-            let mut dots = vec![Span::raw(" ")];
-            dots.extend(theme_dots(t, tw >= 17));
-            line_at(f.buffer_mut(), ti, thumb_h + 1, Line::from(dots));
             state.hits.push((rect, Hit::ThemeCard(theme_index)));
         }
     }
