@@ -81,6 +81,8 @@ pub struct ModuleConfig {
     pub output_color: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub key_width: Option<u16>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub timeout: Option<u32>,
 }
 
 /// How the logo is rendered by fastfetch.
@@ -213,6 +215,7 @@ pub fn build_config(
                 key_color: Some(colors.key.fastfetch_value()),
                 output_color: Some(colors.output.fastfetch_value()),
                 key_width: Some(KEY_WIDTH),
+                timeout: m.timeout_ms(),
             }));
         }
     }

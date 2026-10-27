@@ -11,7 +11,7 @@ use termfetch_studio_v2::domain::theme::get_builtin_themes;
 use termfetch_studio_v2::imaging::TermGeometry;
 use termfetch_studio_v2::paths::Paths;
 use termfetch_studio_v2::tui::render::render_ui;
-use termfetch_studio_v2::tui::widgets::ui::{draw_thumbnail, draw_thumbnail_compact};
+use termfetch_studio_v2::tui::widgets::ui::draw_thumbnail;
 
 fn test_app(prefix: &str) -> (AppState, std::path::PathBuf) {
     let root = std::env::temp_dir().join(format!("tfs-test-{}-{}", prefix, std::process::id()));
@@ -28,48 +28,27 @@ fn test_app(prefix: &str) -> (AppState, std::path::PathBuf) {
 }
 
 #[test]
-fn pixel_art_gallery_and_compact_profiles_are_distinct() {
+fn theme_swatches_show_background_lines_and_dots() {
     let themes = get_builtin_themes();
     assert_eq!(themes.len(), 40);
 
-    let gallery_area = Rect::new(0, 0, 64, 16);
-    let compact_area = Rect::new(0, 0, 26, 5);
-
-    // Verify all 40 themes render cleanly without panics
-    for t in &themes {
-        let mut gbuf = Buffer::empty(gallery_area);
-        let mut cbuf = Buffer::empty(compact_area);
-        draw_thumbnail(&mut gbuf, gallery_area, t);
-        draw_thumbnail_compact(&mut cbuf, compact_area, t);
-
-        assert!(gbuf.content.iter().all(|c| c.symbol() == "▀"));
-        assert!(cbuf.content.iter().all(|c| c.symbol() == "▀"));
-    }
-
-    // Explicit check for the 8 key focus themes:
-    // Rendered at the same dimension, Gallery and Compact must be distinctly different compositions!
-    let focus = [
-        "everforest",
-        "one-dark",
-        "monokai-pro",
-        "tokyo-night",
-        "nord",
-        "dracula",
-        "catppuccin-mocha",
-        "synthwave",
-    ];
-
-    let comp_area = Rect::new(0, 0, 32, 8);
-    for id in focus {
-        let theme = themes.iter().find(|t| t.id == id).expect("theme exists");
-        let mut g = Buffer::empty(comp_area);
-        let mut c = Buffer::empty(comp_area);
-        draw_thumbnail(&mut g, comp_area, theme);
-        draw_thumbnail_compact(&mut c, comp_area, theme);
-        assert_ne!(
-            g, c,
-            "Theme {id} must have distinct Gallery and Compact compositions!"
-        );
+    // Gallery card, dashboard card and the tiny sidebar chip.
+    for area in [
+        Rect::new(0, 0, 26, 6),
+        Rect::new(0, 0, 18, 4),
+        Rect::new(0, 0, 9, 3),
+    ] {
+        for t in &themes {
+            let mut buf = Buffer::empty(area);
+            draw_thumbnail(&mut buf, area, t);
+            let bg = t.background_color();
+            assert!(buf.content.iter().all(|c| c.bg == bg), "{} bg", t.id);
+            let bars: Vec<_> = buf.content.iter().filter(|c| c.symbol() == "▄").collect();
+            assert!(!bars.is_empty(), "{} has no info lines", t.id);
+            assert!(bars.iter().all(|c| c.fg == t.primary_color()));
+            let dots = buf.content.iter().filter(|c| c.symbol() == "●").count();
+            assert_eq!(dots, 3, "{} at {area:?}", t.id);
+        }
     }
 }
 

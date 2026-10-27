@@ -64,6 +64,12 @@ impl ModuleKind {
         Self::Media,
     ];
 
+    /// Network lookup timeout in ms. Without one fastfetch waits forever for
+    /// the public IP when the network is slow or offline.
+    pub fn timeout_ms(self) -> Option<u32> {
+        (self == Self::PublicIp).then_some(2000)
+    }
+
     pub fn fastfetch_type(self) -> &'static str {
         match self {
             Self::Os => "os",

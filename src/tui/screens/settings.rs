@@ -72,9 +72,9 @@ pub fn render_settings(f: &mut Frame, area: Rect, state: &mut AppState) {
             on_off(s.demo_mode, "ON", "OFF"),
             Span::styled(
                 if s.demo_mode {
-                    "privacy-safe mock specs (d)"
+                    "privacy-safe mock specs"
                 } else {
-                    "real system specs (d)"
+                    "real system specs"
                 },
                 Style::new().fg(pal.dim),
             ),
