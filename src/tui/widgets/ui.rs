@@ -158,9 +158,9 @@ const ART: [&str; 4] = ["   /\\   ", "  /  \\  ", " / /\\ \\ ", "/_/  \\_\\"];
 const BARS: [f64; 5] = [0.82, 0.62, 0.94, 0.72, 0.48];
 
 /// Theme art, like the website's cards: a mini fastfetch in the theme's real
-/// colours. The logo uses the primary colour, each module group gets an
-/// `├ ▪ →` line with a bar in its colour, and the palette dots sit below.
-/// Narrow areas (dashboard, sidebar) drop the logo and keep the lines.
+/// colours. The logo and title use the primary colour and each module group
+/// gets an `├ ▪ →` line with a bar in its colour. Narrow areas (dashboard,
+/// sidebar) drop the logo and keep the lines.
 pub fn draw_thumbnail(buf: &mut Buffer, area: Rect, theme: &Theme) {
     let area = area.intersection(buf.area);
     if area.is_empty() {
@@ -179,56 +179,52 @@ pub fn draw_thumbnail(buf: &mut Buffer, area: Rect, theme: &Theme) {
         &theme.groups.time,
     ]
     .map(|c| Theme::parse_color(c));
+    let primary = Style::new().fg(theme.primary_color()).bg(bg);
 
-    let pad = u16::from(area.width >= 12);
+    let pad = if area.width >= 24 {
+        2
+    } else {
+        u16::from(area.width >= 12)
+    };
     let x0 = area.x + pad;
     let w = area.width.saturating_sub(pad * 2);
-    let show_logo = w >= 17 && area.height >= 4;
-    let with_dots = area.height >= 6;
-    let rows = (area.height - u16::from(with_dots)).min(BARS.len() as u16);
-    let top = area.y + u16::from(area.height >= 7);
+    let show_logo = w >= 20 && area.height >= 4;
+    let lx = if show_logo { x0 + 10 } else { x0 };
+    let lw = (x0 + w).saturating_sub(lx);
+    let mut y = area.y + u16::from(area.height >= 7);
+    if area.height >= 6 {
+        buf.set_stringn(
+            lx,
+            y,
+            ellipsize("cyberdeck@studio", usize::from(lw)),
+            usize::from(lw),
+            primary,
+        );
+        y += 1;
+    }
+    let rows = area.bottom().saturating_sub(y).min(BARS.len() as u16);
 
     if show_logo {
-        let ly = top + rows.saturating_sub(ART.len() as u16) / 2;
+        let ly = y + rows.saturating_sub(ART.len() as u16) / 2;
         for (i, l) in ART.iter().enumerate() {
-            let y = ly + i as u16;
-            if y < area.bottom() {
-                buf.set_string(x0, y, l, Style::new().fg(theme.primary_color()).bg(bg));
+            let row = ly + i as u16;
+            if row < area.bottom() {
+                buf.set_string(x0, row, l, primary);
             }
         }
     }
-    let lx = match (show_logo, w >= 24) {
-        (false, _) => x0,
-        (true, true) => x0 + 10,
-        (true, false) => x0 + 9,
-    };
-    let lw = (x0 + w).saturating_sub(lx);
     let prefix = if lw >= 12 { "├ ▪ → " } else { "├→" };
     let bar_w = lw.saturating_sub(prefix.chars().count() as u16);
     for (i, &c) in groups.iter().enumerate().take(usize::from(rows)) {
-        let y = top + i as u16;
-        buf.set_stringn(lx, y, prefix, usize::from(lw), Style::new().fg(c).bg(bg));
+        let row = y + i as u16;
+        buf.set_stringn(lx, row, prefix, usize::from(lw), Style::new().fg(c).bg(bg));
         let n = ((f64::from(bar_w) * BARS[i]).round() as u16)
             .max(1)
             .min(bar_w);
         let bx = lx + prefix.chars().count() as u16;
         for dx in 0..n {
-            if let Some(cell) = buf.cell_mut((bx + dx, y)) {
+            if let Some(cell) = buf.cell_mut((bx + dx, row)) {
                 cell.set_char('━').set_fg(c).set_bg(bg);
-            }
-        }
-    }
-    if with_dots {
-        let y = top + rows;
-        let dots = style::dot_colors(theme, &Settings::default());
-        let fg = theme.text_color();
-        for (i, c) in dots.iter().enumerate() {
-            let x = lx + i as u16;
-            if x >= area.right() || y >= area.bottom() {
-                break;
-            }
-            if let Some(cell) = buf.cell_mut((x, y)) {
-                cell.set_char('●').set_fg(c.tui_color(fg)).set_bg(bg);
             }
         }
     }

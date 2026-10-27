@@ -29,13 +29,13 @@ fn test_app(prefix: &str) -> (AppState, std::path::PathBuf) {
 }
 
 #[test]
-fn theme_art_shows_logo_group_lines_and_dots() {
+fn theme_art_shows_logo_title_and_group_lines() {
     let themes = get_builtin_themes();
     assert_eq!(themes.len(), 40);
 
     // Gallery card, dashboard card and the tiny sidebar chip.
-    for (area, logo, dots) in [
-        (Rect::new(0, 0, 26, 6), true, true),
+    for (area, logo, title) in [
+        (Rect::new(0, 0, 30, 7), true, true),
         (Rect::new(0, 0, 18, 4), false, false),
         (Rect::new(0, 0, 9, 3), false, false),
     ] {
@@ -57,8 +57,15 @@ fn theme_art_shows_logo_group_lines_and_dots() {
                 .iter()
                 .any(|c| c.symbol() == "/" && c.fg == t.primary_color());
             assert_eq!(has_logo, logo, "{} logo at {area:?}", t.id);
-            let n = buf.content.iter().filter(|c| c.symbol() == "●").count();
-            assert_eq!(n > 0, dots, "{} dots at {area:?}", t.id);
+            // The palette dots sit under the card name, not inside the art.
+            assert!(buf.content.iter().all(|c| c.symbol() != "●"));
+            let text: String = buf.content.iter().map(|c| c.symbol()).collect();
+            assert_eq!(
+                text.contains("cyberdeck@studio"),
+                title,
+                "{} title at {area:?}",
+                t.id
+            );
         }
     }
 }

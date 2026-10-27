@@ -12,8 +12,8 @@ use ratatui::{
     widgets::Widget,
 };
 
-const CARD_MIN_W: u16 = 20;
-const CARD_H: u16 = 10;
+const CARD_MIN_W: u16 = 30;
+const CARD_H: u16 = 11;
 
 pub fn render_themes(f: &mut Frame, area: Rect, state: &mut AppState) {
     let pal = state.palette();
@@ -95,7 +95,7 @@ pub fn render_themes(f: &mut Frame, area: Rect, state: &mut AppState) {
                 .border_style(Style::new().fg(border).bg(pal.surface));
             let ti = block.inner(rect);
             block.render(rect, f.buffer_mut());
-            let thumb_h = ti.height.saturating_sub(2).min(6);
+            let thumb_h = ti.height.saturating_sub(2).min(7);
             draw_thumbnail(
                 f.buffer_mut(),
                 Rect {
