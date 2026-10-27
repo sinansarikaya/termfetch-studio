@@ -44,7 +44,7 @@ export function buildConfig(s: Settings) {
  if(p.color_dots) modules.push(dotEntry(),'break');
  p.sections.forEach((section,i)=>{
   if(i) modules.push('break');
-  section.forEach(id=>{ const m=catalog.modules.find(m=>m.id===id)!, c=colors(s,m.group); modules.push({type:m.id,key:' ├ '+m.icon+' ',...(s.demo_mode?{format:m.demo}:{}),keyColor:c.key,outputColor:c.output,keyWidth:10}); });
+  section.forEach(id=>{ const m=catalog.modules.find(m=>m.id===id)!, c=colors(s,m.group); modules.push({type:m.id,key:' ├ '+m.icon+' ',...(s.demo_mode?{format:m.demo}:{}),keyColor:c.key,outputColor:c.output,keyWidth:10,...(m.id==='publicip'?{timeout:2000}:{})}); });
  });
  modules.push('break',p.color_dots?dotEntry():'break');
  return {$schema:'https://github.com/fastfetch-cli/fastfetch/raw/dev/doc/json_schema.json',logo:logoConfig,display:{separator:' ➜ '},modules};
