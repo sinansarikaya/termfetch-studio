@@ -4,7 +4,7 @@
 use crate::app::state::{AppState, Focus, Hit, Screen};
 use crate::tui::palette::Palette;
 use crate::tui::widgets::ui::{
-    draw_thumbnail_compact, ellipsize, fill, line_at, theme_color_count, theme_dots, width,
+    draw_thumbnail, ellipsize, fill, line_at, theme_color_count, theme_dots, width,
 };
 use ratatui::{
     Frame,
@@ -150,7 +150,7 @@ pub fn render_sidebar(f: &mut Frame, area: Rect, state: &mut AppState) {
     line_at(buf, c, 0, sep.clone());
     line_at(buf, c, 1, header("CURRENT THEME"));
     let thumb_w = 9.min(inner.width / 3);
-    draw_thumbnail_compact(
+    draw_thumbnail(
         buf,
         Rect {
             x: c.x,

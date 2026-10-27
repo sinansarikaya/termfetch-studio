@@ -609,12 +609,23 @@ impl AppState {
         let scratch = self.paths.cache_dir.join("probe.jsonc");
         std::thread::spawn(move || {
             // Without fastfetch, Windows still reports its own facts.
-            let info = if have_fastfetch {
-                runner::probe_real_info(&ModuleKind::ALL, &scratch).unwrap_or_default()
-            } else {
-                crate::adapters::native_info::probe()
-            };
-            let _ = tx.send(info);
+            if !have_fastfetch {
+                let _ = tx.send(crate::adapters::native_info::probe());
+                return;
+            }
+            // Local facts first; network lookups (public IP) can take seconds.
+            let (net, local): (Vec<ModuleKind>, Vec<ModuleKind>) = ModuleKind::ALL
+                .iter()
+                .partition(|m| m.timeout_ms().is_some());
+            let mut info = runner::probe_real_info(&local, &scratch).unwrap_or_default();
+            if tx.send(info.clone()).is_err() {
+                return;
+            }
+            let scratch = scratch.with_file_name("probe-net.jsonc");
+            if let Ok(extra) = runner::probe_real_info(&net, &scratch) {
+                info.values.extend(extra.values);
+                let _ = tx.send(info);
+            }
         });
         self.real_rx = Some(rx);
     }

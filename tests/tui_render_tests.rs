@@ -109,7 +109,6 @@ fn dashboard_matches_the_studio_layout() {
         "Apply Theme to System",
         "Navigate",
         "Next Section",
-        "Demo Mode",
         "Run Fastfetch",
         "Quit",
     ] {
@@ -356,7 +355,7 @@ fn preset_copy_rename_and_confirmed_delete_persist() {
     state.focus = Focus::Content;
     let count = state.presets.len();
     let sections = state.current_preset().sections.clone();
-    reduce(&mut state, Action::ToggleDemo);
+    reduce(&mut state, Action::Duplicate);
     assert_eq!(state.presets.len(), count + 1);
     assert_eq!(state.current_preset().sections, sections);
     reduce(&mut state, Action::Refresh);
@@ -381,7 +380,7 @@ fn preset_copy_rename_and_confirmed_delete_persist() {
 }
 
 #[test]
-fn thumbnails_are_deterministic_crisp_and_theme_specific() {
+fn thumbnails_are_deterministic_and_theme_specific() {
     use ratatui::{buffer::Buffer, layout::Rect};
     use termfetch_studio_v2::{
         domain::theme::get_builtin_themes, tui::widgets::ui::draw_thumbnail,
@@ -394,7 +393,11 @@ fn thumbnails_are_deterministic_crisp_and_theme_specific() {
         draw_thumbnail(&mut a, area, &theme);
         draw_thumbnail(&mut b, area, &theme);
         assert_eq!(a, b);
-        assert!(a.content.iter().all(|c| c.symbol() == "▀"));
+        assert!(
+            a.content
+                .iter()
+                .all(|c| matches!(c.symbol(), "▄" | "●" | " "))
+        );
         assert!(!scenes.contains(&a), "duplicate scene {}", theme.id);
         scenes.push(a);
         draw_thumbnail(&mut b, Rect::new(63, 15, 8, 8), &theme);

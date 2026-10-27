@@ -83,7 +83,7 @@ fn light_themes_are_detected_as_light() {
 /// dots, half-block theme thumbnails, and the Settings screen's `██ sample` previews.
 fn is_swatch(screen: Screen, buf: &ratatui::buffer::Buffer, x: u16, y: u16) -> bool {
     let sym = buf[(x, y)].symbol();
-    if sym == "●" || sym == "▀" {
+    if sym == "●" || sym == "▀" || sym == "▄" {
         return true;
     }
     match screen {
