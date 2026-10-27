@@ -152,63 +152,84 @@ pub fn theme_color_count(theme: &Theme) -> usize {
     all.len()
 }
 
-/// Bar widths of the four "info lines", as a fraction of the drawable width.
-const BARS: [f64; 4] = [0.55, 0.85, 0.6, 0.95];
+/// The small Arch-style logo of the website's theme art.
+const ART: [&str; 4] = ["   /\\   ", "  /  \\  ", " / /\\ \\ ", "/_/  \\_\\"];
+/// Bar widths of the five module-group lines, as on the website.
+const BARS: [f64; 5] = [0.82, 0.62, 0.94, 0.72, 0.48];
 
-/// Theme swatch, like the website's cards: the theme's background with four
-/// primary-coloured info lines and the secondary, accent and hardware colours
-/// as dots in the corner. Readable at any size, from the 9x3 sidebar chip to
-/// the gallery cards.
+/// Theme art, like the website's cards: a mini fastfetch in the theme's real
+/// colours. The logo uses the primary colour, each module group gets an
+/// `├ ▪ →` line with a bar in its colour, and the palette dots sit below.
+/// Narrow areas (dashboard, sidebar) drop the logo and keep the lines.
 pub fn draw_thumbnail(buf: &mut Buffer, area: Rect, theme: &Theme) {
     let area = area.intersection(buf.area);
     if area.is_empty() {
         return;
     }
-    let bg = theme.background_color();
-    let bg = if bg == Color::Reset {
-        Color::Rgb(16, 16, 24)
-    } else {
-        bg
+    let bg = match theme.background_color() {
+        Color::Reset => Color::Rgb(16, 16, 24),
+        c => c,
     };
-    let primary = theme.primary_color();
     fill(buf, area, Style::new().bg(bg));
+    let groups = [
+        &theme.groups.os,
+        &theme.groups.desktop,
+        &theme.groups.hardware,
+        &theme.groups.network,
+        &theme.groups.time,
+    ]
+    .map(|c| Theme::parse_color(c));
 
-    let pad = if area.width >= 16 { 2 } else { 1 };
-    let inner_w = area.width.saturating_sub(pad * 2);
-    let (first, last) = if area.height >= 5 {
-        (1, area.height - 1)
-    } else {
-        (0, area.height)
-    };
-    let dots = [
-        theme.secondary_color(),
-        theme.accent_color(),
-        Theme::parse_color(&theme.groups.hardware),
-    ];
-    let gap = area.width >= 16;
-    let dots_w: u16 = if gap { 5 } else { 3 };
-    let show_dots = inner_w >= dots_w + 3;
-    for (i, row) in (first..last).take(BARS.len()).enumerate() {
-        let mut w = (f64::from(inner_w) * BARS[i]).round() as u16;
-        if i == 0 && show_dots {
-            w = w.min(inner_w.saturating_sub(dots_w + 1));
-        }
-        for dx in 0..w.max(1).min(inner_w) {
-            if let Some(cell) = buf.cell_mut((area.x + pad + dx, area.y + row)) {
-                cell.set_char('▄').set_fg(primary).set_bg(bg);
+    let pad = u16::from(area.width >= 12);
+    let x0 = area.x + pad;
+    let w = area.width.saturating_sub(pad * 2);
+    let show_logo = w >= 17 && area.height >= 4;
+    let with_dots = area.height >= 6;
+    let rows = (area.height - u16::from(with_dots)).min(BARS.len() as u16);
+    let top = area.y + u16::from(area.height >= 7);
+
+    if show_logo {
+        let ly = top + rows.saturating_sub(ART.len() as u16) / 2;
+        for (i, l) in ART.iter().enumerate() {
+            let y = ly + i as u16;
+            if y < area.bottom() {
+                buf.set_string(x0, y, l, Style::new().fg(theme.primary_color()).bg(bg));
             }
         }
     }
-    if show_dots {
-        let mut x = area.x + pad + inner_w - dots_w;
-        for (i, c) in dots.into_iter().enumerate() {
-            if gap && i > 0 {
-                x += 1;
+    let lx = match (show_logo, w >= 24) {
+        (false, _) => x0,
+        (true, true) => x0 + 10,
+        (true, false) => x0 + 9,
+    };
+    let lw = (x0 + w).saturating_sub(lx);
+    let prefix = if lw >= 12 { "├ ▪ → " } else { "├→" };
+    let bar_w = lw.saturating_sub(prefix.chars().count() as u16);
+    for (i, &c) in groups.iter().enumerate().take(usize::from(rows)) {
+        let y = top + i as u16;
+        buf.set_stringn(lx, y, prefix, usize::from(lw), Style::new().fg(c).bg(bg));
+        let n = ((f64::from(bar_w) * BARS[i]).round() as u16)
+            .max(1)
+            .min(bar_w);
+        let bx = lx + prefix.chars().count() as u16;
+        for dx in 0..n {
+            if let Some(cell) = buf.cell_mut((bx + dx, y)) {
+                cell.set_char('━').set_fg(c).set_bg(bg);
             }
-            if let Some(cell) = buf.cell_mut((x, area.y + first)) {
-                cell.set_char('●').set_fg(c).set_bg(bg);
+        }
+    }
+    if with_dots {
+        let y = top + rows;
+        let dots = style::dot_colors(theme, &Settings::default());
+        let fg = theme.text_color();
+        for (i, c) in dots.iter().enumerate() {
+            let x = lx + i as u16;
+            if x >= area.right() || y >= area.bottom() {
+                break;
             }
-            x += 1;
+            if let Some(cell) = buf.cell_mut((x, y)) {
+                cell.set_char('●').set_fg(c.tui_color(fg)).set_bg(bg);
+            }
         }
     }
 }

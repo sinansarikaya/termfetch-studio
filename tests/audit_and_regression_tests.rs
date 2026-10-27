@@ -7,6 +7,7 @@ use termfetch_studio_v2::app::reducer::reduce;
 use termfetch_studio_v2::app::state::{AppState, Focus, Screen};
 use termfetch_studio_v2::domain::preset::ModuleKind;
 use termfetch_studio_v2::domain::settings::Settings;
+use termfetch_studio_v2::domain::theme::Theme;
 use termfetch_studio_v2::domain::theme::get_builtin_themes;
 use termfetch_studio_v2::imaging::TermGeometry;
 use termfetch_studio_v2::paths::Paths;
@@ -28,26 +29,36 @@ fn test_app(prefix: &str) -> (AppState, std::path::PathBuf) {
 }
 
 #[test]
-fn theme_swatches_show_background_lines_and_dots() {
+fn theme_art_shows_logo_group_lines_and_dots() {
     let themes = get_builtin_themes();
     assert_eq!(themes.len(), 40);
 
     // Gallery card, dashboard card and the tiny sidebar chip.
-    for area in [
-        Rect::new(0, 0, 26, 6),
-        Rect::new(0, 0, 18, 4),
-        Rect::new(0, 0, 9, 3),
+    for (area, logo, dots) in [
+        (Rect::new(0, 0, 26, 6), true, true),
+        (Rect::new(0, 0, 18, 4), false, false),
+        (Rect::new(0, 0, 9, 3), false, false),
     ] {
         for t in &themes {
             let mut buf = Buffer::empty(area);
             draw_thumbnail(&mut buf, area, t);
             let bg = t.background_color();
             assert!(buf.content.iter().all(|c| c.bg == bg), "{} bg", t.id);
-            let bars: Vec<_> = buf.content.iter().filter(|c| c.symbol() == "▄").collect();
-            assert!(!bars.is_empty(), "{} has no info lines", t.id);
-            assert!(bars.iter().all(|c| c.fg == t.primary_color()));
-            let dots = buf.content.iter().filter(|c| c.symbol() == "●").count();
-            assert_eq!(dots, 3, "{} at {area:?}", t.id);
+            let bar_colors: Vec<_> = buf
+                .content
+                .iter()
+                .filter(|c| c.symbol() == "━")
+                .map(|c| c.fg)
+                .collect();
+            let os = Theme::parse_color(&t.groups.os);
+            assert!(bar_colors.contains(&os), "{} has no OS line", t.id);
+            let has_logo = buf
+                .content
+                .iter()
+                .any(|c| c.symbol() == "/" && c.fg == t.primary_color());
+            assert_eq!(has_logo, logo, "{} logo at {area:?}", t.id);
+            let n = buf.content.iter().filter(|c| c.symbol() == "●").count();
+            assert_eq!(n > 0, dots, "{} dots at {area:?}", t.id);
         }
     }
 }
