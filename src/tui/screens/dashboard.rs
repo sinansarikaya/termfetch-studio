@@ -4,7 +4,9 @@
 use crate::app::state::{AppState, DashRow, Focus, Hit, QUICK_ACTIONS};
 use crate::domain::preset::ModuleKind;
 use crate::tui::palette::Palette;
-use crate::tui::widgets::ui::{card, draw_thumbnail, ellipsize, fill, line_at, theme_dots, width};
+use crate::tui::widgets::ui::{
+    THEME_CARD_H, THEME_CARD_W, card, draw_theme_card, ellipsize, fill, line_at, width,
+};
 use ratatui::{
     Frame,
     layout::{Constraint, Layout, Rect},
@@ -133,7 +135,7 @@ pub fn render_dashboard(f: &mut Frame, area: Rect, state: &mut AppState) {
     };
     let roomy = area.height >= 36;
     let (welcome_h, mut quick_h, recent_h) = match area.height {
-        h if h >= 36 => (3, 9, 12),
+        h if h >= 36 => (3, 9, THEME_CARD_H + 4),
         h if h >= 24 => (3, 7, 9),
         _ => (2, 6, 7),
     };
@@ -377,7 +379,7 @@ fn render_recent(f: &mut Frame, area: Rect, state: &mut AppState, pal: &Palette,
         return;
     }
     let list = state.recent_theme_indices();
-    let n = (usize::from(tiles.width.saturating_sub(2)) / 18)
+    let n = (usize::from(tiles.width.saturating_sub(1)) / usize::from(THEME_CARD_W + 1))
         .clamp(1, 4)
         .min(list.len().max(1));
     state.recent_visible = n;
@@ -404,70 +406,22 @@ fn render_recent(f: &mut Frame, area: Rect, state: &mut AppState, pal: &Palette,
         let theme = &state.themes[ti];
         let active = theme.id == state.settings.theme;
         let sel = focus == Some(pos);
-        let block = card(pal, active || sel)
-            .style(Style::new().bg(pal.raised).fg(pal.fg))
-            .border_style(
-                Style::new()
-                    .fg(if sel {
-                        pal.accent2
-                    } else if active {
-                        pal.primary
-                    } else {
-                        pal.border
-                    })
-                    .bg(pal.surface),
-            );
-        let t = block.inner(rect);
-        block.render(rect, f.buffer_mut());
-        let thumb_h = t.height.saturating_sub(2).min(6);
-        draw_thumbnail(
-            f.buffer_mut(),
-            Rect {
-                height: thumb_h,
-                ..t
-            },
-            theme,
-        );
-        if active && t.width >= 4 && thumb_h > 0 {
-            let check = Rect {
-                x: t.right() - 3,
-                y: t.y,
-                width: 3,
-                height: 1,
-            };
-            line_at(
-                f.buffer_mut(),
-                check,
-                0,
-                Line::from(Span::styled(
-                    " ✓ ",
-                    Palette::pill(pal.accent_fill).add_modifier(Modifier::BOLD),
-                )),
-            );
-        }
-        let tw = usize::from(t.width.saturating_sub(1));
-        let name_bg = if sel { pal.sel_bg } else { pal.raised };
-        let name_row = Rect {
-            y: t.y + thumb_h,
-            height: 1,
-            ..t
+        let border = if sel {
+            pal.accent2
+        } else if active {
+            pal.primary
+        } else {
+            pal.border
         };
-        fill(f.buffer_mut(), name_row, Style::new().bg(name_bg));
-        line_at(
+        draw_theme_card(
             f.buffer_mut(),
-            name_row,
-            0,
-            Line::from(Span::styled(
-                format!(" {}", ellipsize(&theme.name, tw.saturating_sub(1))),
-                Style::new()
-                    .fg(if sel { pal.primary } else { pal.fg })
-                    .bg(name_bg)
-                    .add_modifier(Modifier::BOLD),
-            )),
+            rect,
+            pal,
+            theme,
+            border,
+            sel,
+            active.then_some(" ✓ "),
         );
-        let mut dots = vec![Span::raw(" ")];
-        dots.extend(theme_dots(theme, tw >= 17));
-        line_at(f.buffer_mut(), t, thumb_h + 1, Line::from(dots));
         state.hits.push((rect, Hit::Recent(pos)));
     }
     if more || state.recent_offset > 0 {
