@@ -176,7 +176,7 @@ pub fn reduce(state: &mut AppState, action: Action) {
         Action::Apply => {
             apply(state);
         }
-        Action::ToggleDemo if state.screen == Screen::Presets && state.focus == Focus::Content => {
+        Action::Duplicate if state.screen == Screen::Presets && state.focus == Focus::Content => {
             let mut p = state.current_preset().clone();
             let mut n = 1;
             while state.presets.iter().any(|p| p.id == format!("user-{n}")) {
@@ -188,7 +188,8 @@ pub fn reduce(state: &mut AppState, action: Action) {
             state.presets.push(p);
             persist_presets(state);
         }
-        Action::ToggleDemo => toggle_demo(state),
+        // Demo mode is only reachable from Settings so it is never switched on by accident.
+        Action::Duplicate => {}
         Action::CycleLogoSize => cycle_logo_size(state, true),
         Action::RunFastfetch => run_fastfetch(state),
         Action::Install => install_fastfetch(state),
@@ -1078,12 +1079,21 @@ fn tick(state: &mut AppState) {
     {
         state.dirty = true;
     }
-    if let Some(rx) = &state.real_rx
-        && let Ok(info) = rx.try_recv()
-    {
-        state.real_info = Some(info);
-        state.real_rx = None;
-        state.dirty = true;
+    // The probe sends local facts, then again with the network ones; the
+    // channel closes once it is done (or if the probe thread died).
+    while let Some(rx) = &state.real_rx {
+        match rx.try_recv() {
+            Ok(info) => {
+                state.real_info = Some(info);
+                state.dirty = true;
+            }
+            Err(std::sync::mpsc::TryRecvError::Empty) => break,
+            Err(std::sync::mpsc::TryRecvError::Disconnected) => {
+                state.real_rx = None;
+                state.real_info.get_or_insert_with(Default::default);
+                state.dirty = true;
+            }
+        }
     }
 }
 
@@ -1191,13 +1201,40 @@ mod tests {
         reduce(&mut s, Action::Apply);
         let before = std::fs::read_to_string(s.paths.studio_config()).unwrap();
         assert!(before.contains(crate::domain::preset::DEMO_DATA.os));
-        reduce(&mut s, Action::ToggleDemo);
+        toggle_demo(&mut s);
         assert!(!s.settings.demo_mode && !s.saved.demo_mode);
         let after = std::fs::read_to_string(s.paths.studio_config()).unwrap();
         assert!(!after.contains("\"format\": \"Arch Linux x86_64\""));
         assert!(!Settings::load(&s.paths.settings_file()).unwrap().demo_mode);
-        reduce(&mut s, Action::ToggleDemo);
+        toggle_demo(&mut s);
         assert!(s.settings.demo_mode);
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn leaving_demo_mode_loads_real_values() {
+        let root = std::env::temp_dir().join(format!("tfs-demo-off-{}", rand_suffix()));
+        let settings = Settings {
+            demo_mode: true,
+            ..Settings::default()
+        };
+        let geo = TermGeometry::from_window(160, 48, 1600, 960);
+        let mut s = AppState::new(Paths::with_root(&root), settings, geo);
+        assert!(s.real_rx.is_none() && s.real_info.is_none());
+        toggle_demo(&mut s);
+        assert!(!s.settings.demo_mode);
+        assert!(s.real_rx.is_some() || s.real_info.is_some());
+        let start = std::time::Instant::now();
+        while s.real_info.is_none() && start.elapsed() < std::time::Duration::from_secs(20) {
+            reduce(&mut s, Action::Tick);
+            std::thread::sleep(std::time::Duration::from_millis(20));
+        }
+        eprintln!(
+            "real_info after {:?}: {:?}",
+            start.elapsed(),
+            s.real_info.as_ref().map(|i| i.title.clone())
+        );
+        assert!(s.real_info.is_some());
         let _ = std::fs::remove_dir_all(root);
     }
 

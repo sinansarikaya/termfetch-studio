@@ -198,11 +198,10 @@ fn probe_config(modules: &[ModuleKind]) -> serde_json::Value {
     let mut list = vec![
         json!({"type": "title", "format": format!("title{FIELD_SEP}{{user-name}}@{{host-name}}")}),
     ];
-    list.extend(
-        modules
-            .iter()
-            .map(|m| json!({"type": m.fastfetch_type(), "key": m.fastfetch_type()})),
-    );
+    list.extend(modules.iter().map(|m| match m.timeout_ms() {
+        Some(t) => json!({"type": m.fastfetch_type(), "key": m.fastfetch_type(), "timeout": t}),
+        None => json!({"type": m.fastfetch_type(), "key": m.fastfetch_type()}),
+    }));
     json!({
         "logo": {"type": "none"},
         "display": {"separator": FIELD_SEP.to_string(), "pipe": true},

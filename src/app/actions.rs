@@ -35,7 +35,8 @@ pub enum Action {
         up: bool,
     },
     Apply,
-    ToggleDemo,
+    /// `d` on the Presets screen: copy the highlighted preset.
+    Duplicate,
     CycleLogoSize,
     RunFastfetch,
     /// Install fastfetch with this system's package manager; press twice to confirm.

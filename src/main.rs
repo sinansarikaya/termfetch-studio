@@ -488,7 +488,7 @@ fn key_action(key: KeyEvent) -> Option<Action> {
         KeyCode::Char('c') => Action::FilterThemes,
         KeyCode::Char('/') => Action::SearchThemes,
         KeyCode::Char('o') => Action::CycleOutput,
-        KeyCode::Char('d') => Action::ToggleDemo,
+        KeyCode::Char('d') => Action::Duplicate,
         KeyCode::Char('s') => Action::CycleLogoSize,
         KeyCode::Char('p') => Action::RunFastfetch,
         KeyCode::Char('i') => Action::Install,

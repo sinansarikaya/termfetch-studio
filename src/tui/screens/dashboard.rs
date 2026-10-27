@@ -4,9 +4,7 @@
 use crate::app::state::{AppState, DashRow, Focus, Hit, QUICK_ACTIONS};
 use crate::domain::preset::ModuleKind;
 use crate::tui::palette::Palette;
-use crate::tui::widgets::ui::{
-    card, draw_thumbnail_compact, ellipsize, fill, line_at, theme_dots, width,
-};
+use crate::tui::widgets::ui::{card, draw_thumbnail, ellipsize, fill, line_at, theme_dots, width};
 use ratatui::{
     Frame,
     layout::{Constraint, Layout, Rect},
@@ -422,7 +420,7 @@ fn render_recent(f: &mut Frame, area: Rect, state: &mut AppState, pal: &Palette,
         let t = block.inner(rect);
         block.render(rect, f.buffer_mut());
         let thumb_h = t.height.saturating_sub(2).min(6);
-        draw_thumbnail_compact(
+        draw_thumbnail(
             f.buffer_mut(),
             Rect {
                 height: thumb_h,
