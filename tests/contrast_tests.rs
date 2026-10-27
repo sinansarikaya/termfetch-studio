@@ -7,7 +7,7 @@ use termfetch_studio_v2::app::reducer::reduce;
 use termfetch_studio_v2::app::state::{AppState, Focus, Screen};
 use termfetch_studio_v2::domain::contrast::{AA, AAA, UI, contrast, is_light, to_rgb};
 use termfetch_studio_v2::domain::settings::Settings;
-use termfetch_studio_v2::domain::theme::{ThemeCategory, get_builtin_themes};
+use termfetch_studio_v2::domain::theme::{Theme, ThemeCategory, get_builtin_themes};
 use termfetch_studio_v2::imaging::TermGeometry;
 use termfetch_studio_v2::paths::Paths;
 use termfetch_studio_v2::tui::palette::Palette;
@@ -81,9 +81,35 @@ fn light_themes_are_detected_as_light() {
 
 /// Swatches deliberately show other themes' / user-picked colours: palette
 /// dots, half-block theme thumbnails, and the Settings screen's `██ sample` previews.
-fn is_swatch(screen: Screen, buf: &ratatui::buffer::Buffer, x: u16, y: u16) -> bool {
+/// Theme art on the cards: a mini fastfetch in some theme's own colours,
+/// reproduced verbatim like the live preview.
+fn is_theme_art(themes: &[Theme], cell: &ratatui::buffer::Cell) -> bool {
+    ["/", "\\", "_", "├", "▪", "→", "━"].contains(&cell.symbol())
+        && themes.iter().any(|t| {
+            let g = &t.groups;
+            cell.bg == t.background_color()
+                && [
+                    &t.primary,
+                    &g.os,
+                    &g.desktop,
+                    &g.hardware,
+                    &g.network,
+                    &g.time,
+                ]
+                .iter()
+                .any(|c| cell.fg == Theme::parse_color(c))
+        })
+}
+
+fn is_swatch(
+    themes: &[Theme],
+    screen: Screen,
+    buf: &ratatui::buffer::Buffer,
+    x: u16,
+    y: u16,
+) -> bool {
     let sym = buf[(x, y)].symbol();
-    if sym == "●" || sym == "▀" || sym == "▄" {
+    if sym == "●" || sym == "▀" || sym == "▄" || is_theme_art(themes, &buf[(x, y)]) {
         return true;
     }
     match screen {
@@ -149,7 +175,7 @@ fn every_cell_is_legible_on_every_theme_and_screen() {
                     {
                         let cell = &buf[(x, y)];
                         let sym = cell.symbol();
-                        if sym.trim().is_empty() || is_swatch(screen, buf, x, y) {
+                        if sym.trim().is_empty() || is_swatch(&themes, screen, buf, x, y) {
                             continue;
                         }
                         let ratio = contrast(rgb(cell.fg), rgb(cell.bg));
