@@ -27,6 +27,77 @@ const nativeScreens = [
 ] as const;
 type Screen = (typeof nativeScreens)[number];
 const navIcons = ["󰕮", "󰏘", "󰉉", "󰋔", "󰅩", "󰒓"];
+/// Studio chrome colours of the native app (`tui/palette.rs`).
+const STUDIO = {
+  ok: "#4ade80",
+  warn: "#fbbf24",
+  error: "#f87171",
+  info: "#60a5fa",
+  special: "#c084fc",
+  orange: "#fb923c",
+  accent2: "#f472b6",
+  link: "#67e8f9",
+  muted: "#a6aec4",
+};
+/// Fill-up themes of the native Recent Themes row.
+const RECENT_FAVOURITES = [
+  "monokai-pro",
+  "tokyo-night",
+  "catppuccin-mocha",
+  "nord",
+  "dracula",
+  "rose-pine",
+];
+const tools = [
+  {
+    icon: "\u{f0147}",
+    color: STUDIO.warn,
+    title: "System Diagnostics",
+    desc: "Check dependencies and system info",
+  },
+  {
+    icon: "\u{f018d}",
+    color: STUDIO.info,
+    title: "Shell Integration",
+    desc: "Configure your shell (zsh, bash, fish)",
+  },
+  {
+    icon: "\u{f01bc}",
+    color: STUDIO.special,
+    title: "Backup & Restore",
+    desc: "Manage your configurations",
+  },
+  {
+    icon: "\u{f0552}",
+    color: STUDIO.link,
+    title: "Import / Export",
+    desc: "Share themes and presets",
+  },
+];
+/// Screen-specific footer keys, as in the native `Screen::extra_keys`.
+const footerKeys: Record<Screen, [string, string][]> = {
+  Dashboard: [["1-4", "Quick Action"]],
+  Themes: [
+    ["c", "Category"],
+    ["/", "Search"],
+    ["a", "Apply"],
+  ],
+  Presets: [
+    ["Enter", "Use"],
+    ["d", "Copy"],
+    ["r", "Rename"],
+    ["x", "Delete"],
+  ],
+  Logos: [
+    ["s", "Size"],
+    ["a", "Apply"],
+  ],
+  Modules: [
+    ["Space", "Toggle"],
+    ["J/K", "Reorder"],
+  ],
+  Settings: [["←→", "Change"]],
+};
 const subtitles: Record<Screen, string> = {
   Dashboard: "Customize your terminal, your way.",
   Themes: "Browse palettes. The live preview follows your selection.",
@@ -35,17 +106,37 @@ const subtitles: Record<Screen, string> = {
   Modules: "Choose the information you need. Arrange it in your own order.",
   Settings: "Fine-tune semantic colors, image size and privacy preferences.",
 };
+/// The theme's signature colours, as the native app shows them: primary,
+/// secondary, accent, then the five module groups.
 export function ThemeSwatches({ theme }: { theme: Theme }) {
   return (
     <span className="theme-swatches" aria-label={`${theme.name} palette`}>
-      {[theme.primary, theme.secondary, ...Object.values(theme.groups)].map(
-        (color, i) => (
-          <i key={i} style={{ backgroundColor: color }} />
-        ),
-      )}
+      {[
+        theme.primary,
+        theme.secondary,
+        theme.accent,
+        ...Object.values(theme.groups),
+      ].map((color, i) => (
+        <i key={i} style={{ backgroundColor: color }} />
+      ))}
     </span>
   );
 }
+/// Distinct colours a theme defines, like the native `theme_color_count`.
+function themeColorCount(theme: Theme) {
+  return new Set(
+    [
+      theme.background,
+      theme.text,
+      theme.primary,
+      theme.secondary,
+      theme.accent,
+      ...Object.values(theme.groups),
+    ].map((c) => c.toLowerCase()),
+  ).size;
+}
+/// The native app's theme art: a mini fastfetch in the theme's own colours.
+/// Compact (sidebar) keeps only the coloured group lines.
 export function ThemeArt({
   theme,
   compact = false,
@@ -66,8 +157,8 @@ export function ThemeArt({
       <div className="art-lines">
         <b style={{ color: theme.primary }}>cyberdeck@studio</b>
         {groupColors.map((color, i) => (
-          <span key={color} style={{ color }}>
-            <em>├ ▪ → </em>
+          <span key={i} style={{ color }}>
+            <em>{compact ? "├→" : "├ ▪ → "}</em>
             <i
               style={{
                 backgroundColor: color,
@@ -76,9 +167,34 @@ export function ThemeArt({
             />
           </span>
         ))}
-        <ThemeSwatches theme={theme} />
       </div>
     </div>
+  );
+}
+/// A theme card exactly as in the native Themes grid and Recent Themes:
+/// art, optional badge, name row and the palette dots.
+function ThemeCard({
+  theme,
+  selected,
+  badge,
+  onSelect,
+}: {
+  theme: Theme;
+  selected: boolean;
+  badge?: string;
+  onSelect: () => void;
+}) {
+  return (
+    <button
+      className="native-theme-card"
+      onClick={onSelect}
+      aria-pressed={selected}
+    >
+      <ThemeArt theme={theme} />
+      {badge && <span className="native-theme-badge">{badge}</span>}
+      <span className="native-theme-name">{theme.name}</span>
+      <ThemeSwatches theme={theme} />
+    </button>
   );
 }
 function Panel({
@@ -264,6 +380,7 @@ export function NativeStudio({
     ),
     [presetInput, setPresetInput] = useState("");
   const [status, setStatus] = useState("Ready · preview uses sample data");
+  const [recentOffset, setRecentOffset] = useState(0);
   const [help, setHelp] = useState(false),
     [expanded, setExpanded] = useState(false),
     [previewExpanded, setPreviewExpanded] = useState(false);
@@ -318,6 +435,60 @@ export function NativeStudio({
     });
   };
   const dirty = JSON.stringify(settings) !== JSON.stringify(saved);
+  // Same order as the native Recent Themes row: applied, recent, favourites.
+  const recentThemes = [
+    saved.theme,
+    ...saved.recent_themes,
+    ...RECENT_FAVOURITES,
+  ]
+    .filter((id, i, ids) => ids.indexOf(id) === i)
+    .map((id) => catalog.themes.find((t) => t.id === id))
+    .filter((t): t is Theme => !!t)
+    .slice(0, 8);
+  const quickActions = [
+    {
+      icon: "\u{f03d8}",
+      color: STUDIO.special,
+      title: "Edit Theme",
+      desc: "Browse & edit palette",
+      run: () => setScreen("Themes"),
+    },
+    {
+      icon: "\u{f0249}",
+      color: STUDIO.info,
+      title: "Manage Presets",
+      desc: "Organize module sets",
+      run: () => setScreen("Presets"),
+    },
+    {
+      icon: "\u{f02d4}",
+      color: STUDIO.orange,
+      title: "Change Logo",
+      desc: "ASCII & image logos",
+      run: () => setScreen("Logos"),
+    },
+    {
+      icon: "\u{f040a}",
+      color: STUDIO.ok,
+      title: "Apply & Preview",
+      desc: "Live terminal preview",
+      run: () => apply(),
+    },
+  ];
+  const demo = (id: string) =>
+    catalog.modules.find((m) => m.id === id)?.demo ?? "";
+  const overview: [string, string, string, string][] = [
+    ["\u{f08c7}", STUDIO.info, "OS", demo("os")],
+    ["\u{f0322}", STUDIO.error, "Host", demo("host")],
+    ["\u{f061a}", STUDIO.orange, "Kernel", demo("kernel")],
+    ["\u{f0954}", STUDIO.warn, "Uptime", demo("uptime")],
+    ["\u{f07b7}", STUDIO.link, "Terminal", demo("terminal")],
+    ["\u{f048d}", STUDIO.special, "Shell", demo("shell")],
+    ["󰻠", STUDIO.info, "CPU", demo("cpu")],
+    ["󰢮", STUDIO.special, "GPU", demo("gpu")],
+    ["󰍛", STUDIO.ok, "Memory", demo("memory")],
+    ["󰍹", STUDIO.orange, "Display", demo("display")],
+  ];
   function apply() {
     if (!validSettings(settings)) {
       setStatus(
@@ -325,12 +496,17 @@ export function NativeStudio({
       );
       return;
     }
-    setSaved(structuredClone(settings));
+    const next = {
+      ...settings,
+      recent_themes: [
+        settings.theme,
+        ...settings.recent_themes.filter((id) => id !== settings.theme),
+      ].slice(0, 8),
+    };
+    setSettings(next);
+    setSaved(structuredClone(next));
     try {
-      localStorage.setItem(
-        "termfetch-browser-export",
-        JSON.stringify(settings),
-      );
+      localStorage.setItem("termfetch-browser-export", JSON.stringify(next));
       setStatus("✓ Applied in this browser · host files unchanged");
     } catch {
       setStatus("✓ Applied for this session · storage unavailable");
@@ -457,8 +633,8 @@ export function NativeStudio({
     } else if (key === "x" && screen === "Presets" && presets.length > 1) {
       setPresetInput("");
       setPresetDialog("delete");
-    } else if (key === "d") update({ demo_mode: !settings.demo_mode });
-    else if (key === "o") setOutput(output === "preview" ? "jsonc" : "preview");
+    } else if (key === "o")
+      setOutput(output === "preview" ? "jsonc" : "preview");
     else if (key === "s")
       update({
         logo_size:
@@ -554,10 +730,10 @@ export function NativeStudio({
                     <ThemeArt theme={theme} compact />
                     <span>
                       {theme.name}
-                      <small>7 colors</small>
-                      <ThemeSwatches theme={theme} />
+                      <small>{themeColorCount(theme)} colors</small>
                     </span>
                   </div>
+                  <ThemeSwatches theme={theme} />
                 </div>
                 <div>
                   <h3>CURRENT PRESET</h3>
@@ -575,13 +751,31 @@ export function NativeStudio({
               </div>
             </aside>
             <section className="native-stage" aria-label={screen}>
-              <div className="native-stage-heading">
-                <h2>
-                  <span>{navIcons[nativeScreens.indexOf(screen)]}</span>{" "}
-                  {screen}
-                </h2>
-                <p>{subtitles[screen]}</p>
-              </div>
+              {screen === "Dashboard" ? (
+                <div className="native-stage-heading">
+                  <h2>
+                    👋 Welcome to{" "}
+                    <span
+                      className="native-brand-name"
+                      style={{ color: STUDIO.accent2 }}
+                    >
+                      TermFetch Studio
+                    </span>
+                    !
+                  </h2>
+                  <p>
+                    {theme.name} · {preset.name} · fastfetch 2.70.0
+                  </p>
+                </div>
+              ) : (
+                <div className="native-stage-heading">
+                  <h2>
+                    <span>{navIcons[nativeScreens.indexOf(screen)]}</span>{" "}
+                    {screen}
+                  </h2>
+                  <p>{subtitles[screen]}</p>
+                </div>
+              )}
               {screen === "Presets" && (
                 <>
                   <Panel
@@ -678,51 +872,117 @@ export function NativeStudio({
                 </>
               )}
               {screen === "Dashboard" && (
-                <>
-                  <Panel
-                    title="Welcome to TermFetch Studio"
-                    className="native-dashboard"
-                  >
-                    <h3>Your terminal, your way.</h3>
-                    <p>Theme it. Shape it. Make it yours.</p>
+                <div className="native-dashboard">
+                  <section className="native-card">
+                    <header>
+                      <span style={{ color: STUDIO.warn }}>⚡</span> Quick
+                      Actions
+                      <small>Get started with the most common tasks.</small>
+                    </header>
                     <div className="native-quick-actions">
-                      {(
-                        ["Themes", "Presets", "Logos", "Modules"] as Screen[]
-                      ).map((name) => (
-                        <button key={name} onClick={() => setScreen(name)}>
-                          {navIcons[nativeScreens.indexOf(name)]} {name} →
+                      {quickActions.map((q, i) => (
+                        <button key={q.title} onClick={q.run}>
+                          <span>
+                            <i style={{ color: q.color }}>{q.icon}</i>
+                            <kbd>{i + 1}</kbd>
+                          </span>
+                          <b>{q.title}</b>
+                          <small>{q.desc}</small>
                         </button>
                       ))}
                     </div>
-                    <h3>Recent & recommended themes</h3>
-                    <div className="native-theme-grid">
-                      {catalog.themes
-                        .filter((t) =>
-                          [
-                            settings.theme,
-                            "catppuccin-mocha",
-                            "synthwave",
-                            "nord",
-                          ].includes(t.id),
-                        )
+                  </section>
+                  <section className="native-card">
+                    <header>
+                      <span style={{ color: STUDIO.accent2 }}>
+                        {"\u{f051a}"}
+                      </span>{" "}
+                      Recent Themes
+                      <small>
+                        Quickly switch between your favorite themes.
+                      </small>
+                      <button
+                        className="native-view-all"
+                        onClick={() => setScreen("Themes")}
+                      >
+                        View All →
+                      </button>
+                    </header>
+                    <div className="native-recent">
+                      {recentThemes
+                        .slice(recentOffset, recentOffset + 2)
                         .map((t) => (
-                          <button
+                          <ThemeCard
                             key={t.id}
-                            onClick={() => update({ theme: t.id })}
+                            theme={t}
+                            selected={settings.theme === t.id}
+                            badge={settings.theme === t.id ? "✓" : undefined}
+                            onSelect={() => update({ theme: t.id })}
+                          />
+                        ))}
+                      {recentThemes.length > 2 && (
+                        <button
+                          className="native-recent-scroll"
+                          aria-label="More recent themes"
+                          onClick={() =>
+                            setRecentOffset(
+                              recentOffset + 2 < recentThemes.length
+                                ? recentOffset + 1
+                                : 0,
+                            )
+                          }
+                        >
+                          {recentOffset + 2 < recentThemes.length ? "›" : "‹"}
+                        </button>
+                      )}
+                    </div>
+                  </section>
+                  <div className="native-dashboard-bottom">
+                    <section className="native-card">
+                      <header>
+                        <span style={{ color: STUDIO.info }}>
+                          {"\u{f02fc}"}
+                        </span>{" "}
+                        System Overview
+                      </header>
+                      <dl className="native-overview">
+                        {overview.map(([icon, color, label, value]) => (
+                          <div key={label}>
+                            <dt>
+                              <i style={{ color }}>{icon}</i> {label}
+                            </dt>
+                            <dd>{value}</dd>
+                          </div>
+                        ))}
+                      </dl>
+                    </section>
+                    <section className="native-card">
+                      <header>
+                        <span style={{ color: STUDIO.muted }}>
+                          {"\u{f0ad}"}
+                        </span>{" "}
+                        Tools & Utilities
+                      </header>
+                      <div className="native-tools">
+                        {tools.map((t) => (
+                          <button
+                            key={t.title}
+                            onClick={() =>
+                              setStatus(`${t.title} runs in the native app`)
+                            }
                           >
-                            <ThemeArt theme={t} />
-                            <span>{t.name}</span>
+                            <i style={{ color: t.color }}>{t.icon}</i>
+                            <span>
+                              <b>{t.title}</b>
+                              <small>{t.desc}</small>
+                            </span>
+                            ›
                           </button>
                         ))}
-                    </div>
-                  </Panel>
-                  <Panel title="System overview">
-                    <p>{catalog.demo.os}</p>
-                    <p>{catalog.demo.cpu}</p>
-                    <p>{catalog.demo.gpu}</p>
-                    <small>Sample system information</small>
-                  </Panel>
-                </>
+                      </div>
+                    </section>
+                  </div>
+                </div>
               )}
               {screen === "Themes" && (
                 <Panel
@@ -756,15 +1016,13 @@ export function NativeStudio({
                   </div>
                   <div className="native-theme-grid">
                     {filteredThemes.map((t) => (
-                      <button
+                      <ThemeCard
                         key={t.id}
-                        onClick={() => update({ theme: t.id })}
-                        aria-pressed={settings.theme === t.id}
-                      >
-                        <ThemeArt theme={t} />
-                        <span>{t.name}</span>
-                        <ThemeSwatches theme={t} />
-                      </button>
+                        theme={t}
+                        selected={settings.theme === t.id}
+                        badge={saved.theme === t.id ? "✓ applied" : undefined}
+                        onSelect={() => update({ theme: t.id })}
+                      />
                     ))}
                   </div>
                   {!filteredThemes.length && <p>No matching themes.</p>}
@@ -1188,27 +1446,17 @@ export function NativeStudio({
             </aside>
           </div>
           <footer className="native-footer">
-            <span>
-              <kbd>?</kbd> Help
-            </span>
-            <span>
-              <kbd>↑↓</kbd> Move
-            </span>
-            <span>
-              <kbd>Enter</kbd> Select
-            </span>
-            <span>
-              <kbd>Tab</kbd> Next Section
-            </span>
-            <span>
-              <kbd>d</kbd> Demo
-            </span>
-            <span>
-              <kbd>s</kbd> Logo size
-            </span>
-            <span>
-              <kbd>o</kbd> Output
-            </span>
+            {[
+              ["?", "Navigate"],
+              ["↕", "Move"],
+              ["Enter", "Select"],
+              ["Tab", "Next Section"],
+              ...footerKeys[screen],
+            ].map(([k, label]) => (
+              <span key={k + label}>
+                <kbd>{k}</kbd> {label}
+              </span>
+            ))}
             <span className={dirty ? "native-warn" : "native-ok"}>
               {dirty ? "● Unsaved changes" : "✓ Applied setup"}
             </span>
@@ -1277,8 +1525,9 @@ export function NativeStudio({
             >
               <h3>Keyboard shortcuts</h3>
               <p>
-                1–6 sections · a apply locally · d demo export · s logo size · o
-                output · f preview focus · Esc return
+                1–6 sections · a apply locally · d copy preset (Presets) · s
+                logo size · o output · f preview focus · Esc return · demo mode
+                lives in Settings
               </p>
               <p>
                 Tab and Shift+Tab move through controls. Text fields keep normal
