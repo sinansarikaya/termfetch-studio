@@ -186,10 +186,14 @@ pub fn render_dashboard(f: &mut Frame, area: Rect, state: &mut AppState) {
         1,
         Line::from(Span::styled(
             format!(
-                "{} · {} · fastfetch {}",
+                "{} · {} · {}",
                 state.current_theme().name,
                 state.current_preset().name,
-                state.fastfetch_version.as_deref().unwrap_or("missing")
+                // `fastfetch --version` already starts with "fastfetch".
+                state
+                    .fastfetch_version
+                    .as_deref()
+                    .unwrap_or("fastfetch missing")
             ),
             Style::new().fg(pal.muted).bg(pal.bg),
         )),

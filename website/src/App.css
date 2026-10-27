@@ -21,3 +21,51 @@ body{background:var(--site-bg);color:var(--site-ink)}
 .native-window{height:1040px}.native-panel legend button{font-size:inherit;padding:0;color:inherit;vertical-align:baseline}.native-panel legend button:hover{color:white;background:#302755}.native-live-panel{min-height:0}.native-preset-list{overflow:auto}.preset-dialog .native-button-row{margin-top:15px}.docs-overview{display:grid;grid-template-columns:1fr 1fr;gap:25px;margin:40px 0}.docs-overview section{padding:25px;background:#101827;border-top:1px solid #3a4661}.docs-overview h2{margin-top:0;font-size:23px}.docs-overview p{font-size:14px;line-height:1.9}.docs-overview a{font-size:12px}.docs-overview section:last-child{grid-column:span 2}@media(max-width:580px){.docs-overview{grid-template-columns:1fr}.docs-overview section:last-child{grid-column:auto}.docs-overview section{padding:22px}.docs-overview h2{font-size:23px}.docs-overview p{font-size:13px}}
 /* Keep the keyboard skip link out of full-page captures until focused. */
 .skip{opacity:0;pointer-events:none}.skip:focus{opacity:1;pointer-events:auto}
+/* Native theme cards: art, badge, name row and palette dots, as in the TUI. */
+.native-window .native-theme-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;padding:4px}
+.native-theme-card{position:relative;display:flex;flex-direction:column;background:#171e31;border:1px solid #5a6380;border-radius:6px;padding:5px;min-width:0;text-align:left;color:#e8ebf4}
+.native-theme-card[aria-pressed=true]{border-color:#a78bfa}
+.native-theme-card:focus-visible{border-color:#f472b6;outline:0}
+.native-window .native-theme-card .theme-art{height:auto;display:flex;align-items:center;gap:14px;padding:12px 14px 8px}
+.native-window .native-theme-card .art-logo{font:12px/1.35 'TermFetch Mono',monospace}
+.native-window .native-theme-card .art-lines>b{font:400 11px/1.35 'TermFetch Mono',monospace;margin:0 0 2px;overflow:hidden;text-overflow:ellipsis}
+.native-window .native-theme-card .art-lines>span{margin:0;line-height:1.35;gap:0}
+.native-window .native-theme-card .art-lines em{font:11px/1.35 'TermFetch Mono',monospace}
+.native-window .native-theme-card .art-lines>span>i{height:2px;border-radius:0;opacity:1}
+.native-theme-name{display:block;padding:3px 6px;font:700 12px/1.4 'TermFetch Mono',monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.native-theme-card[aria-pressed=true] .native-theme-name{background:#2a2350;color:#a78bfa}
+.native-window .native-theme-card .theme-swatches{display:flex;gap:8px;padding:4px 6px 2px;margin:0}
+.native-window .native-theme-card .theme-swatches i,.native-context .theme-swatches i{width:8px;height:8px;border-radius:50%}
+.native-theme-badge{position:absolute;top:5px;right:5px;background:#5b45e0;color:#fff;font:700 11px/1.4 'TermFetch Mono',monospace;padding:0 6px}
+.native-context .theme-swatches{display:flex;gap:7px;margin-top:7px}
+.native-theme-context>.theme-art.compact{padding:4px 5px}
+.native-window .theme-art.compact .art-lines em{display:inline;font:9px/1 'TermFetch Mono',monospace}
+.native-window .theme-art.compact .art-lines>span>i{height:2px;width:70%!important}
+/* Native dashboard: Quick Actions, Recent Themes, System Overview and Tools. */
+.native-window .native-dashboard{flex:1;display:flex;flex-direction:column;gap:10px;overflow:auto;padding:0}
+.native-card{border:1px solid #5a6380;border-radius:6px;background:#111726;padding:8px 10px 10px;min-width:0}
+.native-card>header{position:relative;font:700 12px/1.5 'TermFetch Mono',monospace;color:#e8ebf4;margin-bottom:8px}
+.native-card>header>span{margin-right:6px}
+.native-card>header small{display:block;font-weight:400;color:#a6aec4;padding-left:20px}
+.native-view-all{position:absolute;top:0;right:0;padding:0!important;background:none!important;border:0!important;color:#67e8f9;font:700 12px/1.5 'TermFetch Mono',monospace}
+.native-window .native-quick-actions{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:0}
+.native-window .native-quick-actions>button{display:flex;flex-direction:column;border:1px solid #5a6380;border-radius:6px;padding:6px 8px;background:#171e31;text-align:left;min-width:0;font:12px/1.4 'TermFetch Mono',monospace}
+.native-quick-actions>button>span{display:flex;justify-content:space-between}
+.native-quick-actions>button i{font-style:normal}
+.native-quick-actions>button kbd{background:none;border:0;color:#e8ebf4;font:inherit}
+.native-quick-actions>button b,.native-quick-actions>button small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.native-quick-actions>button small{color:#a6aec4;font-size:11px}
+.native-recent{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) 14px;gap:10px;align-items:center}
+.native-recent-scroll{padding:0!important;background:none!important;border:0!important;color:#e8ebf4;font:700 14px 'TermFetch Mono',monospace}
+.native-dashboard-bottom{display:grid;grid-template-columns:minmax(0,48fr) minmax(0,52fr);gap:10px;flex:1;min-height:0}
+.native-overview{margin:0;font:12px/1.5 'TermFetch Mono',monospace}
+.native-overview>div{display:grid;grid-template-columns:11ch minmax(0,1fr);gap:6px}
+.native-overview dt{color:#a6aec4;white-space:nowrap}
+.native-overview dt i{font-style:normal}
+.native-overview dd{margin:0;color:#e8ebf4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.native-tools{display:flex;flex-direction:column;gap:2px}
+.native-tools>button{display:grid;grid-template-columns:18px minmax(0,1fr) 10px;gap:6px;align-items:start;padding:2px 0!important;background:none!important;border:0!important;text-align:left;font:12px/1.5 'TermFetch Mono',monospace;color:#a6aec4}
+.native-tools>button i{font-style:normal}
+.native-tools>button b{display:block;color:#e8ebf4}
+.native-tools>button small{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.native-stage-heading h2>span.native-brand-name{margin:0}
